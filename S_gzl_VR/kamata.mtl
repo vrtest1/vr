@@ -1,5 +1,5 @@
 newmtl m0
-map_Kd tex/shingodzilla2_texture.jpg
+map_Kd shingodzilla2_texture.jpg
 Ka 0 0 0
 Kd 0.83398 0.76832 0.58408
 Ks 0.5 0.5 0.5
@@ -7,7 +7,7 @@ Ns 30
 d 1
 
 newmtl m1
-map_Kd tex/shingodzilla2_texture.jpg
+map_Kd shingodzilla2_texture.jpg
 Ka 0 0 0
 Kd 0.851 0.659 0.596
 Ks 0 0 0
@@ -15,7 +15,7 @@ Ns 100
 d 1
 
 newmtl m2
-map_Kd tex/shingodzilla2_texture.jpg
+map_Kd shingodzilla2_texture.jpg
 Ka 0 0 0
 Kd 0.8541 0.8225999 0.7272
 Ks 0.7 0.7 0.7
