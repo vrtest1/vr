@@ -8,11 +8,11 @@
   </head>
   <body>
     <a-scene>
-	<a-assets>
-			<a-asset-item id="box-obj"src="box.obj"></a-asset-item>
-			<a-asset-item id="box-mtl"src="box.mtl"></a-asset-item>
-	</a-assets>
-	<a-entity id="box" obj-model="obj:#box-obj; mtl: #box-mtl;" position="-5 0 -20" scale="2 2 2" rotation="0 0 0"></a-entity>
+    	<a-camera position="0 15 37"></a-camera>
+	<a-sky color="#95CCAE"></a-sky>
+	<a-obj-model src="box.obj" mtl="box.mtl" rotation="0 0 0" position="0 0 0">
+	<a-animation attribute="rotation" dur="30000" from="0 -180 0" to="0 180 0" repeat="indefinite"></a-animation>
+	</a-obj-model>
 	  </a-scene>
   </body>
 </html>
