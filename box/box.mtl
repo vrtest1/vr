@@ -1,86 +1,76 @@
-# Blender MTL File: 'None'
-# Material Count: 8
-
 newmtl Default
-Ns 400.000000
-Ka 0.000000 0.000000 0.000000
-Kd 0.760871 0.784314 0.784314
-Ks 0.000000 0.000000 0.000000
-Ke 0.000000 0.000000 0.000000
-Ni 1.000000
-d 1.000000
-illum 2
+Ka 0 0 0
+Kd 0.784314 0.784314 0.784314
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
 
 newmtl black
-Ns 400.000000
-Ka 0.000000 0.000000 0.000000
-Kd 0.000000 0.000000 0.000000
-Ks 0.000000 0.000000 0.000000
-Ke 0.000000 0.000000 0.000000
-Ni 1.000000
-d 1.000000
-illum 2
+Ka 0 0 0
+Kd 0 0 0
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
 
 newmtl body
-Ns 400.000000
-Ka 0.000000 0.000000 0.000000
+Ka 0 0 0
 Kd 0.784314 0.784314 0.784314
-Ks 0.000000 0.000000 0.000000
-Ke 0.000000 0.000000 0.000000
-Ni 1.000000
-d 1.000000
-illum 2
-map_Kd C:\Users\mr7900\Desktop\Box\box_obj\color_map.jpg
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
+map_Kd color_map.jpg
 
 newmtl default
-Ns 400.000000
-Ka 0.000000 0.000000 0.000000
+Ka 0 0 0
 Kd 0.784314 0.784314 0.784314
-Ks 0.000000 0.000000 0.000000
-Ke 0.000000 0.000000 0.000000
-Ni 1.000000
-d 1.000000
-illum 2
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
 
 newmtl display
-Ns 400.000000
-Ka 0.000000 0.000000 0.000000
+Ka 0 0 0
 Kd 0.784314 0.784314 0.784314
-Ks 0.000000 0.000000 0.000000
-Ke 0.000000 0.000000 0.000000
-Ni 1.000000
-d 1.000000
-illum 2
-map_Kd C:\Users\mr7900\Desktop\Box\box_obj\color_map.jpg
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
+map_Kd color_map.jpg
 
 newmtl door
-Ns 400.000000
-Ka 0.000000 0.000000 0.000000
-Kd 0.000000 0.000000 0.000000
-Ks 0.000000 0.000000 0.000000
-Ke 0.000000 0.000000 0.000000
-Ni 1.000000
-d 1.000000
-illum 2
-map_Kd C:\Users\mr7900\Desktop\Box\box_obj\color_map.jpg
+Ka 0 0 0
+Kd 0 0 0
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
+map_Kd color_map.jpg
 
 newmtl hinge
-Ns 400.000000
-Ka 0.000000 0.000000 0.000000
-Kd 0.000000 0.000000 0.000000
-Ks 0.000000 0.000000 0.000000
-Ke 0.000000 0.000000 0.000000
-Ni 1.000000
-d 1.000000
-illum 2
+Ka 0 0 0
+Kd 0 0 0
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
 
 newmtl insulator
-Ns 400.000000
-Ka 0.000000 0.000000 0.000000
+Ka 0 0 0
 Kd 0.784314 0.784314 0.784314
-Ks 0.000000 0.000000 0.000000
-Ke 0.000000 0.000000 0.000000
-Ni 1.000000
-d 1.000000
-illum 2
-map_Kd C:\Users\mr7900\Desktop\Box\box_obj\color_map.jpg
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
+map_Kd color_map.jpg
+
