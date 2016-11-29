@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>161129</title>
     <meta name="description" content="Hello, 16World! • A-Frame">
-    <script src="https://aframe.io/releases/latest/aframe.min.js"></script>
+    <script src="aframe.min.js"></script>
   </head>
   <body>
     <a-scene>
@@ -12,7 +12,7 @@
 			<a-asset-item id="box-obj"src="box.obj"></a-asset-item>
 			<a-asset-item id="box-mtl"src="box.mtl"></a-asset-item>
 	</a-assets>
-	<a-entity id="box" obj-model="obj:#box-obj; mtl: #box-mtl;"></a-entity>
+	<a-entity id="box" obj-model="obj:#box-obj; mtl: #box-mtl;" position="-5 0 -20" scale="2 2 2" rotation="0 0 0"></a-entity>
 	  </a-scene>
   </body>
 </html>
