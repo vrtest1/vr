@@ -1,21 +1,3 @@
-newmtl Default
-Ka 1 1 1
-Kd 0.64 0.64 0.64
-Ks 0.5 0.5 0.5
-Ni 1
-Ns 96
-Tf 1 1 1
-d 1
-
-newmtl backlamp
-Ka 1 1 1
-Kd 0.64 0.64 0.64
-Ks 0.5 0.5 0.5
-Ni 1
-Ns 96
-Tf 1 1 1
-d 1
-
 newmtl bag
 Ka 0 0 0
 Kd 0.784314 0.784314 0.784314
@@ -35,15 +17,6 @@ Ns 400
 Tf 1 1 1
 d 1
 map_Kd taihaku.jpg
-
-newmtl carbody
-Ka 1 1 1
-Kd 0.64 0.64 0.64
-Ks 0.5 0.5 0.5
-Ni 1
-Ns 96
-Tf 1 1 1
-d 1
 
 newmtl foot
 Ka 0 0 0
@@ -84,58 +57,4 @@ Ns 400
 Tf 1 1 1
 d 1
 map_Kd taihaku.jpg
-
-newmtl red
-Ka 1 1 1
-Kd 0.64 0.64 0.64
-Ks 0.5 0.5 0.5
-Ni 1
-Ns 96
-Tf 1 1 1
-d 1
-
-newmtl silver
-Ka 1 1 1
-Kd 0.64 0.64 0.64
-Ks 0.5 0.5 0.5
-Ni 1
-Ns 96
-Tf 1 1 1
-d 1
-
-newmtl stoplamp
-Ka 1 1 1
-Kd 0.64 0.64 0.64
-Ks 0.5 0.5 0.5
-Ni 1
-Ns 96
-Tf 1 1 1
-d 1
-
-newmtl tire
-Ka 1 1 1
-Kd 0.64 0.64 0.64
-Ks 0.5 0.5 0.5
-Ni 1
-Ns 96
-Tf 1 1 1
-d 1
-
-newmtl window
-Ka 1 1 1
-Kd 0.64 0.64 0.64
-Ks 0.5 0.5 0.5
-Ni 1
-Ns 96
-Tf 1 1 1
-d 1
-
-newmtl winker
-Ka 1 1 1
-Kd 0.64 0.64 0.64
-Ks 0.5 0.5 0.5
-Ni 1
-Ns 96
-Tf 1 1 1
-d 1
 
