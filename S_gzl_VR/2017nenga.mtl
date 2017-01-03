@@ -34,7 +34,7 @@ Ni 1
 Ns 400
 Tf 1 1 1
 d 1
-map_Kd taihaku.psd
+map_Kd taihaku.jpg
 
 newmtl carbody
 Ka 0 0 0
@@ -53,7 +53,7 @@ Ni 1
 Ns 400
 Tf 1 1 1
 d 1
-map_Kd taihaku.psd
+map_Kd taihaku.jpg
 
 newmtl hair
 Ka 0 0 0
@@ -63,7 +63,7 @@ Ni 1
 Ns 400
 Tf 1 1 1
 d 1
-map_Kd taihaku.psd
+map_Kd taihaku.jpg
 
 newmtl handle
 Ka 0 0 0
@@ -83,7 +83,7 @@ Ni 1
 Ns 400
 Tf 1 1 1
 d 1
-map_Kd taihaku.psd
+map_Kd taihaku.jpg
 
 newmtl red
 Ka 0 0 0
