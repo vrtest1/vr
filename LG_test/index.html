@@ -23,6 +23,7 @@
     <script src="js/FBXLoader.js"></script>
     <script src="js/OBJLoader.js"></script>
     <script src="js/MTLLoader.js"></script>
+    <script src="js/ColladaLoader.js></script>
 
 <script>
       //Basic elements for a Three.js/HoloPlay scene
@@ -36,6 +37,7 @@
       var cubeGeometry;
       var cubeMaterial;
       var cubes;
+      var gigantoobj;
   
       //Initialize our variables
       function init(){
@@ -51,11 +53,18 @@
         scene.add(directionalLight);
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
         scene.add(ambientLight);
-        loader = new FBXLoader();
-        loader.load('./cola.fbx', function(object3d){
-          object3d.scale.set(1, 1, 1); 
-          object3d.position.set(1, 1, 1);
-          scene.add(object3d);});
+
+                 // loading manager
+				var loadingManager = new THREE.LoadingManager( function () {
+					scene.add( gigantoobj );
+				} );
+				// collada
+				var loader = new THREE.ColladaLoader( loadingManager );
+				loader.load( './giganto.dae', function ( collada ) {
+					gigantoobj = collada.scene;
+				} );
+
+                 
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
         cubeMaterial = new THREE.MeshLambertMaterial();
