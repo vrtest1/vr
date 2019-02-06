@@ -20,7 +20,7 @@
   <body>
     <script src="js/three.js"></script>
     <script src="js/holoplay.js"></script>
-    <script src="js/FBXLoader.js></script>
+    <script src="js/FBXLoader.js"></script>
 
 <script>
       //Basic elements for a Three.js/HoloPlay scene
@@ -35,7 +35,7 @@
       var cubeMaterial;
       var cubes;
       var object3d;
-
+  
       //Initialize our variables
       function init(){
         scene = new THREE.Scene();
@@ -52,7 +52,7 @@
         scene.add(ambientLight);
         loader = new FBXLoader();
         loader.load('./giganto.fbx',function(object3d){
-        scene.add(object3d);});
+          scene.add(object3d);});
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
         cubeMaterial = new THREE.MeshLambertMaterial();
@@ -60,7 +60,7 @@
           cubes.push(new THREE.Mesh(cubeGeometry, cubeMaterial));
           cubes[i].position.set(1 - i, 1 - i, 1 - i);
           scene.add(cubes[i]);
-        }        
+        }
       }
 
       //Resize window on size change
