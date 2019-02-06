@@ -51,11 +51,16 @@
         scene.add(directionalLight);
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
         scene.add(ambientLight);
-	var objLoader = new THREE.OBJMTLLoader();
-OBJLoader.load("./giganto.obj", "./giganto.mtl", function(model) {
-model.scale.set(100, 100, 100);
-//model.position.y = -40;
-scene.add(model);
+new THREE.MTLLoader()
+.setPath( './' )
+.load( 'giganto.mtl', function ( materials ) {
+materials.preload();
+new THREE.OBJLoader()
+.setMaterials( materials )
+.setPath( './' )
+.load( 'giganto.obj', function ( object ) {
+	scene.add( object );});
+	      
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
         cubeMaterial = new THREE.MeshLambertMaterial();
