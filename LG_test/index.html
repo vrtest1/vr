@@ -50,7 +50,7 @@
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
         scene.add(ambientLight);
         var loader = new THREE.FBXLoader();
-				loader.load( 'giganto.fbx', function ( object ) {
+				loader.load( './giganto.fbx', function ( object ) {
 					scene.add( object );
 				} );
         cubes = [];
