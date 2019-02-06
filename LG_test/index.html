@@ -20,7 +20,7 @@
   <body>
     <script src="js/three.js"></script>
     <script src="js/holoplay.js"></script>
-    <script src="js/FBXLoader.js></script>
+    //<script src="js/FBXLoader.js></script>
 
 <script>
       //Basic elements for a Three.js/HoloPlay scene
@@ -38,10 +38,10 @@
       //Initialize our variables
       function init(){
         scene = new THREE.Scene();
-        loader = new FBXLoader();
-        loader.load('./giganto.fbx',function(object3d){
-        scene.add(object3d);
-	}
+        //loader = new FBXLoader();
+        //loader.load('./giganto.fbx',function(object3d){
+        //scene.add(object3d);
+	//}
         camera = new THREE.PerspectiveCamera(12.5, window.innerWidth/window.innerHeight, 0.1, 1000);
         camera.position.set(0,0,20);
         renderer = new THREE.WebGLRenderer();
