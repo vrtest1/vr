@@ -20,14 +20,12 @@
   <body>
     <script src="js/three.js"></script>
     <script src="js/holoplay.js"></script>
-    <script src="js/FBXLoader.js"></script>
     <script src="js/OBJLoader.js"></script>
     <script src="js/MTLLoader.js"></script>
-    <script src="js/ColladaLoader.js"></script>
 
-<script>
+  <script>
       //Basic elements for a Three.js/HoloPlay scene
-      var scene, camera, renderer, holoplay, FBXLoader;
+      var scene, camera, renderer, holoplay;
 
       //Lighting elements
       var directionalLight;
@@ -37,6 +35,7 @@
       var cubeGeometry;
       var cubeMaterial;
       var cubes;
+      var chara;
   
       //Initialize our variables
       function init(){
@@ -53,10 +52,17 @@
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
         scene.add(ambientLight);
 
-        // 3DS形式のモデルデータを読み込む
-loader = new ColladaLoader();
-loader.load('./giganto.dae', function(model){
-  scene.add(model);});
+        var objLoader = new THREE.OBJMTLLoader();
+        objLoader.load("giganto.obj", "giganto.mtl", function(model) {
+        // 大きさを調整し、へその位置が地面に来るようにする
+        model.scale.set(10, 10, 10);
+        model.position.set(1,1,1);
+        // モデルをダミーオブジェクトで包む（へそ中心に回転したいため）
+        chara = new THREE.Object3D();
+        chara.add(model);
+        // シーンへ追加する
+        scene.add(chara);
+        });
         
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
