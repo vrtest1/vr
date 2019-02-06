@@ -51,9 +51,8 @@
         scene.add(directionalLight);
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
         scene.add(ambientLight);
-new THREE.MTLLoader().load( "./giganto.mtl", function ( materials ) {
-materials.preload();}):
-new THREE.OBJLoader().setMaterials( materials ).load( "./giganto.obj", function ( object ) {
+new THREE.OBJLoader();
+	      OBJLoader.load( "./giganto.obj","./giganto.mtl" function ( object ) {
 	scene.add( object );});
 	      
         cubes = [];
