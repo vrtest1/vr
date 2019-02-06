@@ -23,7 +23,7 @@
     <script src="js/FBXLoader.js"></script>
     <script src="js/OBJLoader.js"></script>
     <script src="js/MTLLoader.js"></script>
-    <script src="js/ColladaLoader.js></script>
+    <script src="js/ColladaLoader.js"></script>
 
 <script>
       //Basic elements for a Three.js/HoloPlay scene
@@ -52,14 +52,23 @@
         scene.add(directionalLight);
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
         scene.add(ambientLight);
-                 
+
+        // 3DS形式のモデルデータを読み込む
+const loader = new THREE.ColladaLoader();
+// 3dsファイルのパスを指定
+loader.load('.giganto.dae', (collada) => {
+  // 読み込み後に3D空間に追加
+  const model = collada.scene;
+  scene.add(model);
+});
+        
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
         cubeMaterial = new THREE.MeshLambertMaterial();
         for(var i = 0; i < 3; i++){
           cubes.push(new THREE.Mesh(cubeGeometry, cubeMaterial));
           cubes[i].position.set(1 - i, 1 - i, 1 - i);
-          scene.add(cubes[i]);
+          //scene.add(cubes[i]);
         }
       }
 
