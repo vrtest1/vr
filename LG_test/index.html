@@ -54,10 +54,8 @@
         scene.add(ambientLight);
 
         // 3DS形式のモデルデータを読み込む
-const loader = new THREE.ColladaLoader();
-// 3dsファイルのパスを指定
+loader = new ColladaLoader();
 loader.load('.giganto.dae', (collada) => {
-  // 読み込み後に3D空間に追加
   const model = collada.scene;
   scene.add(model);
 });
