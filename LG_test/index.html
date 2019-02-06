@@ -52,14 +52,14 @@
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
         scene.add(ambientLight);
 new THREE.MTLLoader()
-.setPath( './' )
+.setPath( "./" )
 .load( 'giganto.mtl', function ( materials ) {
 materials.preload();
 new THREE.OBJLoader()
 .setMaterials( materials )
-.setPath( './' )
+.setPath( "./" )
 .load( 'giganto.obj', function ( object ) {
-	scene.add( object );});
+	scene.add( object );}
 	      
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
