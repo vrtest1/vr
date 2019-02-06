@@ -55,9 +55,7 @@
         scene.add(ambientLight);
         
         console.log("hello");
-        loader = new THREE.FBXLoader();
-        console.log(loader);
-
+        
         var onProgress = function ( xhr ) {
         if ( xhr.lengthComputable ) {
             var percentComplete = xhr.loaded / xhr.total * 100;
@@ -65,6 +63,8 @@
             }
         };
         
+        loader = new THREE.FBXLoader();
+        console.log(loader);        
         loader.load('./giganto.fbx',function(object3d){
         target = object3d;
         console.log("done");
