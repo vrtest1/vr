@@ -2,34 +2,40 @@
   <head>
     <meta charset="utf-8" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/101/three.min.js"></script>
+    <script src="./js/FBXLoader"></script>
     <script>
-      // ƒy[ƒW‚Ì“Ç‚İ‚İ‚ğ‘Ò‚Â
+      // ãƒšãƒ¼ã‚¸ã®èª­ã¿è¾¼ã¿ã‚’å¾…ã¤
       window.addEventListener('load', init);
+      
+      var FBXLoader;
+      
       function init() {
-        // ƒTƒCƒY‚ğw’è
+        // ã‚µã‚¤ã‚ºã‚’æŒ‡å®š
         const width = 960;
         const height = 540;
-        // ƒŒƒ“ƒ_ƒ‰[‚ğì¬
+        // ãƒ¬ãƒ³ãƒ€ãƒ©ãƒ¼ã‚’ä½œæˆ
         const renderer = new THREE.WebGLRenderer({
           canvas: document.querySelector('#myCanvas')
         });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(width, height);
-        // ƒV[ƒ“‚ğì¬
+        // ã‚·ãƒ¼ãƒ³ã‚’ä½œæˆ
         const scene = new THREE.Scene();
-        // ƒJƒƒ‰‚ğì¬
+        // ã‚«ãƒ¡ãƒ©ã‚’ä½œæˆ
         const camera = new THREE.PerspectiveCamera(45, width / height);
         camera.position.set(0, 0, +1000);
-        // ” ‚ğì¬
+        // ç®±ã‚’ä½œæˆ
         const geometry = new THREE.BoxGeometry(400, 400, 400);
         const material = new THREE.MeshNormalMaterial();
         const box = new THREE.Mesh(geometry, material);
         scene.add(box);
+        loader.load('./giganto.fbx',function(object3d){
+          scene.add(object3d);});
         tick();
-        // –ˆƒtƒŒ[ƒ€‚ÉÀs‚³‚ê‚éƒ‹[ƒvƒCƒxƒ“ƒg‚Å‚·
+        // æ¯ãƒ•ãƒ¬ãƒ¼ãƒ æ™‚ã«å®Ÿè¡Œã•ã‚Œã‚‹ãƒ«ãƒ¼ãƒ—ã‚¤ãƒ™ãƒ³ãƒˆã§ã™
         function tick() {
           box.rotation.y += 0.01;
-          renderer.render(scene, camera); // ƒŒƒ“ƒ_ƒŠƒ“ƒO
+          renderer.render(scene, camera); // ãƒ¬ãƒ³ãƒ€ãƒªãƒ³ã‚°
           requestAnimationFrame(tick);
         }
       }
