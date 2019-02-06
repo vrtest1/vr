@@ -26,7 +26,7 @@
 
   <script>
       //Basic elements for a Three.js/HoloPlay scene
-      var scene, camera, renderer, holoplay;
+      var scene, camera, renderer, holoplay,FBXLoader;
 
       //Lighting elements
       var directionalLight;
@@ -50,7 +50,12 @@
         directionalLight.position.set (0, 1, 2);
         scene.add(directionalLight);
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
-        scene.add(ambientLight);        
+        scene.add(ambientLight);
+        
+        loader = new FBXLoader();
+        loader.load('./giganto.fbx',function(object3d){
+        scene.add(object3d);});
+        
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
         cubeMaterial = new THREE.MeshLambertMaterial();
@@ -58,7 +63,7 @@
           cubes.push(new THREE.Mesh(cubeGeometry, cubeMaterial));
           cubes[i].position.set(1 - i, 1 - i, 1 - i);
           //scene.add(cubes[i]);
-          scene.add(cubes[1]);
+          
         }
       }
 
