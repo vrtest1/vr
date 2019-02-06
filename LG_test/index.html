@@ -37,7 +37,6 @@
       var cubeGeometry;
       var cubeMaterial;
       var cubes;
-      var gigantoobj;
   
       //Initialize our variables
       function init(){
@@ -53,17 +52,15 @@
         scene.add(directionalLight);
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
         scene.add(ambientLight);
-
-                 // loading manager
-				var loadingManager = new THREE.LoadingManager( function () {
-					scene.add( gigantoobj );
-				} );
-				// collada
-				var loader = new THREE.ColladaLoader( loadingManager );
-				loader.load( './giganto.dae', function ( collada ) {
-					gigantoobj = collada.scene;
-				} );
-
+		 
+// 3DS形式のモデルデータを読み込む
+const loader = new THREE.ColladaLoader();
+// 3dsファイルのパスを指定
+loader.load('./giganto.dae', (collada) => {
+  // 読み込み後に3D空間に追加
+  const model = collada.scene;
+  scene.add(model);
+});
                  
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
