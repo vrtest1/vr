@@ -53,52 +53,35 @@
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
         scene.add(ambientLight);
         
-        //console.log("hello");
-        
-        //var onProgress = function ( xhr ) {
-        //if (xhr.lengthComputable) {
-        //    var percentComplete = xhr.loaded / xhr.total * 100;
-        //    console.log( Math.round(percentComplete, 2) + '% downloaded' );
-        //   }
-        //};
-        
-        //loader = new THREE.FBXLoader();
-        //console.log(loader);        
-        //loader.load('./giganto.fbx',function(object3d){
-        //target = object3d;
-        //console.log("done");
-        //scene.add(object3d);});
-       //************************************************************* 
-            // OBJ MTLの読み込み
-    var mtlLoader = new THREE.MTLLoader();
-    mtlLoader.setPath( './' );              // this/is/obj/path/
-    mtlLoader.load( 'giganto.mtl', function( materials ) {
-      materials.preload();
-      var objLoader = new THREE.OBJLoader();
-      objLoader.setMaterials( materials );
-      objLoader.setPath( './' );            // this/is/obj/path/
-      objLoader.load( 'giganto.obj', function ( object ) {
+       // OBJ MTLの読み込み
+　　    var mtlLoader = new THREE.MTLLoader();
+    　　mtlLoader.setPath( './' );              // this/is/obj/path/
+    　　mtlLoader.load( 'giganto.mtl', function( materials ) {
+      　materials.preload();
+      　var objLoader = new THREE.OBJLoader();
+      　objLoader.setMaterials( materials );
+      　objLoader.setPath( './' );            // this/is/obj/path/
+      　objLoader.load( 'giganto.obj', function ( object ) {
         objmodel = object.clone();
         objmodel.scale.set(0.7, 0.7, 0.7);      // 縮尺の初期化
         objmodel.rotation.set(0, 180, 0);         // 角度の初期化
         objmodel.position.set(0, 0, 0);         // 位置の初期化
  
-    // objをObject3Dで包む
+    　　// objをObject3Dで包む
         obj = new THREE.Object3D();
         obj.add(objmodel);
  
         scene.add(obj);                         // sceneに追加
       });
         });
-        //*************************************************************
-        
-        cubes = [];
-        cubeGeometry = new THREE.BoxGeometry(1,1,1);
-        cubeMaterial = new THREE.MeshLambertMaterial();
-        for(var i = 0; i < 3; i++){
-          cubes.push(new THREE.Mesh(cubeGeometry, cubeMaterial));
-          cubes[i].position.set(1 - i, 1 - i, 1 - i);
-          //scene.add(cubes[i]);
+                
+        //cubes = [];
+        //cubeGeometry = new THREE.BoxGeometry(1,1,1);
+        //cubeMaterial = new THREE.MeshLambertMaterial();
+        //for(var i = 0; i < 3; i++){
+        //  cubes.push(new THREE.Mesh(cubeGeometry, cubeMaterial));
+        //  cubes[i].position.set(1 - i, 1 - i, 1 - i);
+        //scene.add(cubes[i]);
           
         }
       }
