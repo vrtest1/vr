@@ -39,7 +39,7 @@
       function init(){
         scene = new THREE.Scene();
         loader = new FBXLoader();
-        //loader.load('./giganto.fbx',function(object3d){
+        loader.load('giganto.fbx',function(object3d){
         scene.add(object3d);
 	}
         camera = new THREE.PerspectiveCamera(12.5, window.innerWidth/window.innerHeight, 0.1, 1000);
