@@ -55,10 +55,8 @@
 
         // 3DS形式のモデルデータを読み込む
 loader = new ColladaLoader();
-loader.load('./giganto.dae', (collada) => {
-  const model = collada.scene;
-  scene.add(model);
-});
+loader.load('./giganto.dae', function(model){
+  scene.add(model);});
         
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
