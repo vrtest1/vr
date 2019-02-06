@@ -51,11 +51,7 @@
         scene.add(directionalLight);
         ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.4);
         scene.add(ambientLight);
-        
-        loader = new FBXLoader();
-        loader.load('./giganto.fbx',function(object3d){
-        scene.add(object3d);});
-        
+              
         loader = new THREE.FBXLoader();
         loader.load('./giganto.fbx',function(object3d){
         scene.add(object3d);});
