@@ -54,7 +54,8 @@
         loader = new FBXLoader();
         loader.load('./giganto.fbx', function(object3d){
           object3d.scale.set(100, 100, 100); 
-          object3d.position.set(1, 1, 18);
+//          object3d.position.set(1, 1, 18);
+          object3d.position.y = - 95;
           scene.add(object3d);}
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
