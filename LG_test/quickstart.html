@@ -28,7 +28,7 @@
         const geometry = new THREE.BoxGeometry(400, 400, 400);
         const material = new THREE.MeshNormalMaterial();
         const box = new THREE.Mesh(geometry, material);
-        scene.add(box);
+        //scene.add(box);
         loader.load('./giganto.fbx',function(object3d){
           scene.add(object3d);});
         tick();
