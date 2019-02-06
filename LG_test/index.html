@@ -57,6 +57,7 @@
         loader = new THREE.FBXLoader();
         loader.load('./giganto.fbx',function(object3d){
         target = object3d;
+        console.log("done");
         scene.add(object3d);});
         
         cubes = [];
