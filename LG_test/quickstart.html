@@ -2,9 +2,6 @@
   <head>
     <meta charset="utf-8" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/101/three.min.js"></script>
-    <script src="./js/FBXLoader"></script>
-    <script src="./js/OBJLoader"></script>
-    <script src="./js/Loader"></script>
     
     <script>
       // ページの読み込みを待つ
@@ -29,36 +26,8 @@
         const geometry = new THREE.BoxGeometry(400, 400, 400);
         const material = new THREE.MeshNormalMaterial();
         const box = new THREE.Mesh(geometry, material);
-        //scene.add(box);
+        scene.add(box);
 
-            // obj mtl を読み込んでいる時の処理
-    var onProgress = function ( xhr ) {
-        if ( xhr.lengthComputable ) {
-            var percentComplete = xhr.loaded / xhr.total * 100;
-            console.log( Math.round(percentComplete, 2) + '% downloaded' );
-            }
-    };
-//*******************************************************************************
-    // obj mtl が読み込めなかったときのエラー処理
-    var onError = function ( xhr ) {    };
-
-    // obj mtlの読み込み
-    var ObjLoader = new THREE.OBJMTLLoader(); 
-    ObjLoader.load("giganto.obj", "giganto.mtl",  function (object){
-        objmodel = object.clone();
-        objmodel.scale.set(10, 10, 10);            // 縮尺の初期化
-        objmodel.rotation.set(0, 0, 0);         // 角度の初期化
-        objmodel.position.set(0, 0, 0);         // 位置の初期化
-
-    // objをObject3Dで包む
-        obj = new THREE.Object3D();
-        obj.add(objmodel);
-
-        scene.add(obj);                     // sceneに追加
-    }, onProgress, onError);        // obj mtl データは(.obj, .mtl. 初期処理, 読み込み時の処理, エラー処理)
-                                    // と指定する。
- //*******************************************************************************
-        
         tick();
         // 毎フレーム時に実行されるループイベントです
         function tick() {
