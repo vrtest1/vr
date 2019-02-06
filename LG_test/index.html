@@ -51,7 +51,7 @@
         scene.add(ambientLight);
         loader = new FBXLoader();
         loader.load('./giganto.fbx',function(object3d){
-          scene.add(object3d);});
+          scene.add(object3d);}
         cubes = [];
         cubeGeometry = new THREE.BoxGeometry(1,1,1);
         cubeMaterial = new THREE.MeshLambertMaterial();
