@@ -52,7 +52,8 @@
         function drawBoard() {
             for (let y = 0; y < boardHeight; y++) {
                 for (let x = 0; x < boardWidth; x++) {
-                    drawBlock(x, y, colors[board[y][x]]);
+                    //drawBlock(x, y, colors[board[y][x]]);
+                    drawBlock(x, y, #000000);
                 }
             }
         }
@@ -61,7 +62,7 @@
             currentShape.shape.forEach((row, y) => {
                 row.forEach((value, x) => {
                     if (value !== 0) {
-                        drawBlock(currentShape.x + x, currentShape.y + y, colors[value+1]);
+                        drawBlock(currentShape.x + x, currentShape.y + y, colors[value]);
                     }
                 });
             });
