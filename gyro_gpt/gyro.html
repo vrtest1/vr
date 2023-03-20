@@ -30,6 +30,19 @@
           var tiltFB = eventData.beta;
           ball.x += tiltLR / 3;
           ball.y += tiltFB / 3;
+          
+            // 枠内にボールを制限
+            if (ball.x - ball.radius < 0) {
+              ball.x = ball.radius;
+            } else if (ball.x + ball.radius > canvas.width) {
+              ball.x = canvas.width - ball.radius;
+            }
+            if (ball.y - ball.radius < 0) {
+              ball.y = ball.radius;
+            } else if (ball.y + ball.radius > canvas.height) {
+              ball.y = canvas.height - ball.radius;
+            }
+            
           draw();
         }, false);
       } else {
