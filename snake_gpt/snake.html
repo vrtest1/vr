@@ -21,6 +21,8 @@
         // 衝突したときに表示する画像の読み込み
         let img = new Image();
         img.src = "collision.jpg";
+        let img2 = new Image();
+        img.src = "collision2.jpg";
 
         // Snakeオブジェクトの初期化
         let snake = {
@@ -119,8 +121,14 @@
         }
 
         function gameOver() {
-
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            if(score > 20)
+            {
+                ctx.drawImage(img2, 0, 0, canvas.width, canvas.height);
+            }
+            else
+            {                
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            }
             // ゲームを停止
             clearInterval(gameInterval);
 
