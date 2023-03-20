@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>ƒWƒƒƒCƒ‚Åƒ{[ƒ‹‚ğ“]‚ª‚·</title>
+    <title>ã‚¸ãƒ£ã‚¤ãƒ­ã§ãƒœãƒ¼ãƒ«ã‚’è»¢ãŒã™</title>
     <style>
         canvas {
             border: 1px solid black;
@@ -10,7 +10,7 @@
     </style>
 </head>
 <body>
-    <h1>ƒWƒƒƒCƒ‚Åƒ{[ƒ‹‚ğ“]‚ª‚·</h1>
+    <h1>ã‚¸ãƒ£ã‚¤ãƒ­ã§ãƒœãƒ¼ãƒ«ã‚’è»¢ãŒã™</h1>
     <canvas id="canvas" width="300" height="300"></canvas>
     <script>
       var canvas = document.getElementById('canvas');
@@ -23,7 +23,7 @@
       };
 
       if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', function(eventData) {
+        window.addEventListener("deviceorientation", function(eventData) {
           var tiltLR = eventData.gamma;
           var tiltFB = eventData.beta;
           ball.x += tiltLR / 3;
@@ -31,7 +31,7 @@
           draw();
         }, false);
       } else {
-        alert("‚±‚ÌƒfƒoƒCƒX‚Å‚ÍƒWƒƒƒCƒƒZƒ“ƒT[‚ğg—p‚Å‚«‚Ü‚¹‚ñB");
+        alert("ã“ã®ãƒ‡ãƒã‚¤ã‚¹ã§ã¯ã‚¸ãƒ£ã‚¤ãƒ­ã‚»ãƒ³ã‚µãƒ¼ã‚’ä½¿ç”¨ã§ãã¾ã›ã‚“ã€‚");
       }
 
       function draw() {
