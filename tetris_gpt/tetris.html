@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Tetris</title>
+    <style>
+        #canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="200" height="400"></canvas>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext("2d");
+        const blockSize = 20;
+        const boardWidth = canvas.width / blockSize;
+        const boardHeight = canvas.height / blockSize;
+
+        const shapes = [
+            [[1, 1, 1], [0, 1, 0]],
+            [[0, 2, 2], [2, 2, 0]],
+            [[3, 3], [3, 3]],
+            [[4, 4, 0], [0, 4, 4]],
+            [[0, 5, 5], [5, 5, 0]],
+            [[6, 6, 6, 6]],
+            [[7, 7], [7, 7]],
+        ];
+        const colors = ["#F44336", "#9C27B0", "#2196F3", "#FFEB3B", "#4CAF50", "#FF9800", "#795548"];
+
+        let board = [];
+        for (let y = 0; y < boardHeight; y++) {
+            let row = [];
+            for (let x = 0; x < boardWidth; x++) {
+                row.push(0);
+            }
+            board.push(row);
+        }
+
+        let currentShape = { x: 0, y: 0, shape: shapes[Math.floor(Math.random() * shapes.length)] };
+        let score = 0;
+        let gameOver = false;
+
+        function drawBlock(x, y, color) {
+            context.fillStyle = color;
+            context.fillRect(x * blockSize, y * blockSize, blockSize, blockSize);
+            context.strokeStyle = "black";
+            context.strokeRect(x * blockSize, y * blockSize, blockSize, blockSize);
+        }
+
+        function drawBoard() {
+            for (let y = 0; y < boardHeight; y++) {
+                for (let x = 0; x < boardWidth; x++) {
+                    drawBlock(x, y, colors[board[y][x]]);
+                }
+            }
+        }
+
+        function drawShape() {
+            currentShape.shape.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        drawBlock(currentShape.x + x, currentShape.y + y, colors[value]);
+                    }
+                });
+            });
+        }
+
+        function canMoveShape(dx, dy, newShape) {
+            for (let y = 0; y < newShape.length; y++) {
+                for (let x = 0; x < newShape[y].length; x++) {
+                    if (newShape[y][x] !== 0) {
+                        let newX = currentShape.x + x + dx;
+                        let newY = currentShape.y + y + dy;
+                        if (newX < 0 || newX >= boardWidth || newY >= boardHeight || board[newY][newX] !== 0) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        function moveShape(dx, dy) {
+            if (canMoveShape(dx, dy, currentShape.shape)) {
+                currentShape.x += dx;
+                currentShape.y += dy;
+                drawBoard();
+                drawShape();
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        function rotateShape() {
+            let newShape = [];
+            for (let y = 0; y < currentShape.shape[0].length; y++) {
+                let row = [];
+                for (let x = 0; x < currentShape.shape.length; x++) {
+                    row.push(currentShape.shape[currentShape.shape.length - 1 - x][y]);
+                }
+                newShape.push(row);
+            }
+            if (canMoveShape(0, 0, newShape)) {
+                currentShape.shape = newShape;
+                drawBoard();
+                drawShape();
+            }
+        }
+
+        function dropShape() {
+            while (moveShape(0, 1)) { }
+            lockShape();
+        }
+
+        function lockShape() {
+            currentShape.shape.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        board[currentShape.y + y][currentShape.x + x] = value;
+                    }
+                });
+            });
+            checkRows();
+            spawnShape();
+        }
+
+        function spawnShape() {
+            currentShape.x = Math.floor((boardWidth - currentShape.shape[0].length) / 2);
+            currentShape.y = 0;
+            currentShape.shape = shapes[Math.floor(Math.random() * shapes.length)];
+            if (!canMoveShape(0, 0, currentShape.shape)) {
+                gameOver = true;
+            }
+        }
+
+        function checkRows() {
+            let rowsCleared = 0;
+            for (let y = boardHeight - 1; y >= 0; y--) {
+                let rowFilled = true;
+                for (let x = 0; x < boardWidth; x++) {
+                    if (board[y][x] === 0) {
+                        rowFilled = false;
+                        break;
+                    }
+                }
+                if (rowFilled) {
+                    board.splice(y, 1);
+                    let newRow = [];
+                    for (let x = 0; x < boardWidth; x++) {
+                        newRow.push(0);
+                    }
+                    board.unshift(newRow);
+                    rowsCleared++;
+                    y++;
+                }
+            }
+            score += rowsCleared * 100;
+        }
+
+        function gameLoop() {
+            if (!gameOver) {
+                if (moveShape(0, 1)) {
+                    setTimeout(gameLoop, 500);
+                } else {
+                    lockShape();
+                    setTimeout(gameLoop, 500);
+                }
+            } else {
+                alert("Game Over! Final Score: " + score);
+            }
+        }
+
+        document.addEventListener("keydown", event => {
+            switch (event.keyCode) {
+                case 37: // left arrow
+                    moveShape(-1, 0);
+                    break;
+                case 38: // up arrow
+                    rotateShape();
+                    break;
+                case 39: // right arrow
+                    moveShape(1, 0);
+                    break;
+                case 40: // down arrow
+                    moveShape(0, 1);
+                    break;
+                case 32: // spacebar
+                    dropShape();
+                    break;
+            }
+        });
+
+        spawnShape();
+        gameLoop();
+    </script>
+</body>
+</html>
