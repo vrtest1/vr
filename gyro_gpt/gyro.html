@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ジャイロでボールを転がす</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <h1>ジャイロでボールを転がす</h1>
+    <canvas id="canvas" width="300" height="300"></canvas>
+    <script>
+      var canvas = document.getElementById('canvas');
+      var context = canvas.getContext('2d');
+      var ball = {
+        x: 150,
+        y: 150,
+        radius: 20,
+        color: 'blue'
+      };
+
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', function(eventData) {
+          var tiltLR = eventData.gamma;
+          var tiltFB = eventData.beta;
+          ball.x += tiltLR / 3;
+          ball.y += tiltFB / 3;
+          draw();
+        }, false);
+      } else {
+        alert("このデバイスではジャイロセンサーを使用できません。");
+      }
+
+      function draw() {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.beginPath();
+        context.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2, true);
+        context.closePath();
+        context.fillStyle = ball.color;
+        context.fill();
+      }
+    </script>
+</body>
+</html>
