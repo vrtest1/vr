@@ -86,7 +86,7 @@
             if (canMoveShape(dx, dy, currentShape.shape)) {
                 currentShape.x += dx;
                 currentShape.y += dy;
-                //drawBoard();
+                drawBoard();
                 drawShape();
                 return true;
             } else {
@@ -105,7 +105,7 @@
             }
             if (canMoveShape(0, 0, newShape)) {
                 currentShape.shape = newShape;
-                //drawBoard();
+                drawBoard();
                 drawShape();
             }
         }
