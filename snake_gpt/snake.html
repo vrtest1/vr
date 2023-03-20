@@ -14,11 +14,15 @@
         const canvas = document.getElementById("canvas");
         const ctx = canvas.getContext("2d");
 
-        // ƒLƒƒƒ“ƒoƒX‚Ì”wŒi‚ğ•`‰æ
+        // ã‚­ãƒ£ãƒ³ãƒã‚¹ã®èƒŒæ™¯ã‚’æç”»
         ctx.fillStyle = "lightgray";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // SnakeƒIƒuƒWƒFƒNƒg‚Ì‰Šú‰»
+        // è¡çªã—ãŸã¨ãã«è¡¨ç¤ºã™ã‚‹ç”»åƒã®èª­ã¿è¾¼ã¿
+        let img = new Image();
+        img.src = "collision.jpg";
+
+        // Snakeã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆã®åˆæœŸåŒ–
         let snake = {
             x: 10,
             y: 10,
@@ -28,16 +32,16 @@
             maxCells: 4
         };
 
-        // H‚×•¨‚Ì‰Šú‰»
+        // é£Ÿã¹ç‰©ã®åˆæœŸåŒ–
         let food = {
             x: Math.floor(Math.random() * 39) * 10,
             y: Math.floor(Math.random() * 39) * 10
         };
 
-        // ƒXƒRƒA‚Ì‰Šú‰»
+        // ã‚¹ã‚³ã‚¢ã®åˆæœŸåŒ–
         let score = 0;
 
-        // ƒL[‘€ì‚É‚æ‚éSnake‚ÌˆÚ“®
+        // ã‚­ãƒ¼æ“ä½œã«ã‚ˆã‚‹Snakeã®ç§»å‹•
         document.addEventListener("keydown", function (e) {
             if (e.keyCode === 37 && snake.dx === 0) {
                 snake.dx = -10;
@@ -54,7 +58,7 @@
             }
         });
 
-        // Snake‚Ì•`‰æ
+        // Snakeã®æç”»
         function drawSnake() {
             snake.x += snake.dx;
             snake.y += snake.dy;
@@ -77,7 +81,7 @@
                 snake.cells.pop();
             }
 
-            // Snake‚ÌŠeƒZƒ‹‚ğ•`‰æ
+            // Snakeã®å„ã‚»ãƒ«ã‚’æç”»
             ctx.fillStyle = "green";
             snake.cells.forEach(function (cell, index) {
                 ctx.fillRect(cell.x, cell.y, 10, 10);
@@ -90,9 +94,10 @@
                     food.y = Math.floor(Math.random() * 39) * 10;
                 }
 
-                // Snake‚ª©•ª©g‚ÆÕ“Ë‚µ‚½ê‡
+                // SnakeãŒè‡ªåˆ†è‡ªèº«ã¨è¡çªã—ãŸå ´åˆ
                 for (let i = index + 1; i < snake.cells.length; i++) {
                     if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) {
+                        gameOver();
                         snake.x = 10;
                         snake.y = 10;
                         snake.cells = [];
@@ -107,13 +112,50 @@
                 }
             });
         }
-        // H‚×•¨‚Ì•`‰æ
+        // é£Ÿã¹ç‰©ã®æç”»
         function drawFood() {
             ctx.fillStyle = "red";
             ctx.fillRect(food.x, food.y, 10, 10);
         }
 
-        // ƒQ[ƒ€‚Ìƒ‹[ƒv
+        function gameOver() {
+
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            // ã‚²ãƒ¼ãƒ ã‚’åœæ­¢
+            clearInterval(gameInterval);
+
+            // ç”»åƒã‚’è¡¨ç¤º
+            let count = 0;
+            let interval = setInterval(function () {
+                count++;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                if (count === 60) {
+                    clearInterval(interval);
+
+                    // Snakeã‚’åˆæœŸåŒ–
+                    snake.x = 10;
+                    snake.y = 10;
+                    snake.cells = [];
+                    snake.maxCells = 4;
+                    snake.dx = 10;
+                    snake.dy = 0;
+
+                    // ã‚¹ã‚³ã‚¢ã‚’ãƒªã‚»ãƒƒãƒˆ
+                    score = 0;
+                    document.getElementById("score").innerHTML = "Score: " + score;
+
+                    // é£Ÿã¹ç‰©ã‚’å†é…ç½®
+                    food.x = Math.floor(Math.random() * 39) * 10;
+                    food.y = Math.floor(Math.random() * 39) * 10;
+
+                    // ã‚²ãƒ¼ãƒ ã‚’å†é–‹
+                    gameInterval = setInterval(gameLoop, 1000 / 60);
+                }
+            }, 16.67);
+        }
+
+
+        // ã‚²ãƒ¼ãƒ ã®ãƒ«ãƒ¼ãƒ—
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawSnake();
