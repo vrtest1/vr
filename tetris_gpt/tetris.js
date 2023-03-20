@@ -1,7 +1,7 @@
 // ゲームの設定
 const ROWS = 20;
 const COLS = 10;
-const BLOCK_SIZE = 30;
+const BLOCK_SIZE = 20;
 const EMPTY_BLOCK = '#ccc';
 
 // キャンバスの設定
