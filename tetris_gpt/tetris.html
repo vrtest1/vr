@@ -52,8 +52,7 @@
         function drawBoard() {
             for (let y = 0; y < boardHeight; y++) {
                 for (let x = 0; x < boardWidth; x++) {
-                    //drawBlock(x, y, colors[board[y][x]]);
-                    drawBlock(x, y, #000000);
+                    drawBlock(x, y, colors[board[y][x]]);
                 }
             }
         }
@@ -114,6 +113,8 @@
         function dropShape() {
             while (moveShape(0, 1)) { }
             lockShape();
+            drawBoard();
+            drawShape();
         }
 
         function lockShape() {
