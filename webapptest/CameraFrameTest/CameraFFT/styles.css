@@ -1,0 +1,23 @@
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #000;
+}
+
+#container {
+    position: relative;
+}
+
+#video, #overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#overlay {
+    opacity: 0.5;
+}

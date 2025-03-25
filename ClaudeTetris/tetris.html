@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>テトリスゲーム</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        #game-container {
+            margin: 20px auto;
+            position: relative;
+        }
+        #game-board {
+            border: 2px solid #333;
+            background-color: #111;
+        }
+        #score {
+            margin: 10px 0;
+            font-size: 24px;
+        }
+        #start-btn {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        #start-btn:hover {
+            background-color: #45a049;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        .controls p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>テトリス</h1>
+    <div id="game-container">
+        <div id="score">スコア: 0</div>
+        <button id="start-btn">ゲームスタート</button>
+        <canvas id="game-board" width="300" height="600"></canvas>
+    </div>
+    <div class="controls">
+        <p>← →: 左右移動 / ↑: 回転 / ↓: 高速落下 / スペース: 即時落下</p>
+    </div>
+
+    <script src="tetris.js"></script>
+</body>
+</html>

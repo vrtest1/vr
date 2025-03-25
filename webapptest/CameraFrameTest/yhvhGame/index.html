@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>改良版カスタムアルカノイド</title>
+    <style>
+        #gameCanvas {
+            border: 1px solid black;
+            cursor: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="960" height="640"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // ボールの設定
+        let ballRadius = 10;
+        let x = canvas.width / 2;
+        let y = canvas.height - 30;
+        let dx = 4; // 速度を2倍に
+        let dy = -4; // 速度を2倍に
+        let ballSpeed = 1;
+        const ballSpeedIncrease = 0.025;
+
+        // ランダムな開始角度を設定
+        function setRandomAngle() {
+            const angle = Math.random() * Math.PI / 2 + Math.PI / 4; // 45度から135度の間
+            dx = 4 * Math.cos(angle);
+            dy = -4 * Math.sin(angle);
+        }
+        setRandomAngle();
+
+        // パドルの設定
+        const paddleHeight = 10;
+        const paddleWidth = 150;
+        let paddleX = (canvas.width - paddleWidth) / 2;
+
+        // キャラクターの設定
+        let characterImage = new Image();
+        characterImage.src = 'image.png';
+        let characterWidth = 100;
+        let characterHeight = 100;
+        let characterX = canvas.width / 2;
+        let characterY = canvas.height / 2;
+        const characterSizeIncrease = 3;
+
+        // ゲーム状態
+        let missCount = 0;
+        const maxMisses = 3;
+        let lastHitTime = 0;
+        const invincibilityDuration = 1500;
+
+        // ブロックの設定
+        const brickRowCount = 6;
+        const brickColumnCount = 12; // 列数を増やして左右の空間を狭く
+        const brickWidth = 75;
+        const brickHeight = 20;
+        const brickPadding = 5; // パディングを減らして密集させる
+        const brickOffsetTop = 5; // 上の空間を無くす
+        const brickOffsetLeft = 15; // 左右の空間を狭くする
+
+        const bricks = [];
+        for (let c = 0; c < brickColumnCount; c++) {
+            bricks[c] = [];
+            for (let r = 0; r < brickRowCount; r++) {
+                bricks[c][r] = { x: 0, y: 0, status: 1 };
+            }
+        }
+
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
+            ctx.fillStyle = "#0095DD";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
+            ctx.fillStyle = "#0095DD";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawCharacter() {
+            const currentTime = Date.now();
+            if (currentTime - lastHitTime > invincibilityDuration || (currentTime % 200) < 100) {
+                ctx.drawImage(characterImage, characterX - characterWidth / 2, characterY - characterHeight / 2, characterWidth, characterHeight);
+            }
+        }
+
+        function drawMissCount() {
+            ctx.font = "20px Arial";
+            ctx.fillStyle = "#0095DD";
+            ctx.fillText("ミス: " + missCount + "/" + maxMisses, 8, 20);
+        }
+
+        function drawBricks() {
+            for (let c = 0; c < brickColumnCount; c++) {
+                for (let r = 0; r < brickRowCount; r++) {
+                    if (bricks[c][r].status === 1) {
+                        const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+                        const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+                        bricks[c][r].x = brickX;
+                        bricks[c][r].y = brickY;
+                        ctx.beginPath();
+                        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                        ctx.fillStyle = "#0095DD";
+                        ctx.fill();
+                        ctx.closePath();
+                    }
+                }
+            }
+        }
+
+        function collisionDetection() {
+            for (let c = 0; c < brickColumnCount; c++) {
+                for (let r = 0; r < brickRowCount; r++) {
+                    const b = bricks[c][r];
+                    if (b.status === 1) {
+                        if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
+                            dy = -dy;
+                            b.status = 0;
+                            ballSpeed += ballSpeedIncrease;
+                        }
+                    }
+                }
+            }
+
+            const currentTime = Date.now();
+            if (x > characterX - characterWidth / 2 && x < characterX + characterWidth / 2 &&
+                y > characterY - characterHeight / 2 && y < characterY + characterHeight / 2) {
+                
+                if (currentTime - lastHitTime > invincibilityDuration) {
+                    missCount++;
+                    characterWidth *= characterSizeIncrease;
+                    characterHeight *= characterSizeIncrease;
+                    lastHitTime = currentTime;
+
+                    if (missCount >= maxMisses) {
+                        alert("ゲームオーバー");
+                        document.location.reload();
+                    }
+                }
+            }
+        }
+
+        function movePaddle() {
+            paddleX = x - paddleWidth / 2;
+            if (paddleX < 0) {
+                paddleX = 0;
+            }
+            if (paddleX + paddleWidth > canvas.width) {
+                paddleX = canvas.width - paddleWidth;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBricks();
+            drawBall();
+            drawPaddle();
+            drawCharacter();
+            drawMissCount();
+            collisionDetection();
+            movePaddle();
+
+            if (x + dx > canvas.width - ballRadius || x < ballRadius) {
+                dx = -dx;
+            }
+            if (y < ballRadius) {
+                dy = -dy;
+            } else if (y + dy > canvas.height - ballRadius) {
+                if (x > paddleX && x < paddleX + paddleWidth) {
+                    dy = -dy;
+                } else {
+                    alert("ゲームオーバー");
+                    document.location.reload();
+                }
+            }
+
+            x += dx * ballSpeed;
+            y += dy * ballSpeed;
+
+            requestAnimationFrame(draw);
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            characterX = e.clientX - rect.left;
+            characterY = e.clientY - rect.top;
+        });
+
+        characterImage.onload = () => {
+            draw();
+        };
+    </script>
+</body>
+</html>

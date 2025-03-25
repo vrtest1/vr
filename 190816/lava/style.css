@@ -1,0 +1,118 @@
+:root {
+  --lamp-color: #000080;
+  --blob-color1: #ff00ff;
+  --blob-color2: #ff0088;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #111;
+  overflow: hidden;
+}
+
+.controls {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.lava-lamp {
+  position: relative;
+  width: 200px;
+  height: 400px;
+  background-color: #000;
+  box-shadow: 0 0 20px rgba(var(--lamp-color), 0.3);
+  overflow: hidden;
+}
+
+.base, .cap {
+  position: absolute;
+  width: 100%;
+  background-color: #444;
+}
+
+.base, .cap {
+  position: absolute;
+  width: 100%;
+  background-color: #000; /* ここを修正 */
+}
+
+
+.liquid {
+  position: absolute;
+  bottom: 30px;
+  width: 100%;
+  height: 350px;
+  background-color: rgba(var(--lamp-color), 0.2);
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, var(--blob-color1), var(--blob-color2));
+  filter: blur(10px);
+  opacity: 0.8;
+  animation: float 8s infinite ease-in-out;
+  mix-blend-mode: screen;
+}
+
+.light {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+  animation: glow 4s infinite alternate;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0) scale(1) rotate(0deg); }
+  25% { transform: translateY(-30px) translateX(20px) scale(1.1) rotate(90deg); }
+  50% { transform: translateY(-60px) translateX(-10px) scale(0.9) rotate(180deg); }
+  75% { transform: translateY(-100px) translateX(15px) scale(1.2) rotate(270deg); }
+}
+
+@keyframes glow {
+  0% { opacity: 0.5; }
+  100% { opacity: 0.8; }
+}
+
+@media (max-width: 600px) {
+  .lava-lamp {
+    width: 150px;
+    height: 300px;
+  }
+}
+
+@keyframes moveUp {
+    0% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-300px); /* 上に移動する距離 */
+        opacity: 0;
+    }
+}
+
+@keyframes fallDown {
+    0% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(300px); /* 下に移動する距離 */
+        opacity: 0;
+    }
+}
+
+#color-ui {
+    display: none; /* 初期状態で非表示 */
+}

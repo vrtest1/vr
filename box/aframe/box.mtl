@@ -1,0 +1,50 @@
+newmtl body
+Ka 0 0 0
+Kd 0.784314 0.784314 0.784314
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
+map_Kd color_map.jpg
+
+newmtl display
+Ka 0 0 0
+Kd 0.784314 0.784314 0.784314
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
+map_Kd color_map.jpg
+
+newmtl door
+Ka 0 0 0
+Kd 0 0 0
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
+map_Kd color_map.jpg
+
+newmtl hinge
+Ka 0 0 0
+Kd 0 0 0
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
+map_Kd color_map.jpg
+
+newmtl insulator
+Ka 0 0 0
+Kd 0.784314 0.784314 0.784314
+Ks 0 0 0
+Ni 1
+Ns 400
+Tf 1 1 1
+d 1
+map_Kd color_map.jpg
+

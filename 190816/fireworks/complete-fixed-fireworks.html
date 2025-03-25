@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>花火大会</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="fireworksCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('fireworksCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // キャンバスサイズをウィンドウサイズに合わせる
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // 花火の色
+        const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
+
+        // 花火の数
+        const fireworks = [];
+
+        // オーディオコンテキストの作成
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // 音源ファイルの配列
+        const sounds = ["don.mp3", "donbachi.mp3"];
+
+        // ユーザーのアクションでAudioContextを再開
+        document.body.addEventListener('click', function resumeAudio() {
+            audioContext.resume().then(() => {
+                console.log('AudioContext resumed successfully');
+                document.body.removeEventListener('click', resumeAudio);
+            });
+        });
+
+        // 音源の作成
+        async function createFireworkSound(x) {
+            const panNode = audioContext.createStereoPanner();
+            
+            // x座標に基づいてパンを設定 (-1が左端、1が右端)
+            const pan = (x / canvas.width) * 2 - 1;
+            panNode.pan.setValueAtTime(pan, audioContext.currentTime);
+            
+            // ランダムに音声ファイルを選択
+            const randomIndex = Math.floor(Math.random() * sounds.length);
+            const soundFile = sounds[randomIndex];
+            
+            try {
+                const response = await fetch(soundFile);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                
+                source.connect(panNode);
+                panNode.connect(audioContext.destination);
+                
+                source.start();
+            } catch (error) {
+                console.error("音声の再生に失敗しました: " + error);
+            }
+        }
+
+        // 花火の作成
+        function createFirework(startX, startY, targetX, targetY) {
+            const firework = {
+                startX: startX,
+                startY: startY,
+                x: startX,
+                y: startY,
+                targetX: targetX,
+                targetY: targetY,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                particles: [],
+                exploded: false // 花火が爆発したかどうかを追跡するフラグ
+            };
+            fireworks.push(firework);
+        }
+
+        // パーティクルの作成
+        function createParticle(x, y, color) {
+            const angle = Math.random() * Math.PI * 2; // ランダムな角度
+            const speed = Math.random() * 10 + 5; // 速度を大きくする
+            const particleX = x + Math.cos(angle) * Math.random() * 10; // 初期位置をランダムにずらす
+            const particleY = y + Math.sin(angle) * Math.random() * 10; // 初期位置をランダムにずらす
+            const particle = {
+                x: particleX,
+                y: particleY,
+                color: color,
+                size: Math.random() * 5 + 1,
+                speedX: Math.cos(angle) * speed, // 速度に角度を反映
+                speedY: Math.sin(angle) * speed, // 速度に角度を反映
+                alpha: 1
+            };
+            return particle;
+        }
+
+        // アニメーション
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < fireworks.length; i++) {
+                const firework = fireworks[i];
+
+                // 花火を打ち上げる
+                const dx = firework.targetX - firework.x;
+                const dy = firework.targetY - firework.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const speed = 10;
+
+                if (distance > 1) {
+                    firework.x += dx / distance * speed;
+                    firework.y += dy / distance * speed;
+                } else {
+                    // 花火が目標地点に到達したら、パーティクルを生成
+                    if (!firework.exploded) { // まだ爆発していない場合のみパーティクルを生成
+                        const particleCount = 500; // パーティクルの数を増やす
+                        for (let j = 0; j < particleCount; j++) {
+                            firework.particles.push(createParticle(firework.x, firework.y, firework.color));
+                        }
+                        firework.exploded = true; // 爆発フラグを立てる
+                        createFireworkSound(firework.x); // 音を再生
+                    }
+                }
+
+                ctx.beginPath();
+                ctx.arc(firework.x, firework.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = firework.color;
+                ctx.fill();
+
+                // パーティクルを描画
+                for (let j = 0; j < firework.particles.length; j++) {
+                    const particle = firework.particles[j];
+                    particle.x += particle.speedX;
+                    particle.y += particle.speedY;
+                    particle.alpha -= 0.002; // アルファ値の減衰を遅くする
+
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    ctx.fillStyle = particle.color;
+                    ctx.fillStyle = `rgba(${hexToRgb(particle.color).r}, ${hexToRgb(particle.color).g}, ${hexToRgb(particle.color).b}, ${particle.alpha})`;
+                    ctx.fill();
+
+                    if (particle.alpha <= 0) {
+                        firework.particles.splice(j, 1);
+                    }
+                }
+
+                // 花火が消滅
+                if (firework.exploded && firework.particles.length === 0) {
+                    fireworks.splice(i, 1);
+                    i--; // 配列のインデックスを調整
+                }
+            }
+        }
+
+        // クリックイベント
+        canvas.addEventListener('click', (e) => {
+            const startX = canvas.width / 2;
+            const startY = canvas.height;
+            const targetX = e.clientX;
+            const targetY = e.clientY;
+            createFirework(startX, startY, targetX, targetY);
+        });
+
+        // カラーコードをRGBに変換
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        animate();
+    </script>
+</body>
+</html>

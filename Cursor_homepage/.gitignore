@@ -1,0 +1,22 @@
+# 認証情報
+secrets.txt
+tokens.md
+.env
+*.token
+github_token.txt
+
+# システムファイル
+.DS_Store
+Thumbs.db
+
+# エディタ設定
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 依存関係
+node_modules/
+venv/
+__pycache__/
+*.pyc 

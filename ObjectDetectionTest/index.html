@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorFlow.js 物体認識</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+        #cameraSelect {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>TensorFlow.js 物体認識</h1>
+    <select id="cameraSelect" style="display: none;"></select>
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const cameraSelect = document.getElementById('cameraSelect');
+
+        // 利用可能なカメラの一覧を取得し、選択肢を作成
+        function setupCameraSelection() {
+            navigator.mediaDevices.enumerateDevices()
+                .then(devices => {
+                    const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                    if (videoDevices.length > 1) {
+                        cameraSelect.style.display = 'block';
+                        videoDevices.forEach((device, index) => {
+                            const option = document.createElement('option');
+                            option.value = device.deviceId;
+                            option.text = `カメラ ${index + 1}`;
+                            cameraSelect.appendChild(option);
+                        });
+                        cameraSelect.onchange = startCamera;
+                    }
+                });
+        }
+
+        // カメラを起動する関数
+        function startCamera() {
+            const constraints = {
+                video: {
+                    facingMode: { ideal: "environment" }
+                }
+            };
+
+            if (cameraSelect.value) {
+                constraints.video.deviceId = { exact: cameraSelect.value };
+            }
+
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        startObjectDetection();
+                    };
+                })
+                .catch(err => {
+                    console.error('カメラの起動に失敗しました:', err);
+                });
+        }
+
+        // 物体認識を開始する関数
+        function startObjectDetection() {
+            cocoSsd.load().then(model => {
+                setInterval(() => {
+                    model.detect(video).then(predictions => {
+                        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                        ctx.drawImage(video, 0, 0, ctx.canvas.width, ctx.canvas.height);
+
+                        predictions.forEach(prediction => {
+                            const [x, y, width, height] = prediction.bbox;
+                            ctx.strokeStyle = '#00FFFF';
+                            ctx.lineWidth = 4;
+                            ctx.strokeRect(x, y, width, height);
+
+                            ctx.fillStyle = '#00FFFF';
+                            ctx.font = '18px Arial';
+                            ctx.fillText(`${prediction.class} (${Math.round(prediction.score * 100)}%)`, x, y > 10 ? y - 5 : 10);
+                        });
+                    });
+                }, 100);
+            });
+        }
+
+        // カメラ選択のセットアップと初期カメラの起動
+        setupCameraSelection();
+        startCamera();
+    </script>
+</body>
+</html>

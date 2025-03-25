@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android 気圧情報</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        #pressure {
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Android 気圧情報</h1>
+    <div id="pressure">気圧情報を読み込んでいます...</div>
+
+    <script>
+        // OpenWeatherMapのAPIキーを入力
+        const apiKey = 'YOUR_API_KEY';  // OpenWeatherMap APIキーを入れてください
+        const city = 'Tokyo';  // 取得したい都市名
+
+        const pressureElement = document.getElementById('pressure');
+
+        // OpenWeatherMapのAPIを使って気圧情報を取得
+        function getWeatherData() {
+            fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`)
+                .then(response => response.json())
+                .then(data => {
+                    const pressure = data.main.pressure; // 気圧情報
+                    pressureElement.textContent = `気圧: ${pressure} hPa`;
+                })
+                .catch(error => {
+                    pressureElement.textContent = '気圧情報の取得に失敗しました。';
+                });
+        }
+
+        // ページ読み込み時に気象データを取得
+        getWeatherData();
+    </script>
+</body>
+</html>

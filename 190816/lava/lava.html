@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ラバランプシミュレーション</title>
+  <style>
+    :root {
+      --lamp-color: #000080;
+      --blob-color1: #ff00ff;
+      --blob-color2: #ff0088;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #111;
+      overflow: hidden;
+    }
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .lava-lamp {
+      position: relative;
+      width: 200px;
+      height: 400px;
+      background-color: #000;
+      border-radius: 100px 100px 50px 50px;
+      box-shadow: 0 0 20px rgba(var(--lamp-color), 0.3);
+      overflow: hidden;
+    }
+    .base, .cap {
+      position: absolute;
+      width: 100%;
+      background-color: #444;
+    }
+    .base {
+      bottom: 0;
+      height: 30px;
+      border-radius: 0 0 50px 50px;
+    }
+    .cap {
+      top: 0;
+      height: 20px;
+      border-radius: 100px 100px 0 0;
+    }
+    .liquid {
+      position: absolute;
+      bottom: 30px;
+      width: 100%;
+      height: 350px;
+      background-color: rgba(var(--lamp-color), 0.2);
+    }
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, var(--blob-color1), var(--blob-color2));
+      filter: blur(5px);
+      opacity: 0.8;
+      animation: float 8s infinite ease-in-out;
+    }
+    .light {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at center, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+      animation: glow 4s infinite alternate;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) translateX(0) scale(1) rotate(0deg); }
+      25% { transform: translateY(-30px) translateX(20px) scale(1.1) rotate(90deg); }
+      50% { transform: translateY(-60px) translateX(-10px) scale(0.9) rotate(180deg); }
+      75% { transform: translateY(-100px) translateX(15px) scale(1.2) rotate(270deg); }
+    }
+    @keyframes glow {
+      0% { opacity: 0.5; }
+      100% { opacity: 0.8; }
+    }
+    @media (max-width: 600px) {
+      .lava-lamp {
+        width: 150px;
+        height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <label for="lamp-color">ランプの色:</label>
+    <input type="color" id="lamp-color" value="#000080">
+    <label for="blob-color1">ブロブの色1:</label>
+    <input type="color" id="blob-color1" value="#ff00ff">
+    <label for="blob-color2">ブロブの色2:</label>
+    <input type="color" id="blob-color2" value="#ff0088">
+  </div>
+  <div class="lava-lamp">
+    <div class="cap"></div>
+    <div class="liquid"></div>
+    <div class="light"></div>
+    <div class="base"></div>
+  </div>
+  
+  <script>
+    const lamp = document.querySelector('.liquid');
+    const root = document.documentElement;
+    const lampColor = document.getElementById('lamp-color');
+    const blobColor1 = document.getElementById('blob-color1');
+    const blobColor2 = document.getElementById('blob-color2');
+
+    function updateColors() {
+      root.style.setProperty('--lamp-color', lampColor.value);
+      root.style.setProperty('--blob-color1', blobColor1.value);
+      root.style.setProperty('--blob-color2', blobColor2.value);
+    }
+
+    lampColor.addEventListener('input', updateColors);
+    blobColor1.addEventListener('input', updateColors);
+    blobColor2.addEventListener('input', updateColors);
+
+    function createBlob() {
+      const blob = document.createElement('div');
+      blob.className = 'blob';
+      
+      const size = Math.random() * 60 + 40;
+      blob.style.width = `${size}px`;
+      blob.style.height = `${size}px`;
+      
+      const x = Math.random() * 120 + 20;
+      const y = Math.random() * 200 + 100;
+      blob.style.left = `${x}px`;
+      blob.style.bottom = `${y}px`;
+      
+      blob.style.animationDelay = `${Math.random() * 5}s`;
+      blob.style.animationDirection = Math.random() > 0.5 ? 'alternate' : 'alternate-reverse';
+      
+      const duration = Math.random() * 10 + 5;
+      blob.style.animationDuration = `${duration}s`;
+      
+      // ブロブの形状をランダムに変更
+      const borderRadius = `${50 + Math.random() * 20}% ${50 + Math.random() * 20}% ${50 + Math.random() * 20}% ${50 + Math.random() * 20}%`;
+      blob.style.borderRadius = borderRadius;
+      
+      lamp.appendChild(blob);
+      
+      setTimeout(() => {
+        lamp.removeChild(blob);
+        createBlob();
+      }, duration * 1000 * 2);
+    }
+    
+    function createBlobs(count) {
+      for (let i = 0; i < count; i++) {
+        createBlob();
+      }
+    }
+    
+    createBlobs(7);
+    
+    setInterval(() => {
+      if (document.querySelectorAll('.blob').length < 10) {
+        createBlob();
+      }
+    }, 3000);
+  </script>
+</body>
+</html>

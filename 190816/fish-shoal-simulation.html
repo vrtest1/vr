@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>魚の群れシミュレーション</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #001a33;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    let fishes = [];
+    const FISH_COUNT = 300;
+    let fishImg;
+    let time = 0;
+    
+    function preload() {
+      // 魚の画像を事前に読み込む
+      fishImg = createImg('/api/placeholder/32/16', 'fish');
+      fishImg.hide();
+    }
+    
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+      
+      // 300匹の魚を初期化
+      for (let i = 0; i < FISH_COUNT; i++) {
+        fishes.push(new Fish());
+      }
+    }
+    
+    function draw() {
+      // 時間の経過をシミュレート
+      time += 0.01;
+      
+      // 水中の背景
+      background(0, 10, 25, 255);
+      
+      // 水中の光のエフェクト
+      drawWaterLight();
+      
+      // 魚を更新して描画
+      for (let fish of fishes) {
+        fish.update();
+        fish.draw();
+      }
+    }
+    
+    function drawWaterLight() {
+      // 水面からの光のエフェクト
+      let lightY = 0;
+      let lightWidth = width;
+      let lightHeight = height * 0.5;
+      
+      // グラデーションで光を表現
+      for (let i = 0; i < 5; i++) {
+        let alpha = map(i, 0, 4, 40, 0);
+        fill(180, 200, 220, alpha);
+        noStroke();
+        ellipse(width/2, lightY, lightWidth - i*50, lightHeight - i*50);
+      }
+      
+      // 光の粒子
+      for (let i = 0; i < 30; i++) {
+        let x = random(width);
+        let y = random(height/2);
+        let size = random(1, 3);
+        let alpha = random(30, 100);
+        
+        fill(255, 255, 255, alpha);
+        ellipse(x, y, size, size);
+      }
+    }
+    
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+    
+    class Fish {
+      constructor() {
+        // 魚の初期位置をランダムに設定
+        this.position = createVector(random(width), random(height));
+        
+        // 速度をランダムに初期化（より遅く）
+        this.velocity = p5.Vector.random2D();
+        this.velocity.mult(random(0.5, 1.5));
+        
+        // 最大速度（より遅く）
+        this.maxSpeed = random(0.8, 1.8);
+        // 最大操舵力（より小さく）
+        this.maxForce = 0.05;
+        
+        // 魚のサイズをランダムに
+        this.size = random(10, 25);
+        
+        // 銀色の色調設定
+        this.brightness = random(70, 90);
+        this.alpha = random(200, 255);
+        
+        // 色の変化のためのオフセット
+        this.colorOffset = random(0, 10);
+        
+        // キラキラポイントの数
+        this.glitterCount = floor(random(3, 6));
+        this.glitters = [];
+        
+        // キラキラポイントを初期化
+        for (let i = 0; i < this.glitterCount; i++) {
+          this.glitters.push({
+            x: random(-this.size/3, this.size/3),
+            y: random(-this.size/2, this.size/2),
+            size: random(0.8, 2),
+            offset: random(0, TWO_PI)
+          });
+        }
+      }
+      
+      update() {
+        // 群れの行動ルールを適用
+        let separation = this.separate();
+        let alignment = this.align();
+        let cohesion = this.cohesion();
+        let avoidWalls = this.avoidWalls();
+        
+        // 各力に重みを与える
+        separation.mult(1.5);
+        alignment.mult(1.0);
+        cohesion.mult(0.8);
+        avoidWalls.mult(2.0);
+        
+        // 力を加える
+        this.applyForce(separation);
+        this.applyForce(alignment);
+        this.applyForce(cohesion);
+        this.applyForce(avoidWalls);
+        
+        // 位置を更新（より遅く）
+        this.velocity.mult(0.99);
+        this.position.add(this.velocity);
+        
+        // 速度制限
+        if (this.velocity.mag() > this.maxSpeed) {
+          this.velocity.setMag(this.maxSpeed);
+        }
+      }
+      
+      applyForce(force) {
+        this.velocity.add(force);
+      }
+      
+      // 他の魚との間隔を保つ
+      separate() {
+        let desiredSeparation = 25;
+        let steer = createVector(0, 0);
+        let count = 0;
+        
+        for (let other of fishes) {
+          let d = p5.Vector.dist(this.position, other.position);
+          
+          if (d > 0 && d < desiredSeparation) {
+            let diff = p5.Vector.sub(this.position, other.position);
+            diff.normalize();
+            diff.div(d);
+            steer.add(diff);
+            count++;
+          }
+        }
+        
+        if (count > 0) {
+          steer.div(count);
+        }
+        
+        if (steer.mag() > 0) {
+          steer.normalize();
+          steer.mult(this.maxSpeed);
+          steer.sub(this.velocity);
+          steer.limit(this.maxForce);
+        }
+        
+        return steer;
+      }
+      
+      // 他の魚と同じ方向に泳ぐ傾向
+      align() {
+        let neighborDist = 50;
+        let sum = createVector(0, 0);
+        let count = 0;
+        
+        for (let other of fishes) {
+          let d = p5.Vector.dist(this.position, other.position);
+          
+          if (d > 0 && d < neighborDist) {
+            sum.add(other.velocity);
+            count++;
+          }
+        }
+        
+        if (count > 0) {
+          sum.div(count);
+          sum.normalize();
+          sum.mult(this.maxSpeed);
+          
+          let steer = p5.Vector.sub(sum, this.velocity);
+          steer.limit(this.maxForce);
+          return steer;
+        } else {
+          return createVector(0, 0);
+        }
+      }
+      
+      // 群れの中心に向かう傾向
+      cohesion() {
+        let neighborDist = 50;
+        let sum = createVector(0, 0);
+        let count = 0;
+        
+        for (let other of fishes) {
+          let d = p5.Vector.dist(this.position, other.position);
+          
+          if (d > 0 && d < neighborDist) {
+            sum.add(other.position);
+            count++;
+          }
+        }
+        
+        if (count > 0) {
+          sum.div(count);
+          return this.seek(sum);
+        } else {
+          return createVector(0, 0);
+        }
+      }
+      
+      // 壁を避ける
+      avoidWalls() {
+        let desired = null;
+        let margin = 30;
+        
+        if (this.position.x < margin) {
+          desired = createVector(this.maxSpeed, this.velocity.y);
+        } else if (this.position.x > width - margin) {
+          desired = createVector(-this.maxSpeed, this.velocity.y);
+        }
+        
+        if (this.position.y < margin) {
+          desired = desired || createVector(this.velocity.x, this.maxSpeed);
+        } else if (this.position.y > height - margin) {
+          desired = desired || createVector(this.velocity.x, -this.maxSpeed);
+        }
+        
+        if (desired) {
+          desired.normalize();
+          desired.mult(this.maxSpeed);
+          let steer = p5.Vector.sub(desired, this.velocity);
+          steer.limit(this.maxForce);
+          return steer;
+        } else {
+          return createVector(0, 0);
+        }
+      }
+      
+      seek(target) {
+        let desired = p5.Vector.sub(target, this.position);
+        desired.normalize();
+        desired.mult(this.maxSpeed);
+        
+        let steer = p5.Vector.sub(desired, this.velocity);
+        steer.limit(this.maxForce);
+        return steer;
+      }
+      
+      draw() {
+        // 魚の向きを計算
+        let theta = this.velocity.heading() + PI/2;
+        
+        push();
+        translate(this.position.x, this.position.y);
+        rotate(theta);
+        
+        // 魚の視点の角度を計算（動きに応じて色が変わる効果）
+        let viewAngle = (this.velocity.heading() / PI) * 180;
+        
+        // iridescence効果のための光沢度を計算
+        let shimmerAmount = map(sin(time + this.colorOffset + viewAngle * 0.01), -1, 1, 0.7, 1.3);
+        
+        // 魚の体を描画（白と灰色のベース）
+        colorMode(RGB, 255, 255, 255, 255);
+        
+        // 魚の体をグラデーションで描画
+        for (let i = 0; i < 3; i++) {
+          // 銀色の基本色（やや青みがかった銀）
+          let grayValue = map(i, 0, 2, 220, 180) * shimmerAmount;
+          let blueShift = map(i, 0, 2, 30, 0) * shimmerAmount;
+          
+          // iridescenceのための微妙な色調変化
+          let r = constrain(grayValue - 20 * shimmerAmount, 0, 255);
+          let g = constrain(grayValue, 0, 255);
+          let b = constrain(grayValue + blueShift, 0, 255);
+          
+          let bodyAlpha = map(i, 0, 2, this.alpha, this.alpha * 0.7);
+          fill(r, g, b, bodyAlpha);
+          
+          // 少しずつ小さくなる魚の体を重ねる
+          let sizeFactor = map(i, 0, 2, 1, 0.9);
+          let size = this.size * sizeFactor;
+          
+          beginShape();
+          vertex(0, -size/2);
+          vertex(-size/4, 0);
+          vertex(-size/4, size/4);
+          vertex(0, size/2);
+          vertex(size/4, size/4);
+          vertex(size/4, 0);
+          endShape(CLOSE);
+        }
+        
+        // 尾びれ（やや暗めの銀色）
+        let tailGray = 180 * shimmerAmount;
+        fill(tailGray * 0.9, tailGray, tailGray * 1.1, this.alpha * 0.8);
+        triangle(0, this.size/2, -this.size/3, this.size, this.size/3, this.size);
+        
+        // iridescenceの輝き効果（レインボー効果を微妙に）
+        for (let glitter of this.glitters) {
+          // 時間に基づいて明るさを変化させる（キラキラ効果）
+          let glitterIntensity = map(sin(time * 3 + glitter.offset), -1, 1, 0.3, 1);
+          
+          // 虹色効果の計算（RGBで微妙な色の違いを出す）
+          let hueOffset = (time * 2 + glitter.offset) % TWO_PI;
+          let r = 200 + 55 * sin(hueOffset);
+          let g = 200 + 55 * sin(hueOffset + TWO_PI/3);
+          let b = 200 + 55 * sin(hueOffset + 2*TWO_PI/3);
+          
+          // キラキラポイントを描画
+          blendMode(ADD);
+          fill(r * glitterIntensity, g * glitterIntensity, b * glitterIntensity, 100);
+          ellipse(glitter.x, glitter.y, glitter.size * 1.5);
+          
+          // 白い光の中心
+          fill(255, 255, 255, 150 * glitterIntensity);
+          ellipse(glitter.x, glitter.y, glitter.size * 0.7);
+          blendMode(BLEND);
+        }
+        
+        // 側面の光沢（視点角度によって変化）
+        let sideShine = map(sin(viewAngle * 0.03 + time), -1, 1, 0.6, 1);
+        blendMode(SCREEN);
+        fill(255, 255, 255, 60 * sideShine);
+        beginShape();
+        vertex(0, -this.size/3);
+        vertex(this.size/5, 0);
+        vertex(0, this.size/3);
+        endShape(CLOSE);
+        
+        // 光の反射（メインの白い部分）
+        fill(255, 255, 255, 80);
+        ellipse(-this.size/10, -this.size/6, this.size/4, this.size/8);
+        blendMode(BLEND);
+        
+        pop();
+      }
+    }
+  </script>
+</body>
+</html>
