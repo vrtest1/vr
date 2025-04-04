@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nintendo Style Page</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            overflow-x: auto;
+            overflow-y: auto;
+        }
+
+        .background-container {
+            width: 1407px; /* 背景画像の実際の幅 */
+            height: 1118px; /* 背景画像の実際の高さ */
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .background-image {
+            width: 100%;
+            height: 100%;
+            background-image: url('BG.png');
+            background-size: 1407px 1118px; /* 背景画像の実際のサイズ */
+            background-repeat: no-repeat;
+            background-position: center;
+            position: relative;
+        }
+
+        .cart-button {
+            position: absolute;
+            /* ラジオボタンの左端に合わせて配置 */
+            right: 13%;
+            top: 82%;
+            width: 240px; /* 200px * 1.2 */
+            height: 54px; /* 45px * 1.2 */
+            background-image: url('button1.jpg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            transition: background-image 0.3s ease;
+        }
+
+        .cart-button:hover {
+            background-image: url('button2.jpg');
+        }
+
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .popup-content {
+            width: 80%;
+            max-width: 600px;
+            height: auto;
+            background-image: url('popup.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            aspect-ratio: 16/9;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-container">
+        <div class="background-image">
+            <button class="cart-button"></button>
+        </div>
+    </div>
+
+    <div class="popup-overlay" id="popup">
+        <div class="popup-content" onclick="closePopup()">
+            <button class="close-button" onclick="event.stopPropagation()">×</button>
+        </div>
+    </div>
+
+    <script>
+        const popup = document.getElementById('popup');
+        const cartButton = document.querySelector('.cart-button');
+
+        cartButton.addEventListener('click', () => {
+            popup.style.display = 'flex';
+        });
+
+        function closePopup() {
+            popup.style.display = 'none';
+        }
+    </script>
+</body>
+</html> 
