@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カメラ色抽出アプリ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin-bottom: 20px;
+        }
+        #video {
+            width: 100%;
+            background-color: #000;
+            display: block;
+        }
+        #colorDisplay {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #333;
+            margin-bottom: 10px;
+        }
+        #colorInfo {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            white-space: pre-line;
+            text-align: center;
+        }
+        #status {
+            color: #666;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .error {
+            color: #ff0000;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ff0000;
+            border-radius: 5px;
+            background-color: #fff;
+            display: none;
+        }
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50px;
+            height: 50px;
+            border: 2px solid #fff;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
+        }
+        .settings {
+            margin: 10px 0;
+            padding: 10px;
+            background: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .settings label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>カメラ色抽出アプリ</h1>
+    <div class="settings">
+        <label>
+            <input type="checkbox" id="detailedColors">
+            詳細な色名を表示
+        </label>
+    </div>
+    <div id="status">カメラの起動を待っています...</div>
+    <div id="error" class="error"></div>
+    <div class="video-container">
+        <video id="video" autoplay playsinline></video>
+        <div class="crosshair"></div>
+    </div>
+    <div id="colorDisplay"></div>
+    <div id="colorInfo"></div>
+    <script>
+    // 基本的な色名データ（RGBの配列と色名）
+    const basicColors = [
+        { r: 255, g: 0, b: 0, name: '赤' },    // 赤
+        { r: 0, g: 255, b: 0, name: '緑' },    // 緑
+        { r: 0, g: 0, b: 255, name: '青' },    // 青
+        { r: 255, g: 255, b: 0, name: '黄' },  // 黄
+        { r: 255, g: 255, b: 255, name: '白' }, // 白
+        { r: 0, g: 0, b: 0, name: '黒' }       // 黒
+    ];
+
+    // 詳細な色名データ
+    const detailedColors = {
+        '#000000': '黒',
+        '#FFFFFF': '白',
+        '#FF0000': '赤',
+        '#00FF00': '緑',
+        '#0000FF': '青',
+        '#FFFF00': '黄',
+        '#FF00FF': 'マゼンタ',
+        '#00FFFF': 'シアン',
+        '#808080': 'グレー',
+        '#800000': 'マルーン',
+        '#808000': 'オリーブ',
+        '#008000': '深緑',
+        '#800080': '紫',
+        '#008080': 'ティール',
+        '#000080': 'ネイビー'
+    };
+
+    var ntc = {
+        name: function(color) {
+            const useDetailedColors = document.getElementById('detailedColors').checked;
+            
+            // 入力された色をRGB値に変換
+            let match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (!match) return ['', '不明'];
+            
+            let r = parseInt(match[1]);
+            let g = parseInt(match[2]);
+            let b = parseInt(match[3]);
+
+            if (useDetailedColors) {
+                // 詳細モードの場合は従来の処理
+                let minDistance = Infinity;
+                let closestColor = '不明';
+                
+                for (let hex in detailedColors) {
+                    let r2 = parseInt(hex.substr(1,2), 16);
+                    let g2 = parseInt(hex.substr(3,2), 16);
+                    let b2 = parseInt(hex.substr(5,2), 16);
+                    
+                    let distance = Math.sqrt(
+                        Math.pow(r - r2, 2) +
+                        Math.pow(g - g2, 2) +
+                        Math.pow(b - b2, 2)
+                    );
+                    
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestColor = detailedColors[hex];
+                    }
+                }
+                return ['', closestColor];
+            } else {
+                // 基本色モードの場合の新しい判定ロジック
+                const brightness = (r + g + b) / 3;
+                
+                // 白と黒の判定（より厳しい閾値）
+                if (brightness > 240) return ['', '白'];
+                if (brightness < 30) return ['', '黒'];
+
+                // 色相による判定
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const diff = max - min;
+                
+                // 彩度が低い場合（グレーに近い色）は、より強い色の要素で判定
+                if (diff < 30) {
+                    const maxColor = Math.max(r, g, b);
+                    if (maxColor === r) return ['', '赤'];
+                    if (maxColor === g) return ['', '緑'];
+                    if (maxColor === b) return ['', '青'];
+                }
+
+                // 各色の強さを計算
+                const redStrength = r - ((g + b) / 2);
+                const greenStrength = g - ((r + b) / 2);
+                const blueStrength = b - ((r + g) / 2);
+                const yellowStrength = Math.min(r, g) - b;
+
+                // 最も強い色を選択
+                const strengths = [
+                    { value: redStrength, name: '赤' },
+                    { value: greenStrength, name: '緑' },
+                    { value: blueStrength, name: '青' },
+                    { value: yellowStrength, name: '黄' }
+                ];
+
+                const strongest = strengths.reduce((prev, current) => 
+                    (current.value > prev.value) ? current : prev
+                );
+
+                return ['', strongest.name];
+            }
+        }
+    };
+
+    // チェックボックスの状態が変更されたときに色名を更新
+    document.getElementById('detailedColors').addEventListener('change', function() {
+        const colorDisplay = document.getElementById('colorDisplay');
+        if (colorDisplay.style.backgroundColor) {
+            const color = colorDisplay.style.backgroundColor;
+            const colorInfo = document.getElementById('colorInfo');
+            const colorName = ntc.name(color)[1];
+            const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (match) {
+                const [r, g, b] = [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
+                const [h, s, l] = rgbToHsl(r, g, b);
+                colorInfo.innerHTML = `
+                    色名: ${colorName}<br>
+                    RGB: (${r}, ${g}, ${b})<br>
+                    HSL: (${Math.round(h)}°, ${Math.round(s*100)}%, ${Math.round(l*100)}%)
+                `;
+            }
+        }
+    });
+    </script>
+    <script src="main.js"></script>
+</body>
+</html> 
