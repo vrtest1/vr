@@ -160,45 +160,63 @@
                 }
                 return ['', closestColor];
             } else {
-                // 基本色モードの場合の新しい判定ロジック
+                // 基本色モードの新しい判定ロジック
                 const brightness = (r + g + b) / 3;
+                const maxVal = Math.max(r, g, b);
+                const minVal = Math.min(r, g, b);
+                const colorDiff = maxVal - minVal;
                 
-                // 白と黒の判定（より厳しい閾値）
-                if (brightness > 240) return ['', '白'];
-                if (brightness < 30) return ['', '黒'];
-
-                // 色相による判定
-                const max = Math.max(r, g, b);
-                const min = Math.min(r, g, b);
-                const diff = max - min;
-                
-                // 彩度が低い場合（グレーに近い色）は、より強い色の要素で判定
-                if (diff < 30) {
-                    const maxColor = Math.max(r, g, b);
-                    if (maxColor === r) return ['', '赤'];
-                    if (maxColor === g) return ['', '緑'];
-                    if (maxColor === b) return ['', '青'];
+                // 白の判定を強化
+                if (brightness > 220 && colorDiff < 20) {
+                    return ['', '白'];
                 }
 
-                // 各色の強さを計算
-                const redStrength = r - ((g + b) / 2);
-                const greenStrength = g - ((r + b) / 2);
-                const blueStrength = b - ((r + g) / 2);
-                const yellowStrength = Math.min(r, g) - b;
+                // 黒の判定
+                if (brightness < 30) {
+                    return ['', '黒'];
+                }
 
-                // 最も強い色を選択
-                const strengths = [
-                    { value: redStrength, name: '赤' },
-                    { value: greenStrength, name: '緑' },
-                    { value: blueStrength, name: '青' },
-                    { value: yellowStrength, name: '黄' }
-                ];
+                // 彩度（色の鮮やかさ）を計算
+                const saturation = maxVal === 0 ? 0 : (colorDiff / maxVal) * 100;
 
-                const strongest = strengths.reduce((prev, current) => 
-                    (current.value > prev.value) ? current : prev
-                );
+                // 彩度が低い場合（グレーに近い色）
+                if (saturation < 15) {
+                    if (brightness > 180) return ['', '白'];
+                    if (brightness < 50) return ['', '黒'];
+                    return ['', '白']; // グレーは白として扱う
+                }
 
-                return ['', strongest.name];
+                // 色相による判定（彩度が十分にある場合のみ）
+                if (saturation > 15) {
+                    // 各色の強さを計算（より厳密な計算方法）
+                    const redStrength = r - Math.max(g, b);
+                    const greenStrength = g - Math.max(r, b);
+                    const blueStrength = b - Math.max(r, g);
+                    const yellowStrength = (Math.min(r, g) - b) * 0.8; // 黄色の判定を少し控えめに
+
+                    // 最も強い色を選択（閾値を設定）
+                    const strengths = [
+                        { value: redStrength, name: '赤', threshold: 20 },
+                        { value: greenStrength, name: '緑', threshold: 20 },
+                        { value: blueStrength, name: '青', threshold: 20 },
+                        { value: yellowStrength, name: '黄', threshold: 25 }
+                    ];
+
+                    // 閾値を超える最も強い色を選択
+                    const validStrengths = strengths.filter(s => s.value > s.threshold);
+                    if (validStrengths.length > 0) {
+                        const strongest = validStrengths.reduce((prev, current) => 
+                            (current.value > prev.value) ? current : prev
+                        );
+                        return ['', strongest.name];
+                    }
+
+                    // どの色も閾値を超えない場合は白として扱う
+                    return ['', '白'];
+                }
+
+                // 判定できない場合は白として扱う
+                return ['', '白'];
             }
         }
     };
