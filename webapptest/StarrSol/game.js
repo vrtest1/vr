@@ -338,6 +338,8 @@ class Game {
 
         // 建物の初期配置
         this.initializeBuildings();
+
+        this.touchOffset = 100; // タップ位置から上方向へのオフセット
     }
     
     initializeAudio() {
@@ -389,8 +391,19 @@ class Game {
             }
         });
         
-        this.canvas.addEventListener('touchend', () => {
+        this.canvas.addEventListener('touchend', (e) => {
             if (this.isGameStarted) {
+                e.preventDefault();
+                // タッチ位置をnullに設定する前に、最後の位置を保持
+                const lastTouchX = this.touchX;
+                const lastTouchY = this.touchY - this.touchOffset;
+                
+                // 現在位置が画面内なら、その位置で停止
+                if (lastTouchY >= 0 && lastTouchY <= this.canvas.height - this.player.height) {
+                    this.player.x = lastTouchX;
+                    this.player.y = lastTouchY;
+                }
+                
                 this.touchX = null;
                 this.touchY = null;
             }
@@ -502,19 +515,22 @@ class Game {
             
             // タッチ操作による移動
             if (this.touchX !== null && this.touchY !== null) {
+                const targetY = this.touchY - this.touchOffset; // タッチ位置より上に目標位置を設定
                 const dx = this.touchX - this.player.x;
-                const dy = this.touchY - this.player.y;
+                const dy = targetY - this.player.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 
                 if (distance > 0) {
-                    this.player.x += (dx / distance) * this.player.speed;
-                    this.player.y += (dy / distance) * this.player.speed;
+                    // より滑らかな移動のために移動速度を調整
+                    const speed = Math.min(this.player.speed, distance);
+                    this.player.x += (dx / distance) * speed;
+                    this.player.y += (dy / distance) * speed;
                 }
             }
             
-            // 画面外に出ないように制限
+            // 画面外に出ないように制限（上下の制限を調整）
             this.player.x = Math.max(0, Math.min(this.canvas.width - this.player.width, this.player.x));
-            this.player.y = Math.max(0, Math.min(this.canvas.height - this.player.height, this.player.y));
+            this.player.y = Math.max(0, Math.min(this.canvas.height - this.touchOffset, this.player.y));
             
             // 編隊の生成
             const currentTime = Date.now();
