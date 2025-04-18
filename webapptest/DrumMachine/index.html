@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>Web Drum Machine</title>
 
   <!-- Tailwind (CDN for quick demo) -->
@@ -20,6 +22,9 @@
       width: 800px;
       height: 600px;
       position: relative;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
     @media (max-width: 840px) {
       .drum-container {
@@ -27,9 +32,13 @@
         height: 71.25vw;
       }
     }
+    /* タッチデバイスでのタップ時の青いハイライトを防止 */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
   </style>
 </head>
-<body class="bg-neutral-900 flex items-center justify-center min-h-screen p-4">
+<body class="bg-neutral-900 flex items-center justify-center min-h-screen p-4 overscroll-none">
   <div id="root"></div>
 
   <!-- Drum Machine -->
@@ -46,12 +55,19 @@
     ];
 
     function DrumPad({ pad, active, onTrigger }) {
+      const handleInteraction = React.useCallback((e) => {
+        e.preventDefault();
+        onTrigger(pad);
+      }, [pad, onTrigger]);
+
       return (
         <button
-          onClick={() => onTrigger(pad)}
+          onClick={handleInteraction}
+          onTouchStart={handleInteraction}
           className={`${pad.size} absolute select-none rounded-full flex items-center justify-center text-white font-bold shadow-lg 
             ${active ? 'bg-neutral-600/90 scale-95' : 'bg-neutral-700/90 scale-100'} 
-            hover:bg-neutral-600/90 hover:shadow-2xl transition-all duration-100`}
+            hover:bg-neutral-600/90 hover:shadow-2xl transition-all duration-100
+            active:bg-neutral-600/90 active:scale-95`}
           style={{ 
             left: pad.x, 
             top: pad.y, 
@@ -69,9 +85,33 @@
     function DrumMachine() {
       const [activePad, setActivePad] = React.useState(null);
       const audioCache = React.useRef({});
+      const [isAudioLoaded, setIsAudioLoaded] = React.useState(false);
 
       React.useEffect(() => {
-        PADS.forEach(p => { audioCache.current[p.id] = new Audio(p.src); });
+        // 音声ファイルの事前ロード
+        let loadedCount = 0;
+        PADS.forEach(p => {
+          const audio = new Audio(p.src);
+          audio.addEventListener('canplaythrough', () => {
+            loadedCount++;
+            if (loadedCount === PADS.length) {
+              setIsAudioLoaded(true);
+            }
+          });
+          audioCache.current[p.id] = audio;
+        });
+
+        // iOSでの音声再生を有効化
+        function enableAudio() {
+          const silentAudio = new Audio();
+          silentAudio.play().catch(() => {});
+          document.removeEventListener('touchstart', enableAudio);
+        }
+        document.addEventListener('touchstart', enableAudio);
+
+        return () => {
+          document.removeEventListener('touchstart', enableAudio);
+        };
       }, []);
 
       React.useEffect(() => {
@@ -85,9 +125,20 @@
 
       function triggerPad(pad) {
         const snd = audioCache.current[pad.id];
-        if (snd) { snd.currentTime = 0; snd.play(); }
+        if (snd) { 
+          snd.currentTime = 0;
+          snd.play().catch(err => console.log('Audio playback error:', err));
+        }
         setActivePad(pad.id);
         setTimeout(() => setActivePad(null), 100);
+      }
+
+      if (!isAudioLoaded) {
+        return (
+          <div className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl p-4 flex items-center justify-center">
+            <div className="text-white text-lg">Loading sounds...</div>
+          </div>
+        );
       }
 
       return (
@@ -96,7 +147,7 @@
             <DrumPad key={p.id} pad={p} active={activePad === p.id} onTrigger={triggerPad}/>
           ))}
           <footer className="absolute bottom-2 right-4 text-neutral-400 text-xs select-none">
-            Click or press keys to play
+            Tap or press keys to play
           </footer>
         </div>
       );
