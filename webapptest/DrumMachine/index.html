@@ -60,6 +60,42 @@
 <body class="bg-neutral-900 flex items-center justify-center min-h-screen p-4 overscroll-none">
   <div id="root"></div>
 
+  <!-- Audio Context Initialization -->
+  <script>
+    // AudioContextの初期化を事前に行う
+    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+    const gainNode = audioCtx.createGain();
+    gainNode.connect(audioCtx.destination);
+
+    // 音声バッファのキャッシュ
+    const audioBuffers = new Map();
+
+    // 音声ファイルをロードして AudioBuffer として保存
+    async function loadAudio(url) {
+      if (audioBuffers.has(url)) {
+        return audioBuffers.get(url);
+      }
+
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      audioBuffers.set(url, audioBuffer);
+      return audioBuffer;
+    }
+
+    // 音を再生する関数
+    function playSound(buffer) {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(gainNode);
+      source.start(0);
+    }
+  </script>
+
   <!-- Drum Machine -->
   <script type="text/babel" data-presets="env,react">
     const PADS = [
@@ -73,7 +109,7 @@
       { id:'ride', label:'Ride', key:'K', src:'samples/ride.wav',  x:'70%', y:'30%', size:'pad-medium w-32 h-32'},
     ];
 
-    function DrumPad({ pad, active, onTrigger }) {
+    const DrumPad = React.memo(({ pad, active, onTrigger }) => {
       const handleInteraction = React.useCallback((e) => {
         e.preventDefault();
         onTrigger(pad);
@@ -99,84 +135,50 @@
           </span>
         </button>
       );
-    }
+    });
 
     function DrumMachine() {
       const [activePad, setActivePad] = React.useState(null);
-      const audioCache = React.useRef({});
       const [ready, setReady] = React.useState(false);
+      const soundBuffers = React.useRef({});
 
       React.useEffect(() => {
-        // 音声コンテキストの初期化
-        const initAudio = async () => {
+        // 音声バッファの初期化
+        async function initSounds() {
           try {
-            // 全ての音声を同時にロード
-            const audioPromises = PADS.map(async p => {
-              const audio = new Audio(p.src);
-              audioCache.current[p.id] = audio;
-              // iOS対応のため、一度ロードしてミュートで再生
-              audio.muted = true;
-              await audio.play();
-              audio.pause();
-              audio.currentTime = 0;
-              audio.muted = false;
-            });
-
-            await Promise.all(audioPromises);
+            await Promise.all(
+              PADS.map(async (pad) => {
+                soundBuffers.current[pad.id] = await loadAudio(pad.src);
+              })
+            );
             setReady(true);
           } catch (error) {
-            console.error('Audio initialization error:', error);
-            // エラーが発生しても使用可能にする
-            setReady(true);
+            console.error('Failed to load sounds:', error);
+            setReady(true); // エラーが発生しても使用可能にする
           }
-        };
+        }
 
-        // ユーザーインタラクション後に初期化
-        const handleFirstInteraction = () => {
-          initAudio();
-          document.removeEventListener('touchstart', handleFirstInteraction);
-          document.removeEventListener('click', handleFirstInteraction);
-        };
-
-        document.addEventListener('touchstart', handleFirstInteraction);
-        document.addEventListener('click', handleFirstInteraction);
-
-        // 初期状態でも少し待ってから表示
-        const timeout = setTimeout(() => setReady(true), 1000);
-
-        return () => {
-          document.removeEventListener('touchstart', handleFirstInteraction);
-          document.removeEventListener('click', handleFirstInteraction);
-          clearTimeout(timeout);
-        };
+        initSounds();
       }, []);
 
-      React.useEffect(() => {
-        const handleKey = e => {
-          const pad = PADS.find(p => p.key.toLowerCase() === e.key.toLowerCase());
-          if (pad) triggerPad(pad);
-        };
-        window.addEventListener('keydown', handleKey);
-        return () => window.removeEventListener('keydown', handleKey);
-      }, []);
-
-      function triggerPad(pad) {
-        const snd = audioCache.current[pad.id];
-        if (snd) {
-          // 再生中の音を停止してリセット
-          snd.pause();
-          snd.currentTime = 0;
-          // 新しい音を再生
-          const playPromise = snd.play();
-          if (playPromise) {
-            playPromise.catch(error => {
-              console.log('Playback error:', error);
-            });
-          }
+      const triggerPad = React.useCallback((pad) => {
+        const buffer = soundBuffers.current[pad.id];
+        if (buffer) {
+          playSound(buffer);
         }
         setActivePad(pad.id);
         setTimeout(() => setActivePad(null), 100);
-      }
+      }, []);
+
+      React.useEffect(() => {
+        const handleKey = React.useCallback(e => {
+          const pad = PADS.find(p => p.key.toLowerCase() === e.key.toLowerCase());
+          if (pad) triggerPad(pad);
+        }, [triggerPad]);
+
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+      }, [triggerPad]);
 
       if (!ready) {
         return (
@@ -189,7 +191,12 @@
       return (
         <div className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl p-4">
           {PADS.map(p => (
-            <DrumPad key={p.id} pad={p} active={activePad === p.id} onTrigger={triggerPad}/>
+            <DrumPad 
+              key={p.id} 
+              pad={p} 
+              active={activePad === p.id} 
+              onTrigger={triggerPad}
+            />
           ))}
           <footer className="absolute bottom-2 right-4 text-neutral-400 text-xs select-none">
             タップまたはキーを押して演奏
