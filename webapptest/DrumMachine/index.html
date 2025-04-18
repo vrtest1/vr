@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#171717">
   <title>Web Drum Machine</title>
 
   <!-- Tailwind (CDN for quick demo) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- React 18 & ReactDOM (Production) -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
 
   <!-- Babel 7 standalone -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -32,6 +32,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
     .drum-container {
       width: 100%;
@@ -49,6 +50,7 @@
       .drum-container {
         width: calc(100% - 2rem);
         margin: 1rem;
+        aspect-ratio: 3/4;
       }
       .pad-large { width: 24vw !important; height: 24vw !important; }
       .pad-medium { width: 20vw !important; height: 20vw !important; }
@@ -69,16 +71,6 @@
     * {
       -webkit-tap-highlight-color: transparent;
     }
-
-    /* iOSのセーフエリア対応 */
-    @supports (padding: max(0px)) {
-      .drum-container {
-        padding-left: max(1rem, env(safe-area-inset-left));
-        padding-right: max(1rem, env(safe-area-inset-right));
-        padding-top: max(1rem, env(safe-area-inset-top));
-        padding-bottom: max(1rem, env(safe-area-inset-bottom));
-      }
-    }
   </style>
 </head>
 <body>
@@ -86,37 +78,44 @@
 
   <!-- Audio Context Initialization -->
   <script>
-    // AudioContextの初期化を事前に行う
     window.AudioContext = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioContext();
     const gainNode = audioCtx.createGain();
     gainNode.connect(audioCtx.destination);
 
-    // 音声バッファのキャッシュ
     const audioBuffers = new Map();
 
-    // 音声ファイルをロードして AudioBuffer として保存
     async function loadAudio(url) {
       if (audioBuffers.has(url)) {
         return audioBuffers.get(url);
       }
 
-      const response = await fetch(url);
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      audioBuffers.set(url, audioBuffer);
-      return audioBuffer;
+      try {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        audioBuffers.set(url, audioBuffer);
+        return audioBuffer;
+      } catch (error) {
+        console.error('Error loading audio:', url, error);
+        return null;
+      }
     }
 
-    // 音を再生する関数
     function playSound(buffer) {
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
+      if (!buffer) return;
+      
+      try {
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(gainNode);
+        source.start(0);
+      } catch (error) {
+        console.error('Error playing sound:', error);
       }
-      const source = audioCtx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(gainNode);
-      source.start(0);
     }
   </script>
 
@@ -165,9 +164,12 @@
       const [activePad, setActivePad] = React.useState(null);
       const [ready, setReady] = React.useState(false);
       const soundBuffers = React.useRef({});
+      const isInitialized = React.useRef(false);
 
       React.useEffect(() => {
-        // 音声バッファの初期化
+        if (isInitialized.current) return;
+        isInitialized.current = true;
+
         async function initSounds() {
           try {
             await Promise.all(
@@ -178,11 +180,25 @@
             setReady(true);
           } catch (error) {
             console.error('Failed to load sounds:', error);
-            setReady(true); // エラーが発生しても使用可能にする
+            setReady(true);
           }
         }
 
-        initSounds();
+        const handleFirstInteraction = () => {
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().then(initSounds);
+          } else {
+            initSounds();
+          }
+        };
+
+        window.addEventListener('click', handleFirstInteraction, { once: true });
+        window.addEventListener('touchstart', handleFirstInteraction, { once: true });
+
+        return () => {
+          window.removeEventListener('click', handleFirstInteraction);
+          window.removeEventListener('touchstart', handleFirstInteraction);
+        };
       }, []);
 
       const triggerPad = React.useCallback((pad) => {
@@ -195,10 +211,10 @@
       }, []);
 
       React.useEffect(() => {
-        const handleKey = React.useCallback(e => {
+        const handleKey = (e) => {
           const pad = PADS.find(p => p.key.toLowerCase() === e.key.toLowerCase());
           if (pad) triggerPad(pad);
-        }, [triggerPad]);
+        };
 
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
@@ -229,7 +245,12 @@
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<DrumMachine />);
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(
+      <React.StrictMode>
+        <DrumMachine />
+      </React.StrictMode>
+    );
   </script>
 </body>
 </html>
