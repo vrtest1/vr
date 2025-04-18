@@ -90,10 +90,9 @@
 
     const audioElements = new Map();
     let initialized = false;
-
-    // iOS用のユーザーインタラクションフラグ
     let hasUserInteraction = false;
-    
+
+    // 音声システムの初期化
     async function initializeAudio() {
       if (initialized) return;
       
@@ -115,10 +114,9 @@
           const audio = new Audio();
           audio.preload = 'auto';
           
-          // iOS対応のための設定
+          // iOS対応の設定
           audio.playsInline = true;
           audio.controls = false;
-          audio.muted = false;
           
           await new Promise((resolve, reject) => {
             audio.addEventListener('canplaythrough', resolve, { once: true });
@@ -140,10 +138,15 @@
       }
     }
 
+    // 音声再生関数
     async function playSound(id) {
       if (!hasUserInteraction) {
-        log('warn', 'Waiting for user interaction...');
-        return;
+        log('warn', 'Attempting to enable audio...');
+        await enableAudio();
+        if (!hasUserInteraction) {
+          log('warn', 'Still waiting for user interaction...');
+          return;
+        }
       }
 
       const audioArray = audioElements.get(id);
@@ -163,30 +166,41 @@
       }
     }
 
-    // ユーザーインタラクションを検知
-    function handleUserInteraction() {
-      if (!hasUserInteraction) {
-        hasUserInteraction = true;
-        log('log', 'User interaction detected');
-        
-        // すべてのAudio要素で無音を再生して初期化
-        audioElements.forEach((audioArray, id) => {
-          audioArray.forEach(audio => {
-            audio.volume = 0;
-            audio.play().then(() => {
-              audio.pause();
-              audio.currentTime = 0;
-              audio.volume = 1;
-            }).catch(error => {
-              log('error', `Failed to initialize ${id}:`, error);
-            });
-          });
-        });
+    // オーディオシステムの有効化
+    async function enableAudio() {
+      if (hasUserInteraction) return;
+      
+      log('log', 'Enabling audio system...');
+      hasUserInteraction = true;
+
+      // すべてのAudio要素で無音を再生して初期化
+      for (const [id, audioArray] of audioElements.entries()) {
+        try {
+          const audio = audioArray[0];
+          audio.volume = 0;
+          await audio.play();
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = 1;
+          log('log', `Initialized audio for ${id}`);
+        } catch (error) {
+          log('error', `Failed to initialize ${id}:`, error);
+        }
       }
     }
 
-    window.addEventListener('touchstart', handleUserInteraction, { once: true });
-    window.addEventListener('click', handleUserInteraction, { once: true });
+    // ユーザーインタラクションイベントの処理
+    function handleUserInteraction(e) {
+      if (!hasUserInteraction) {
+        log('log', `User interaction detected: ${e.type}`);
+        enableAudio();
+      }
+    }
+
+    // イベントリスナーの設定
+    ['click', 'touchstart', 'keydown'].forEach(eventType => {
+      window.addEventListener(eventType, handleUserInteraction, { once: true });
+    });
   </script>
 
   <!-- Drum Machine -->
@@ -248,7 +262,10 @@
       React.useEffect(() => {
         const handleKey = (e) => {
           const pad = PADS.find(p => p.key.toLowerCase() === e.key.toLowerCase());
-          if (pad) triggerPad(pad);
+          if (pad) {
+            triggerPad(pad);
+            handleUserInteraction(e); // キー入力でもオーディオを有効化
+          }
         };
 
         window.addEventListener('keydown', handleKey);
