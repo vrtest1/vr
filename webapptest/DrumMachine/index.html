@@ -85,32 +85,50 @@
     function DrumMachine() {
       const [activePad, setActivePad] = React.useState(null);
       const audioCache = React.useRef({});
-      const [isAudioLoaded, setIsAudioLoaded] = React.useState(false);
+      const [ready, setReady] = React.useState(false);
 
       React.useEffect(() => {
-        // 音声ファイルの事前ロード
-        let loadedCount = 0;
-        PADS.forEach(p => {
-          const audio = new Audio(p.src);
-          audio.addEventListener('canplaythrough', () => {
-            loadedCount++;
-            if (loadedCount === PADS.length) {
-              setIsAudioLoaded(true);
-            }
-          });
-          audioCache.current[p.id] = audio;
-        });
+        // 音声コンテキストの初期化
+        const initAudio = async () => {
+          try {
+            // 全ての音声を同時にロード
+            const audioPromises = PADS.map(async p => {
+              const audio = new Audio(p.src);
+              audioCache.current[p.id] = audio;
+              // iOS対応のため、一度ロードしてミュートで再生
+              audio.muted = true;
+              await audio.play();
+              audio.pause();
+              audio.currentTime = 0;
+              audio.muted = false;
+            });
 
-        // iOSでの音声再生を有効化
-        function enableAudio() {
-          const silentAudio = new Audio();
-          silentAudio.play().catch(() => {});
-          document.removeEventListener('touchstart', enableAudio);
-        }
-        document.addEventListener('touchstart', enableAudio);
+            await Promise.all(audioPromises);
+            setReady(true);
+          } catch (error) {
+            console.error('Audio initialization error:', error);
+            // エラーが発生しても使用可能にする
+            setReady(true);
+          }
+        };
+
+        // ユーザーインタラクション後に初期化
+        const handleFirstInteraction = () => {
+          initAudio();
+          document.removeEventListener('touchstart', handleFirstInteraction);
+          document.removeEventListener('click', handleFirstInteraction);
+        };
+
+        document.addEventListener('touchstart', handleFirstInteraction);
+        document.addEventListener('click', handleFirstInteraction);
+
+        // 初期状態でも少し待ってから表示
+        const timeout = setTimeout(() => setReady(true), 1000);
 
         return () => {
-          document.removeEventListener('touchstart', enableAudio);
+          document.removeEventListener('touchstart', handleFirstInteraction);
+          document.removeEventListener('click', handleFirstInteraction);
+          clearTimeout(timeout);
         };
       }, []);
 
@@ -125,18 +143,26 @@
 
       function triggerPad(pad) {
         const snd = audioCache.current[pad.id];
-        if (snd) { 
+        if (snd) {
+          // 再生中の音を停止してリセット
+          snd.pause();
           snd.currentTime = 0;
-          snd.play().catch(err => console.log('Audio playback error:', err));
+          // 新しい音を再生
+          const playPromise = snd.play();
+          if (playPromise) {
+            playPromise.catch(error => {
+              console.log('Playback error:', error);
+            });
+          }
         }
         setActivePad(pad.id);
         setTimeout(() => setActivePad(null), 100);
       }
 
-      if (!isAudioLoaded) {
+      if (!ready) {
         return (
           <div className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl p-4 flex items-center justify-center">
-            <div className="text-white text-lg">Loading sounds...</div>
+            <div className="text-white text-lg">タップしてスタート...</div>
           </div>
         );
       }
@@ -147,7 +173,7 @@
             <DrumPad key={p.id} pad={p} active={activePad === p.id} onTrigger={triggerPad}/>
           ))}
           <footer className="absolute bottom-2 right-4 text-neutral-400 text-xs select-none">
-            Tap or press keys to play
+            タップまたはキーを押して演奏
           </footer>
         </div>
       );
