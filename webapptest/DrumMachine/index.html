@@ -103,6 +103,9 @@
     let initialized = false;
     let hasUserInteraction = false;
 
+    // 音声バッファをキャッシュ
+    const audioBufferCache = new Map();
+
     // 音声システムの初期化
     async function initializeAudio() {
       if (initialized) return;
@@ -121,6 +124,9 @@
       ];
 
       try {
+        // サイレントバッファの作成（iOS用）
+        const silentBuffer = new AudioContext().createBuffer(1, 1, 22050);
+
         await Promise.all(samples.map(async ({ id, src }) => {
           const audio = new Audio();
           audio.preload = 'auto';
@@ -129,14 +135,22 @@
           audio.playsInline = true;
           audio.controls = false;
           
+          // 音声ファイルのプリロード
           await new Promise((resolve, reject) => {
             audio.addEventListener('canplaythrough', resolve, { once: true });
             audio.addEventListener('error', reject, { once: true });
             audio.src = src;
             audio.load();
           });
+
+          // 音量0で事前再生してバッファをキャッシュ（iOS用）
+          audio.volume = 0;
+          await audio.play().catch(() => {});
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = 1;
           
-          // 複製を作成して並行再生に対応
+          // 複製を作成（同時再生用）
           const clonedAudio = audio.cloneNode(true);
           audioElements.set(id, [audio, clonedAudio]);
           log('log', `Loaded audio for ${id}`);
@@ -149,7 +163,10 @@
       }
     }
 
-    // 音声再生関数
+    // 音声再生の最適化
+    let lastPlayTime = 0;
+    const MIN_PLAY_INTERVAL = 50; // ミリ秒
+
     async function playSound(id) {
       if (!hasUserInteraction) {
         log('warn', 'Attempting to enable audio...');
@@ -160,6 +177,13 @@
         }
       }
 
+      const now = Date.now();
+      if (now - lastPlayTime < MIN_PLAY_INTERVAL) {
+        log('warn', 'Playing too fast, skipping...');
+        return;
+      }
+      lastPlayTime = now;
+
       const audioArray = audioElements.get(id);
       if (!audioArray) {
         log('error', `No audio found for ${id}`);
@@ -169,6 +193,13 @@
       try {
         // 利用可能なAudio要素を探す
         const audio = audioArray.find(a => a.paused) || audioArray[0];
+        
+        // 再生中の場合は停止してリセット
+        if (!audio.paused) {
+          audio.pause();
+          audio.currentTime = 0;
+        }
+
         audio.currentTime = 0;
         await audio.play();
         log('log', `Playing sound: ${id}`);
@@ -177,26 +208,22 @@
       }
     }
 
-    // オーディオシステムの有効化
+    // オーディオシステムの有効化（サイレント）
     async function enableAudio() {
       if (hasUserInteraction) return;
       
       log('log', 'Enabling audio system...');
       hasUserInteraction = true;
 
-      // すべてのAudio要素で無音を再生して初期化
-      for (const [id, audioArray] of audioElements.entries()) {
-        try {
-          const audio = audioArray[0];
-          audio.volume = 0;
-          await audio.play();
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = 1;
-          log('log', `Initialized audio for ${id}`);
-        } catch (error) {
-          log('error', `Failed to initialize ${id}:`, error);
-        }
+      // サイレントで初期化
+      const silentAudio = new Audio();
+      silentAudio.volume = 0;
+      try {
+        await silentAudio.play();
+        silentAudio.pause();
+        log('log', 'Audio system enabled');
+      } catch (error) {
+        log('error', 'Failed to enable audio:', error);
       }
     }
 
