@@ -8,49 +8,61 @@
   <!-- Tailwind (CDN for quick demo) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- React 18 & ReactDOM -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <!-- React 18 & ReactDOM (Production) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-<!-- Framer Motion -->
-<script src="./framer-motion.umd.min.js"></script>
-
-  <!-- Babel 7 standalone (v6 had a %% bug) -->
+  <!-- Babel 7 standalone -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    .drum-container {
+      width: 800px;
+      height: 600px;
+      position: relative;
+    }
+    @media (max-width: 840px) {
+      .drum-container {
+        width: 95vw;
+        height: 71.25vw;
+      }
+    }
+  </style>
 </head>
-<body class="bg-neutral-900 flex items-center justify-center min-h-screen">
+<body class="bg-neutral-900 flex items-center justify-center min-h-screen p-4">
   <div id="root"></div>
 
   <!-- Drum Machine -->
   <script type="text/babel" data-presets="env,react">
-    const { motion } = window.framerMotion;      // ←こう変更
-
     const PADS = [
-      { id:'kick', label:'Kick',  key:'A', src:'samples/kick.wav',  x:'40%', y:'65%', size:'w-36 h-36' },
-      { id:'snare',label:'Snare',key:'S', src:'samples/snare.wav', x:'60%', y:'55%', size:'w-28 h-28'},
-      { id:'hihat',label:'Hi-Hat',key:'D', src:'samples/hihat.wav',x:'20%', y:'45%', size:'w-24 h-24'},
-      { id:'tom1', label:'Tom 1', key:'F', src:'samples/tom1.wav', x:'55%', y:'35%', size:'w-24 h-24'},
-      { id:'tom2', label:'Tom 2', key:'G', src:'samples/tom2.wav', x:'70%', y:'40%', size:'w-24 h-24'},
-      { id:'floortom',label:'Floor Tom',key:'H',src:'samples/floortom.wav',x:'75%',y:'65%',size:'w-28 h-28'},
-      { id:'crash',label:'Crash',key:'J',src:'samples/crash.wav',x:'15%',y:'25%',size:'w-28 h-28'},
-      { id:'ride', label:'Ride', key:'K', src:'samples/ride.wav',  x:'80%', y:'20%', size:'w-28 h-28'},
+      { id:'kick', label:'Kick',  key:'A', src:'samples/kick.wav',  x:'50%', y:'75%', size:'w-40 h-40' },
+      { id:'snare',label:'Snare',key:'S', src:'samples/snare.wav', x:'30%', y:'55%', size:'w-36 h-36'},
+      { id:'hihat',label:'Hi-Hat',key:'D', src:'samples/hihat.wav',x:'15%', y:'35%', size:'w-32 h-32'},
+      { id:'tom1', label:'Tom 1', key:'F', src:'samples/tom1.wav', x:'45%', y:'35%', size:'w-32 h-32'},
+      { id:'tom2', label:'Tom 2', key:'G', src:'samples/tom2.wav', x:'65%', y:'40%', size:'w-32 h-32'},
+      { id:'floortom',label:'Floor Tom',key:'H',src:'samples/floortom.wav',x:'85%',y:'65%',size:'w-36 h-36'},
+      { id:'crash',label:'Crash',key:'J',src:'samples/crash.wav',x:'25%',y:'20%',size:'w-36 h-36'},
+      { id:'ride', label:'Ride', key:'K', src:'samples/ride.wav',  x:'75%', y:'25%',size:'w-36 h-36'},
     ];
 
     function DrumPad({ pad, active, onTrigger }) {
       return (
-        <motion.button
+        <button
           onClick={() => onTrigger(pad)}
-          initial={false}
-          animate={{ scale: active ? 0.9 : 1 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 15 }}
-          className={pad.size + ' absolute select-none rounded-full flex items-center justify-center text-white font-bold shadow-lg bg-neutral-700/90 hover:bg-neutral-600/90 hover:shadow-2xl'}
-          style={{ left: pad.x, top: pad.y, transform: 'translate(-50%, -50%)' }}
+          className={`${pad.size} absolute select-none rounded-full flex items-center justify-center text-white font-bold shadow-lg 
+            ${active ? 'bg-neutral-600/90 scale-95' : 'bg-neutral-700/90 scale-100'} 
+            hover:bg-neutral-600/90 hover:shadow-2xl transition-all duration-100`}
+          style={{ 
+            left: pad.x, 
+            top: pad.y, 
+            transform: 'translate(-50%, -50%)'
+          }}
         >
           <span className="pointer-events-none text-sm md:text-base">
             {pad.label}<br/>
             <span className="opacity-70 text-xs">[{pad.key}]</span>
           </span>
-        </motion.button>
+        </button>
       );
     }
 
@@ -79,7 +91,7 @@
       }
 
       return (
-        <div className="w-full max-w-xl aspect-[4/3] relative bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl p-4">
+        <div className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl p-4">
           {PADS.map(p => (
             <DrumPad key={p.id} pad={p} active={activePad === p.id} onTrigger={triggerPad}/>
           ))}
