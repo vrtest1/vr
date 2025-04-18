@@ -78,14 +78,23 @@
 
   <!-- Audio Context Initialization -->
   <script>
-    window.AudioContext = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new AudioContext();
-    const gainNode = audioCtx.createGain();
-    gainNode.connect(audioCtx.destination);
-
+    // AudioContextをすぐには初期化せず、変数として宣言
+    let audioCtx = null;
+    let gainNode = null;
     const audioBuffers = new Map();
 
+    // AudioContextの初期化関数
+    function initAudioContext() {
+      if (audioCtx) return;
+      
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      gainNode = audioCtx.createGain();
+      gainNode.connect(audioCtx.destination);
+    }
+
     async function loadAudio(url) {
+      if (!audioCtx) return null;
       if (audioBuffers.has(url)) {
         return audioBuffers.get(url);
       }
@@ -103,7 +112,7 @@
     }
 
     function playSound(buffer) {
-      if (!buffer) return;
+      if (!buffer || !audioCtx) return;
       
       try {
         if (audioCtx.state === 'suspended') {
@@ -166,49 +175,65 @@
       const soundBuffers = React.useRef({});
       const isInitialized = React.useRef(false);
 
-      React.useEffect(() => {
+      // 音声の初期化処理
+      const initializeAudio = React.useCallback(async () => {
         if (isInitialized.current) return;
-        isInitialized.current = true;
+        
+        try {
+          // AudioContextの初期化
+          initAudioContext();
+          
+          // iOSの場合、無音を再生して音声を有効化
+          const silentBuffer = audioCtx.createBuffer(1, 1, 22050);
+          const source = audioCtx.createBufferSource();
+          source.buffer = silentBuffer;
+          source.connect(audioCtx.destination);
+          source.start(0);
 
-        async function initSounds() {
-          try {
-            await Promise.all(
-              PADS.map(async (pad) => {
-                soundBuffers.current[pad.id] = await loadAudio(pad.src);
-              })
-            );
-            setReady(true);
-          } catch (error) {
-            console.error('Failed to load sounds:', error);
-            setReady(true);
-          }
+          // サウンドの読み込み
+          await Promise.all(
+            PADS.map(async (pad) => {
+              soundBuffers.current[pad.id] = await loadAudio(pad.src);
+            })
+          );
+
+          isInitialized.current = true;
+          setReady(true);
+        } catch (error) {
+          console.error('Failed to initialize audio:', error);
+          setReady(true);
         }
-
-        const handleFirstInteraction = () => {
-          if (audioCtx.state === 'suspended') {
-            audioCtx.resume().then(initSounds);
-          } else {
-            initSounds();
-          }
-        };
-
-        window.addEventListener('click', handleFirstInteraction, { once: true });
-        window.addEventListener('touchstart', handleFirstInteraction, { once: true });
-
-        return () => {
-          window.removeEventListener('click', handleFirstInteraction);
-          window.removeEventListener('touchstart', handleFirstInteraction);
-        };
       }, []);
 
+      // インタラクションハンドラー
+      const handleInteraction = React.useCallback(() => {
+        if (!ready) {
+          initializeAudio();
+        }
+      }, [ready, initializeAudio]);
+
+      React.useEffect(() => {
+        // タッチとクリックのイベントリスナーを追加
+        document.addEventListener('touchstart', handleInteraction, { once: true });
+        document.addEventListener('click', handleInteraction, { once: true });
+
+        return () => {
+          document.removeEventListener('touchstart', handleInteraction);
+          document.removeEventListener('click', handleInteraction);
+        };
+      }, [handleInteraction]);
+
       const triggerPad = React.useCallback((pad) => {
+        if (!isInitialized.current) {
+          initializeAudio();
+        }
         const buffer = soundBuffers.current[pad.id];
         if (buffer) {
           playSound(buffer);
         }
         setActivePad(pad.id);
         setTimeout(() => setActivePad(null), 100);
-      }, []);
+      }, [initializeAudio]);
 
       React.useEffect(() => {
         const handleKey = (e) => {
@@ -222,7 +247,11 @@
 
       if (!ready) {
         return (
-          <div className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl flex items-center justify-center">
+          <div 
+            className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl flex items-center justify-center"
+            onClick={handleInteraction}
+            onTouchStart={handleInteraction}
+          >
             <div className="text-white text-lg">タップしてスタート...</div>
           </div>
         );
