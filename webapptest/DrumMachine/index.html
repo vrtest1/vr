@@ -75,34 +75,93 @@
 </head>
 <body>
   <div id="root"></div>
+  
+  <!-- Debug Console -->
+  <div id="debug-console" style="position: fixed; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); color: white; font-family: monospace; font-size: 12px; padding: 10px; max-height: 30vh; overflow-y: auto; z-index: 9999;"></div>
+
+  <script>
+    // デバッグコンソールの設定
+    const debugConsole = document.getElementById('debug-console');
+    const originalConsole = {
+      log: console.log,
+      error: console.error,
+      warn: console.warn
+    };
+
+    function addToDebugConsole(type, ...args) {
+      const line = document.createElement('div');
+      line.style.color = type === 'error' ? '#ff6b6b' : type === 'warn' ? '#ffd93d' : '#ffffff';
+      line.textContent = `${type}: ${args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+      ).join(' ')}`;
+      debugConsole.appendChild(line);
+      debugConsole.scrollTop = debugConsole.scrollHeight;
+      
+      // 元のコンソール関数も呼び出す
+      originalConsole[type](...args);
+    }
+
+    // コンソール関数をオーバーライド
+    console.log = (...args) => addToDebugConsole('log', ...args);
+    console.error = (...args) => addToDebugConsole('error', ...args);
+    console.warn = (...args) => addToDebugConsole('warn', ...args);
+
+    // エラーハンドリング
+    window.onerror = function(msg, url, line, col, error) {
+      console.error(`Error: ${msg}\nAt: ${url}:${line}:${col}`);
+      return false;
+    };
+
+    window.addEventListener('unhandledrejection', function(event) {
+      console.error('Unhandled Promise Rejection:', event.reason);
+    });
+  </script>
 
   <!-- Audio Context Initialization -->
   <script>
-    // AudioContextをすぐには初期化せず、変数として宣言
     let audioCtx = null;
     let gainNode = null;
     const audioBuffers = new Map();
 
-    // AudioContextの初期化関数
     function initAudioContext() {
-      if (audioCtx) return;
+      console.log('Initializing Audio Context...');
+      if (audioCtx) {
+        console.log('Audio Context already exists');
+        return;
+      }
       
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new AudioContext();
-      gainNode = audioCtx.createGain();
-      gainNode.connect(audioCtx.destination);
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        console.log('Audio Context created, state:', audioCtx.state);
+        
+        gainNode = audioCtx.createGain();
+        gainNode.connect(audioCtx.destination);
+        console.log('Gain Node connected');
+      } catch (error) {
+        console.error('Failed to initialize Audio Context:', error);
+      }
     }
 
     async function loadAudio(url) {
-      if (!audioCtx) return null;
+      console.log('Loading audio:', url);
+      if (!audioCtx) {
+        console.warn('Audio Context not initialized');
+        return null;
+      }
       if (audioBuffers.has(url)) {
+        console.log('Using cached audio buffer for:', url);
         return audioBuffers.get(url);
       }
 
       try {
+        console.log('Fetching:', url);
         const response = await fetch(url);
+        console.log('Fetch response status:', response.status);
         const arrayBuffer = await response.arrayBuffer();
+        console.log('Array buffer received, size:', arrayBuffer.byteLength);
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        console.log('Audio decoded successfully');
         audioBuffers.set(url, audioBuffer);
         return audioBuffer;
       } catch (error) {
@@ -112,16 +171,21 @@
     }
 
     function playSound(buffer) {
-      if (!buffer || !audioCtx) return;
+      if (!buffer || !audioCtx) {
+        console.warn('Cannot play sound: buffer or context missing');
+        return;
+      }
       
       try {
         if (audioCtx.state === 'suspended') {
+          console.log('Resuming Audio Context...');
           audioCtx.resume();
         }
         const source = audioCtx.createBufferSource();
         source.buffer = buffer;
         source.connect(gainNode);
         source.start(0);
+        console.log('Sound played successfully');
       } catch (error) {
         console.error('Error playing sound:', error);
       }
@@ -177,28 +241,35 @@
 
       // 音声の初期化処理
       const initializeAudio = React.useCallback(async () => {
-        if (isInitialized.current) return;
+        console.log('Starting audio initialization...');
+        if (isInitialized.current) {
+          console.log('Already initialized');
+          return;
+        }
         
         try {
-          // AudioContextの初期化
+          console.log('Initializing Audio Context...');
           initAudioContext();
           
-          // iOSの場合、無音を再生して音声を有効化
+          console.log('Creating silent buffer...');
           const silentBuffer = audioCtx.createBuffer(1, 1, 22050);
           const source = audioCtx.createBufferSource();
           source.buffer = silentBuffer;
           source.connect(audioCtx.destination);
           source.start(0);
+          console.log('Silent buffer played');
 
-          // サウンドの読み込み
+          console.log('Loading sound samples...');
           await Promise.all(
             PADS.map(async (pad) => {
+              console.log(`Loading sample: ${pad.id}`);
               soundBuffers.current[pad.id] = await loadAudio(pad.src);
             })
           );
 
           isInitialized.current = true;
           setReady(true);
+          console.log('Audio initialization complete');
         } catch (error) {
           console.error('Failed to initialize audio:', error);
           setReady(true);
