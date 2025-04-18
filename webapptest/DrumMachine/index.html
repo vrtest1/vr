@@ -26,12 +26,31 @@
       -webkit-user-select: none;
       user-select: none;
     }
-    @media (max-width: 840px) {
+
+    /* スマートフォン（縦向き）用のスタイル */
+    @media (max-width: 480px) {
+      .drum-container {
+        width: 100vw;
+        height: 150vw;
+        margin: 0;
+        padding: 0;
+      }
+      .pad-large { width: 24vw !important; height: 24vw !important; }
+      .pad-medium { width: 20vw !important; height: 20vw !important; }
+      .pad-small { width: 18vw !important; height: 18vw !important; }
+    }
+
+    /* スマートフォン（横向き）用のスタイル */
+    @media (min-width: 481px) and (max-width: 840px) {
       .drum-container {
         width: 95vw;
         height: 71.25vw;
       }
+      .pad-large { width: 20vw !important; height: 20vw !important; }
+      .pad-medium { width: 16vw !important; height: 16vw !important; }
+      .pad-small { width: 14vw !important; height: 14vw !important; }
     }
+
     /* タッチデバイスでのタップ時の青いハイライトを防止 */
     * {
       -webkit-tap-highlight-color: transparent;
@@ -44,14 +63,14 @@
   <!-- Drum Machine -->
   <script type="text/babel" data-presets="env,react">
     const PADS = [
-      { id:'kick', label:'Kick',  key:'A', src:'samples/kick.wav',  x:'50%', y:'75%', size:'w-40 h-40' },
-      { id:'snare',label:'Snare',key:'S', src:'samples/snare.wav', x:'30%', y:'55%', size:'w-36 h-36'},
-      { id:'hihat',label:'Hi-Hat',key:'D', src:'samples/hihat.wav',x:'15%', y:'35%', size:'w-32 h-32'},
-      { id:'tom1', label:'Tom 1', key:'F', src:'samples/tom1.wav', x:'45%', y:'35%', size:'w-32 h-32'},
-      { id:'tom2', label:'Tom 2', key:'G', src:'samples/tom2.wav', x:'65%', y:'40%', size:'w-32 h-32'},
-      { id:'floortom',label:'Floor Tom',key:'H',src:'samples/floortom.wav',x:'85%',y:'65%',size:'w-36 h-36'},
-      { id:'crash',label:'Crash',key:'J',src:'samples/crash.wav',x:'25%',y:'20%',size:'w-36 h-36'},
-      { id:'ride', label:'Ride', key:'K', src:'samples/ride.wav',  x:'75%', y:'25%',size:'w-36 h-36'},
+      { id:'kick', label:'Kick',  key:'A', src:'samples/kick.wav',  x:'50%', y:'70%', size:'pad-large w-40 h-40' },
+      { id:'snare',label:'Snare',key:'S', src:'samples/snare.wav', x:'35%', y:'50%', size:'pad-medium w-32 h-32'},
+      { id:'hihat',label:'Hi-Hat',key:'D', src:'samples/hihat.wav',x:'20%', y:'40%', size:'pad-small w-28 h-28'},
+      { id:'tom1', label:'Tom 1', key:'F', src:'samples/tom1.wav', x:'50%', y:'40%', size:'pad-small w-28 h-28'},
+      { id:'tom2', label:'Tom 2', key:'G', src:'samples/tom2.wav', x:'65%', y:'45%', size:'pad-small w-28 h-28'},
+      { id:'floortom',label:'Floor Tom',key:'H',src:'samples/floortom.wav',x:'80%',y:'60%', size:'pad-medium w-32 h-32'},
+      { id:'crash',label:'Crash',key:'J',src:'samples/crash.wav',x:'30%',y:'25%', size:'pad-medium w-32 h-32'},
+      { id:'ride', label:'Ride', key:'K', src:'samples/ride.wav',  x:'70%', y:'30%', size:'pad-medium w-32 h-32'},
     ];
 
     function DrumPad({ pad, active, onTrigger }) {
@@ -74,9 +93,9 @@
             transform: 'translate(-50%, -50%)'
           }}
         >
-          <span className="pointer-events-none text-sm md:text-base">
+          <span className="pointer-events-none text-[min(2vw,1rem)] md:text-base">
             {pad.label}<br/>
-            <span className="opacity-70 text-xs">[{pad.key}]</span>
+            <span className="opacity-70 text-[min(1.5vw,0.75rem)] md:text-xs">[{pad.key}]</span>
           </span>
         </button>
       );
