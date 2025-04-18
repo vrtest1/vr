@@ -23,7 +23,7 @@
 
   <!-- Drum Machine -->
   <script type="text/babel" data-presets="env,react">
-    const { motion } = window['framer-motion'];
+    const { motion } = window.framerMotion;      // ←こう変更
 
     const PADS = [
       { id:'kick', label:'Kick',  key:'A', src:'samples/kick.wav',  x:'40%', y:'65%', size:'w-36 h-36' },
