@@ -123,25 +123,41 @@
     let gainNode = null;
     const audioBuffers = new Map();
     let unlocked = false;
+    
+    // プリロードされた Audio 要素をバックアップとして使用
+    const audioElements = new Map();
+    
+    async function createAudioElement(url) {
+      const audio = new Audio();
+      audio.src = url;
+      audio.preload = 'auto';
+      await new Promise((resolve) => {
+        audio.addEventListener('canplaythrough', resolve, { once: true });
+        audio.load();
+      });
+      return audio;
+    }
 
     async function unlockAudioContext(context) {
       console.log('Attempting to unlock audio context...');
       if (context.state === 'suspended' && !unlocked) {
-        await context.resume();
-        
-        // iOS用の特別な処理
-        const buffer = context.createBuffer(1, 1, 22050);
-        const source = context.createBufferSource();
-        source.buffer = buffer;
-        source.connect(context.destination);
-        
-        // タイミングを指定して確実に再生
-        const startTime = context.currentTime;
-        source.start(startTime);
-        source.stop(startTime + 0.001);
-        
-        unlocked = true;
-        console.log('Audio context unlocked successfully');
+        try {
+          await context.resume();
+          
+          // iOS用の特別な処理
+          const oscillator = context.createOscillator();
+          const gainNode = context.createGain();
+          gainNode.gain.value = 0;
+          oscillator.connect(gainNode);
+          gainNode.connect(context.destination);
+          oscillator.start(0);
+          oscillator.stop(0.001);
+          
+          unlocked = true;
+          console.log('Audio context unlocked successfully');
+        } catch (error) {
+          console.error('Failed to unlock audio context:', error);
+        }
       }
     }
 
@@ -162,7 +178,6 @@
         gainNode.connect(audioCtx.destination);
         console.log('Gain Node connected');
 
-        // 音声コンテキストのアンロックを試みる
         await unlockAudioContext(audioCtx);
       } catch (error) {
         console.error('Failed to initialize Audio Context:', error);
@@ -171,10 +186,19 @@
 
     async function loadAudio(url) {
       console.log('Loading audio:', url);
+      
+      // Audio要素をバックアップとして作成
+      if (!audioElements.has(url)) {
+        console.log('Creating backup Audio element for:', url);
+        const audioEl = await createAudioElement(url);
+        audioElements.set(url, audioEl);
+      }
+
       if (!audioCtx) {
         console.warn('Audio Context not initialized');
         return null;
       }
+      
       if (audioBuffers.has(url)) {
         console.log('Using cached audio buffer for:', url);
         return audioBuffers.get(url);
@@ -187,7 +211,6 @@
         const arrayBuffer = await response.arrayBuffer();
         console.log('Array buffer received, size:', arrayBuffer.byteLength);
         
-        // デコード前に必要に応じてコンテキストをアンロック
         await unlockAudioContext(audioCtx);
         
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
@@ -200,26 +223,38 @@
       }
     }
 
-    async function playSound(buffer) {
-      if (!buffer || !audioCtx) {
-        console.warn('Cannot play sound: buffer or context missing');
-        return;
-      }
+    async function playSound(buffer, padId) {
+      console.log('Attempting to play sound for pad:', padId);
       
-      try {
-        // 再生前に必要に応じてコンテキストをアンロック
-        await unlockAudioContext(audioCtx);
-        
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(gainNode);
-        
-        // タイミングを指定して確実に再生
-        const startTime = audioCtx.currentTime;
-        source.start(startTime);
-        console.log('Sound played successfully at time:', startTime);
-      } catch (error) {
-        console.error('Error playing sound:', error);
+      // まずAudioContext経由で再生を試みる
+      if (buffer && audioCtx) {
+        try {
+          await unlockAudioContext(audioCtx);
+          const source = audioCtx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(gainNode);
+          const startTime = audioCtx.currentTime;
+          source.start(startTime);
+          console.log('Sound played via AudioContext at time:', startTime);
+          return;
+        } catch (error) {
+          console.error('Failed to play via AudioContext:', error);
+        }
+      }
+
+      // AudioContextでの再生に失敗した場合、Audio要素でフォールバック
+      const pad = PADS.find(p => p.id === padId);
+      if (pad) {
+        const audioEl = audioElements.get(pad.src);
+        if (audioEl) {
+          try {
+            audioEl.currentTime = 0;
+            await audioEl.play();
+            console.log('Sound played via Audio element');
+          } catch (error) {
+            console.error('Failed to play via Audio element:', error);
+          }
+        }
       }
     }
   </script>
@@ -240,14 +275,8 @@
     const DrumPad = React.memo(({ pad, active, onTrigger }) => {
       const handleInteraction = React.useCallback((e) => {
         e.preventDefault();
-        // タッチイベントの場合、即座にトリガー
-        if (e.type === 'touchstart') {
-          onTrigger(pad);
-        }
-        // クリックイベントの場合、タッチでない場合のみトリガー
-        else if (e.type === 'click' && !e.sourceCapabilities?.firesTouchEvents) {
-          onTrigger(pad);
-        }
+        e.stopPropagation();
+        onTrigger(pad);
       }, [pad, onTrigger]);
 
       return (
@@ -319,12 +348,12 @@
           }
         };
 
-        document.addEventListener('touchstart', handleInteractionEvent, { once: true });
-        document.addEventListener('click', handleInteractionEvent, { once: true });
+        window.addEventListener('touchstart', handleInteractionEvent, { once: true });
+        window.addEventListener('click', handleInteractionEvent, { once: true });
 
         return () => {
-          document.removeEventListener('touchstart', handleInteractionEvent);
-          document.removeEventListener('click', handleInteractionEvent);
+          window.removeEventListener('touchstart', handleInteractionEvent);
+          window.removeEventListener('click', handleInteractionEvent);
         };
       }, [handleInteraction]);
 
@@ -333,9 +362,7 @@
           await initializeAudio();
         }
         const buffer = soundBuffers.current[pad.id];
-        if (buffer) {
-          await playSound(buffer);
-        }
+        await playSound(buffer, pad.id);
         setActivePad(pad.id);
         setTimeout(() => setActivePad(null), 100);
       }, [initializeAudio]);
