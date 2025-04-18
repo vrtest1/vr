@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>Web Drum Machine</title>
@@ -18,22 +18,37 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #171717;
+      overscroll-behavior: none;
+    }
+    #root {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     .drum-container {
-      width: 800px;
-      height: 600px;
+      width: 100%;
+      max-width: 800px;
+      aspect-ratio: 4/3;
       position: relative;
       touch-action: none;
       -webkit-user-select: none;
       user-select: none;
+      margin: 1rem;
     }
 
     /* スマートフォン（縦向き）用のスタイル */
     @media (max-width: 480px) {
       .drum-container {
-        width: 100vw;
-        height: 150vw;
-        margin: 0;
-        padding: 0;
+        width: calc(100% - 2rem);
+        margin: 1rem;
       }
       .pad-large { width: 24vw !important; height: 24vw !important; }
       .pad-medium { width: 20vw !important; height: 20vw !important; }
@@ -43,21 +58,30 @@
     /* スマートフォン（横向き）用のスタイル */
     @media (min-width: 481px) and (max-width: 840px) {
       .drum-container {
-        width: 95vw;
-        height: 71.25vw;
+        width: calc(100% - 2rem);
+        margin: 1rem;
       }
       .pad-large { width: 20vw !important; height: 20vw !important; }
       .pad-medium { width: 16vw !important; height: 16vw !important; }
       .pad-small { width: 14vw !important; height: 14vw !important; }
     }
 
-    /* タッチデバイスでのタップ時の青いハイライトを防止 */
     * {
       -webkit-tap-highlight-color: transparent;
     }
+
+    /* iOSのセーフエリア対応 */
+    @supports (padding: max(0px)) {
+      .drum-container {
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+        padding-top: max(1rem, env(safe-area-inset-top));
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+      }
+    }
   </style>
 </head>
-<body class="bg-neutral-900 flex items-center justify-center min-h-screen p-4 overscroll-none">
+<body>
   <div id="root"></div>
 
   <!-- Audio Context Initialization -->
@@ -182,14 +206,14 @@
 
       if (!ready) {
         return (
-          <div className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl p-4 flex items-center justify-center">
+          <div className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl flex items-center justify-center">
             <div className="text-white text-lg">タップしてスタート...</div>
           </div>
         );
       }
 
       return (
-        <div className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl p-4">
+        <div className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl">
           {PADS.map(p => (
             <DrumPad 
               key={p.id} 
