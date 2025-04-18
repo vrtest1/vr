@@ -122,8 +122,30 @@
     let audioCtx = null;
     let gainNode = null;
     const audioBuffers = new Map();
+    let unlocked = false;
 
-    function initAudioContext() {
+    async function unlockAudioContext(context) {
+      console.log('Attempting to unlock audio context...');
+      if (context.state === 'suspended' && !unlocked) {
+        await context.resume();
+        
+        // iOS用の特別な処理
+        const buffer = context.createBuffer(1, 1, 22050);
+        const source = context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(context.destination);
+        
+        // タイミングを指定して確実に再生
+        const startTime = context.currentTime;
+        source.start(startTime);
+        source.stop(startTime + 0.001);
+        
+        unlocked = true;
+        console.log('Audio context unlocked successfully');
+      }
+    }
+
+    async function initAudioContext() {
       console.log('Initializing Audio Context...');
       if (audioCtx) {
         console.log('Audio Context already exists');
@@ -132,12 +154,16 @@
       
       try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContext();
+        audioCtx = new AudioContext({ sampleRate: 44100 });
         console.log('Audio Context created, state:', audioCtx.state);
         
         gainNode = audioCtx.createGain();
+        gainNode.gain.value = 1.0;
         gainNode.connect(audioCtx.destination);
         console.log('Gain Node connected');
+
+        // 音声コンテキストのアンロックを試みる
+        await unlockAudioContext(audioCtx);
       } catch (error) {
         console.error('Failed to initialize Audio Context:', error);
       }
@@ -160,6 +186,10 @@
         console.log('Fetch response status:', response.status);
         const arrayBuffer = await response.arrayBuffer();
         console.log('Array buffer received, size:', arrayBuffer.byteLength);
+        
+        // デコード前に必要に応じてコンテキストをアンロック
+        await unlockAudioContext(audioCtx);
+        
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
         console.log('Audio decoded successfully');
         audioBuffers.set(url, audioBuffer);
@@ -170,22 +200,24 @@
       }
     }
 
-    function playSound(buffer) {
+    async function playSound(buffer) {
       if (!buffer || !audioCtx) {
         console.warn('Cannot play sound: buffer or context missing');
         return;
       }
       
       try {
-        if (audioCtx.state === 'suspended') {
-          console.log('Resuming Audio Context...');
-          audioCtx.resume();
-        }
+        // 再生前に必要に応じてコンテキストをアンロック
+        await unlockAudioContext(audioCtx);
+        
         const source = audioCtx.createBufferSource();
         source.buffer = buffer;
         source.connect(gainNode);
-        source.start(0);
-        console.log('Sound played successfully');
+        
+        // タイミングを指定して確実に再生
+        const startTime = audioCtx.currentTime;
+        source.start(startTime);
+        console.log('Sound played successfully at time:', startTime);
       } catch (error) {
         console.error('Error playing sound:', error);
       }
@@ -208,7 +240,14 @@
     const DrumPad = React.memo(({ pad, active, onTrigger }) => {
       const handleInteraction = React.useCallback((e) => {
         e.preventDefault();
-        onTrigger(pad);
+        // タッチイベントの場合、即座にトリガー
+        if (e.type === 'touchstart') {
+          onTrigger(pad);
+        }
+        // クリックイベントの場合、タッチでない場合のみトリガー
+        else if (e.type === 'click' && !e.sourceCapabilities?.firesTouchEvents) {
+          onTrigger(pad);
+        }
       }, [pad, onTrigger]);
 
       return (
@@ -239,7 +278,6 @@
       const soundBuffers = React.useRef({});
       const isInitialized = React.useRef(false);
 
-      // 音声の初期化処理
       const initializeAudio = React.useCallback(async () => {
         console.log('Starting audio initialization...');
         if (isInitialized.current) {
@@ -249,16 +287,8 @@
         
         try {
           console.log('Initializing Audio Context...');
-          initAudioContext();
+          await initAudioContext();
           
-          console.log('Creating silent buffer...');
-          const silentBuffer = audioCtx.createBuffer(1, 1, 22050);
-          const source = audioCtx.createBufferSource();
-          source.buffer = silentBuffer;
-          source.connect(audioCtx.destination);
-          source.start(0);
-          console.log('Silent buffer played');
-
           console.log('Loading sound samples...');
           await Promise.all(
             PADS.map(async (pad) => {
@@ -276,31 +306,35 @@
         }
       }, []);
 
-      // インタラクションハンドラー
-      const handleInteraction = React.useCallback(() => {
+      const handleInteraction = React.useCallback(async (e) => {
         if (!ready) {
-          initializeAudio();
+          await initializeAudio();
         }
       }, [ready, initializeAudio]);
 
       React.useEffect(() => {
-        // タッチとクリックのイベントリスナーを追加
-        document.addEventListener('touchstart', handleInteraction, { once: true });
-        document.addEventListener('click', handleInteraction, { once: true });
+        const handleInteractionEvent = async (e) => {
+          if (!isInitialized.current) {
+            await handleInteraction(e);
+          }
+        };
+
+        document.addEventListener('touchstart', handleInteractionEvent, { once: true });
+        document.addEventListener('click', handleInteractionEvent, { once: true });
 
         return () => {
-          document.removeEventListener('touchstart', handleInteraction);
-          document.removeEventListener('click', handleInteraction);
+          document.removeEventListener('touchstart', handleInteractionEvent);
+          document.removeEventListener('click', handleInteractionEvent);
         };
       }, [handleInteraction]);
 
-      const triggerPad = React.useCallback((pad) => {
+      const triggerPad = React.useCallback(async (pad) => {
         if (!isInitialized.current) {
-          initializeAudio();
+          await initializeAudio();
         }
         const buffer = soundBuffers.current[pad.id];
         if (buffer) {
-          playSound(buffer);
+          await playSound(buffer);
         }
         setActivePad(pad.id);
         setTimeout(() => setActivePad(null), 100);
