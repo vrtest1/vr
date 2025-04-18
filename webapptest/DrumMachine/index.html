@@ -12,10 +12,10 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
-  <!-- Framer Motion (UMD) ➜ global `framerMotion` -->
-  <script src="https://unpkg.com/framer-motion@11/dist/framer-motion.umd.js"></script>
+<!-- Framer Motion -->
+<script src="./framer-motion.umd.min.js"></script>
 
-  <!-- Babel 7 -->
+  <!-- Babel 7 standalone (v6 had a %% bug) -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-neutral-900 flex items-center justify-center min-h-screen">
@@ -23,16 +23,15 @@
 
   <!-- Drum Machine -->
   <script type="text/babel" data-presets="env,react">
-    // Framer Motion UMD exposes `window.framerMotion`
-    const { motion } = window.framerMotion ?? window['framer-motion'];
+    const { motion } = window.framerMotion;      // ←こう変更
 
     const PADS = [
       { id:'kick', label:'Kick',  key:'A', src:'samples/kick.wav',  x:'40%', y:'65%', size:'w-36 h-36' },
       { id:'snare',label:'Snare',key:'S', src:'samples/snare.wav', x:'60%', y:'55%', size:'w-28 h-28'},
       { id:'hihat',label:'Hi-Hat',key:'D', src:'samples/hihat.wav',x:'20%', y:'45%', size:'w-24 h-24'},
-      { id:'tom1', label:'Tom 1', key:'F', src:'samples/tom1.wav', x:'55%', y:'35%', size:'w-24 h-24'},
-      { id:'tom2', label:'Tom 2', key:'G', src:'samples/tom2.wav', x:'70%', y:'40%', size:'w-24 h-24'},
-      { id:'floortom',label:'Floor Tom',key:'H',src:'samples/floortom.wav',x:'75%',y:'65%',size:'w-28 h-28'},
+      { id:'tom1', label:'Tom 1', key:'F', src:'samples/tom1.wav', x:'55%', y:'35%', size:'w-24 h-24'},
+      { id:'tom2', label:'Tom 2', key:'G', src:'samples/tom2.wav', x:'70%', y:'40%', size:'w-24 h-24'},
+      { id:'floortom',label:'Floor Tom',key:'H',src:'samples/floortom.wav',x:'75%',y:'65%',size:'w-28 h-28'},
       { id:'crash',label:'Crash',key:'J',src:'samples/crash.wav',x:'15%',y:'25%',size:'w-28 h-28'},
       { id:'ride', label:'Ride', key:'K', src:'samples/ride.wav',  x:'80%', y:'20%', size:'w-28 h-28'},
     ];
