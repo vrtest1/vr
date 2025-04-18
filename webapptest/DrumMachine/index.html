@@ -7,15 +7,11 @@
   <meta name="theme-color" content="#171717">
   <title>Web Drum Machine</title>
 
-  <!-- Tailwind (CDN for quick demo) -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- React 18 & ReactDOM (Production) -->
+  <!-- React & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
-
-  <!-- Babel 7 standalone -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 
   <style>
     html, body {
@@ -79,16 +75,10 @@
   <!-- Debug Console -->
   <div id="debug-console" style="position: fixed; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); color: white; font-family: monospace; font-size: 12px; padding: 10px; max-height: 30vh; overflow-y: auto; z-index: 9999;"></div>
 
+  <!-- Audio Elements -->
   <script>
-    // デバッグコンソールの設定
     const debugConsole = document.getElementById('debug-console');
-    const originalConsole = {
-      log: console.log,
-      error: console.error,
-      warn: console.warn
-    };
-
-    function addToDebugConsole(type, ...args) {
+    function log(type, ...args) {
       const line = document.createElement('div');
       line.style.color = type === 'error' ? '#ff6b6b' : type === 'warn' ? '#ffd93d' : '#ffffff';
       line.textContent = `${type}: ${args.map(arg => 
@@ -96,180 +86,120 @@
       ).join(' ')}`;
       debugConsole.appendChild(line);
       debugConsole.scrollTop = debugConsole.scrollHeight;
-      
-      // 元のコンソール関数も呼び出す
-      originalConsole[type](...args);
     }
 
-    // コンソール関数をオーバーライド
-    console.log = (...args) => addToDebugConsole('log', ...args);
-    console.error = (...args) => addToDebugConsole('error', ...args);
-    console.warn = (...args) => addToDebugConsole('warn', ...args);
-
-    // エラーハンドリング
-    window.onerror = function(msg, url, line, col, error) {
-      console.error(`Error: ${msg}\nAt: ${url}:${line}:${col}`);
-      return false;
-    };
-
-    window.addEventListener('unhandledrejection', function(event) {
-      console.error('Unhandled Promise Rejection:', event.reason);
-    });
-  </script>
-
-  <!-- Audio Context Initialization -->
-  <script>
-    let audioCtx = null;
-    let gainNode = null;
-    const audioBuffers = new Map();
-    let unlocked = false;
-    
-    // プリロードされた Audio 要素をバックアップとして使用
     const audioElements = new Map();
-    
-    async function createAudioElement(url) {
-      const audio = new Audio();
-      audio.src = url;
-      audio.preload = 'auto';
-      await new Promise((resolve) => {
-        audio.addEventListener('canplaythrough', resolve, { once: true });
-        audio.load();
-      });
-      return audio;
-    }
+    let initialized = false;
 
-    async function unlockAudioContext(context) {
-      console.log('Attempting to unlock audio context...');
-      if (context.state === 'suspended' && !unlocked) {
-        try {
-          await context.resume();
+    // iOS用のユーザーインタラクションフラグ
+    let hasUserInteraction = false;
+    
+    async function initializeAudio() {
+      if (initialized) return;
+      
+      log('log', 'Initializing audio system...');
+      
+      const samples = [
+        { id: 'kick', src: 'samples/kick.wav' },
+        { id: 'snare', src: 'samples/snare.wav' },
+        { id: 'hihat', src: 'samples/hihat.wav' },
+        { id: 'tom1', src: 'samples/tom1.wav' },
+        { id: 'tom2', src: 'samples/tom2.wav' },
+        { id: 'floortom', src: 'samples/floortom.wav' },
+        { id: 'crash', src: 'samples/crash.wav' },
+        { id: 'ride', src: 'samples/ride.wav' }
+      ];
+
+      try {
+        await Promise.all(samples.map(async ({ id, src }) => {
+          const audio = new Audio();
+          audio.preload = 'auto';
           
-          // iOS用の特別な処理
-          const oscillator = context.createOscillator();
-          const gainNode = context.createGain();
-          gainNode.gain.value = 0;
-          oscillator.connect(gainNode);
-          gainNode.connect(context.destination);
-          oscillator.start(0);
-          oscillator.stop(0.001);
+          // iOS対応のための設定
+          audio.playsInline = true;
+          audio.controls = false;
+          audio.muted = false;
           
-          unlocked = true;
-          console.log('Audio context unlocked successfully');
-        } catch (error) {
-          console.error('Failed to unlock audio context:', error);
-        }
+          await new Promise((resolve, reject) => {
+            audio.addEventListener('canplaythrough', resolve, { once: true });
+            audio.addEventListener('error', reject, { once: true });
+            audio.src = src;
+            audio.load();
+          });
+          
+          // 複製を作成して並行再生に対応
+          const clonedAudio = audio.cloneNode(true);
+          audioElements.set(id, [audio, clonedAudio]);
+          log('log', `Loaded audio for ${id}`);
+        }));
+
+        initialized = true;
+        log('log', 'Audio system initialized successfully');
+      } catch (error) {
+        log('error', 'Failed to initialize audio:', error);
       }
     }
 
-    async function initAudioContext() {
-      console.log('Initializing Audio Context...');
-      if (audioCtx) {
-        console.log('Audio Context already exists');
+    async function playSound(id) {
+      if (!hasUserInteraction) {
+        log('warn', 'Waiting for user interaction...');
         return;
       }
-      
-      try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContext({ sampleRate: 44100 });
-        console.log('Audio Context created, state:', audioCtx.state);
-        
-        gainNode = audioCtx.createGain();
-        gainNode.gain.value = 1.0;
-        gainNode.connect(audioCtx.destination);
-        console.log('Gain Node connected');
 
-        await unlockAudioContext(audioCtx);
-      } catch (error) {
-        console.error('Failed to initialize Audio Context:', error);
-      }
-    }
-
-    async function loadAudio(url) {
-      console.log('Loading audio:', url);
-      
-      // Audio要素をバックアップとして作成
-      if (!audioElements.has(url)) {
-        console.log('Creating backup Audio element for:', url);
-        const audioEl = await createAudioElement(url);
-        audioElements.set(url, audioEl);
-      }
-
-      if (!audioCtx) {
-        console.warn('Audio Context not initialized');
-        return null;
-      }
-      
-      if (audioBuffers.has(url)) {
-        console.log('Using cached audio buffer for:', url);
-        return audioBuffers.get(url);
+      const audioArray = audioElements.get(id);
+      if (!audioArray) {
+        log('error', `No audio found for ${id}`);
+        return;
       }
 
       try {
-        console.log('Fetching:', url);
-        const response = await fetch(url);
-        console.log('Fetch response status:', response.status);
-        const arrayBuffer = await response.arrayBuffer();
-        console.log('Array buffer received, size:', arrayBuffer.byteLength);
-        
-        await unlockAudioContext(audioCtx);
-        
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        console.log('Audio decoded successfully');
-        audioBuffers.set(url, audioBuffer);
-        return audioBuffer;
+        // 利用可能なAudio要素を探す
+        const audio = audioArray.find(a => a.paused) || audioArray[0];
+        audio.currentTime = 0;
+        await audio.play();
+        log('log', `Playing sound: ${id}`);
       } catch (error) {
-        console.error('Error loading audio:', url, error);
-        return null;
+        log('error', `Failed to play ${id}:`, error);
       }
     }
 
-    async function playSound(buffer, padId) {
-      console.log('Attempting to play sound for pad:', padId);
-      
-      // まずAudioContext経由で再生を試みる
-      if (buffer && audioCtx) {
-        try {
-          await unlockAudioContext(audioCtx);
-          const source = audioCtx.createBufferSource();
-          source.buffer = buffer;
-          source.connect(gainNode);
-          const startTime = audioCtx.currentTime;
-          source.start(startTime);
-          console.log('Sound played via AudioContext at time:', startTime);
-          return;
-        } catch (error) {
-          console.error('Failed to play via AudioContext:', error);
-        }
-      }
-
-      // AudioContextでの再生に失敗した場合、Audio要素でフォールバック
-      const pad = PADS.find(p => p.id === padId);
-      if (pad) {
-        const audioEl = audioElements.get(pad.src);
-        if (audioEl) {
-          try {
-            audioEl.currentTime = 0;
-            await audioEl.play();
-            console.log('Sound played via Audio element');
-          } catch (error) {
-            console.error('Failed to play via Audio element:', error);
-          }
-        }
+    // ユーザーインタラクションを検知
+    function handleUserInteraction() {
+      if (!hasUserInteraction) {
+        hasUserInteraction = true;
+        log('log', 'User interaction detected');
+        
+        // すべてのAudio要素で無音を再生して初期化
+        audioElements.forEach((audioArray, id) => {
+          audioArray.forEach(audio => {
+            audio.volume = 0;
+            audio.play().then(() => {
+              audio.pause();
+              audio.currentTime = 0;
+              audio.volume = 1;
+            }).catch(error => {
+              log('error', `Failed to initialize ${id}:`, error);
+            });
+          });
+        });
       }
     }
+
+    window.addEventListener('touchstart', handleUserInteraction, { once: true });
+    window.addEventListener('click', handleUserInteraction, { once: true });
   </script>
 
   <!-- Drum Machine -->
   <script type="text/babel" data-presets="env,react">
     const PADS = [
-      { id:'kick', label:'Kick',  key:'A', src:'samples/kick.wav',  x:'50%', y:'70%', size:'pad-large w-40 h-40' },
-      { id:'snare',label:'Snare',key:'S', src:'samples/snare.wav', x:'35%', y:'50%', size:'pad-medium w-32 h-32'},
-      { id:'hihat',label:'Hi-Hat',key:'D', src:'samples/hihat.wav',x:'20%', y:'40%', size:'pad-small w-28 h-28'},
-      { id:'tom1', label:'Tom 1', key:'F', src:'samples/tom1.wav', x:'50%', y:'40%', size:'pad-small w-28 h-28'},
-      { id:'tom2', label:'Tom 2', key:'G', src:'samples/tom2.wav', x:'65%', y:'45%', size:'pad-small w-28 h-28'},
-      { id:'floortom',label:'Floor Tom',key:'H',src:'samples/floortom.wav',x:'80%',y:'60%', size:'pad-medium w-32 h-32'},
-      { id:'crash',label:'Crash',key:'J',src:'samples/crash.wav',x:'30%',y:'25%', size:'pad-medium w-32 h-32'},
-      { id:'ride', label:'Ride', key:'K', src:'samples/ride.wav',  x:'70%', y:'30%', size:'pad-medium w-32 h-32'},
+      { id:'kick', label:'Kick', key:'A', x:'50%', y:'70%', size:'pad-large w-40 h-40' },
+      { id:'snare',label:'Snare',key:'S', x:'35%', y:'50%', size:'pad-medium w-32 h-32'},
+      { id:'hihat',label:'Hi-Hat',key:'D',x:'20%', y:'40%', size:'pad-small w-28 h-28'},
+      { id:'tom1', label:'Tom 1', key:'F', x:'50%', y:'40%', size:'pad-small w-28 h-28'},
+      { id:'tom2', label:'Tom 2', key:'G', x:'65%', y:'45%', size:'pad-small w-28 h-28'},
+      { id:'floortom',label:'Floor Tom',key:'H',x:'80%',y:'60%', size:'pad-medium w-32 h-32'},
+      { id:'crash',label:'Crash',key:'J',x:'30%',y:'25%', size:'pad-medium w-32 h-32'},
+      { id:'ride', label:'Ride', key:'K', x:'70%', y:'30%', size:'pad-medium w-32 h-32'},
     ];
 
     const DrumPad = React.memo(({ pad, active, onTrigger }) => {
@@ -304,68 +234,16 @@
     function DrumMachine() {
       const [activePad, setActivePad] = React.useState(null);
       const [ready, setReady] = React.useState(false);
-      const soundBuffers = React.useRef({});
-      const isInitialized = React.useRef(false);
-
-      const initializeAudio = React.useCallback(async () => {
-        console.log('Starting audio initialization...');
-        if (isInitialized.current) {
-          console.log('Already initialized');
-          return;
-        }
-        
-        try {
-          console.log('Initializing Audio Context...');
-          await initAudioContext();
-          
-          console.log('Loading sound samples...');
-          await Promise.all(
-            PADS.map(async (pad) => {
-              console.log(`Loading sample: ${pad.id}`);
-              soundBuffers.current[pad.id] = await loadAudio(pad.src);
-            })
-          );
-
-          isInitialized.current = true;
-          setReady(true);
-          console.log('Audio initialization complete');
-        } catch (error) {
-          console.error('Failed to initialize audio:', error);
-          setReady(true);
-        }
-      }, []);
-
-      const handleInteraction = React.useCallback(async (e) => {
-        if (!ready) {
-          await initializeAudio();
-        }
-      }, [ready, initializeAudio]);
 
       React.useEffect(() => {
-        const handleInteractionEvent = async (e) => {
-          if (!isInitialized.current) {
-            await handleInteraction(e);
-          }
-        };
+        initializeAudio().then(() => setReady(true));
+      }, []);
 
-        window.addEventListener('touchstart', handleInteractionEvent, { once: true });
-        window.addEventListener('click', handleInteractionEvent, { once: true });
-
-        return () => {
-          window.removeEventListener('touchstart', handleInteractionEvent);
-          window.removeEventListener('click', handleInteractionEvent);
-        };
-      }, [handleInteraction]);
-
-      const triggerPad = React.useCallback(async (pad) => {
-        if (!isInitialized.current) {
-          await initializeAudio();
-        }
-        const buffer = soundBuffers.current[pad.id];
-        await playSound(buffer, pad.id);
+      const triggerPad = React.useCallback((pad) => {
+        playSound(pad.id);
         setActivePad(pad.id);
         setTimeout(() => setActivePad(null), 100);
-      }, [initializeAudio]);
+      }, []);
 
       React.useEffect(() => {
         const handleKey = (e) => {
@@ -379,12 +257,8 @@
 
       if (!ready) {
         return (
-          <div 
-            className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl flex items-center justify-center"
-            onClick={handleInteraction}
-            onTouchStart={handleInteraction}
-          >
-            <div className="text-white text-lg">タップしてスタート...</div>
+          <div className="drum-container bg-gradient-to-br from-neutral-800 via-neutral-900 to-black rounded-2xl flex items-center justify-center">
+            <div className="text-white text-lg">Loading...</div>
           </div>
         );
       }
