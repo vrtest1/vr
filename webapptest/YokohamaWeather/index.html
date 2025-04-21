@@ -233,6 +233,20 @@
                     if ([125, 126, 127, 128, 131].includes(code)) {
                         return 'nochi_large.png';
                     }
+                    // 霧の場合（130）も曇りとして扱う
+                    if ([130].includes(code)) {
+                        return 'cloudy_large.png';
+                    }
+                    // 雷雨を伴う場合（140）は雨として扱う
+                    if ([140].includes(code)) {
+                        return 'rain_large.png';
+                    }
+                    // 雪か雨の場合（160, 170, 181）は先頭の天気を優先
+                    if ([160, 170, 181].includes(code)) {
+                        if (code === 160) return 'snow_large.png';  // 晴一時雪か雨
+                        if (code === 170) return 'snow_large.png';  // 晴時々雪か雨
+                        if (code === 181) return 'snow_large.png';  // 晴後雪か雨
+                    }
                     // その他の晴れ
                     return 'sunny_large.png';
                 }
@@ -254,6 +268,24 @@
                     // 後の場合
                     if ([211, 214, 217, 218, 219].includes(code)) {
                         return 'nochi_large.png';
+                    }
+                    // 時間帯を示す場合（午後は、昼頃から、夕方から、夜は）
+                    if ([224, 225, 226, 228, 229, 230].includes(code)) {
+                        return 'nochi_large.png';
+                    }
+                    // 霧の場合（209, 231）も曇りとして扱う
+                    if ([209, 231].includes(code)) {
+                        return 'cloudy_large.png';
+                    }
+                    // 雷雨を伴う場合（240, 250）は雨として扱う
+                    if ([240, 250].includes(code)) {
+                        return 'rain_large.png';
+                    }
+                    // 雪か雨の場合（260, 270, 281）は先頭の天気を優先
+                    if ([260, 270, 281].includes(code)) {
+                        if (code === 260) return 'snow_large.png';  // 曇一時雪か雨
+                        if (code === 270) return 'snow_large.png';  // 曇時々雪か雨
+                        if (code === 281) return 'snow_large.png';  // 曇後雪か雨
                     }
                     // その他の曇り
                     return 'cloudy_large.png';
@@ -277,10 +309,20 @@
                     if ([311, 313, 314, 316].includes(code)) {
                         return 'nochi_large.png';
                     }
-                    // その他の雨
-                    if (code === 328) {
+                    // みぞれの場合（329）は雪として扱う
+                    if ([329].includes(code)) {
+                        return 'snow_large.png';
+                    }
+                    // 雨か雪の場合（304, 322）は先頭の天気を優先
+                    if ([304, 322].includes(code)) {
+                        if (code === 304) return 'rain_large.png';  // 雨か雪
+                        if (code === 322) return 'rain_large.png';  // 雨朝晩一時雪
+                    }
+                    // 大雨（306）や暴風雨（308）、雷雨（350）は雨として扱う
+                    if ([306, 308, 350].includes(code)) {
                         return 'rain_large.png';
                     }
+                    // その他の雨
                     return 'rain_large.png';
                 }
                 
@@ -302,10 +344,15 @@
                     if ([411, 413, 414, 416].includes(code)) {
                         return 'nochi_large.png';
                     }
-                    // その他の雪
+                    // 雷雨を伴う場合（450）は雨として扱う
+                    if ([450].includes(code)) {
+                        return 'rain_large.png';
+                    }
+                    // みぞれの場合（425, 426, 427）は雪として扱う
                     if ([425, 426, 427].includes(code)) {
                         return 'snow_large.png';
                     }
+                    // その他の雪
                     return 'snow_large.png';
                 }
             }
@@ -461,6 +508,11 @@
                         firstWeather = parts[0].trim();
                         secondWeather = parts[1].trim();
                         
+                        // 「一時」が含まれる場合はtokidokiを使用
+                        if (secondWeather.includes('一時') || firstWeather.includes('一時')) {
+                            useNochi = false;
+                        }
+                        
                         // 最初の天気を追加
                         displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
                         
@@ -479,6 +531,11 @@
                         const parts = weather.split('から');
                         firstWeather = parts[0].trim();
                         secondWeather = parts[1].trim();
+                        
+                        // 「一時」が含まれる場合はtokidokiを使用
+                        if (secondWeather.includes('一時') || firstWeather.includes('一時')) {
+                            useNochi = false;
+                        }
                         
                         // 最初の天気を追加
                         displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
