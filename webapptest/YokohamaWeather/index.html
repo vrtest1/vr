@@ -35,7 +35,7 @@
         }
         .weather-display img.active {
             opacity: 1;
-            filter: brightness(1.45) sepia(0.15) hue-rotate(-3deg) contrast(1.1);
+            filter: brightness(1) sepia(0.4) hue-rotate(-6deg) contrast(1.1);
         }
         /* すりガラス効果のオーバーレイ */
         .weather-display::before {
@@ -45,8 +45,8 @@
             left: 0;
             right: 0;
             bottom: 0;
-            backdrop-filter: blur(2px);
-            -webkit-backdrop-filter: blur(2px);
+            backdrop-filter: blur(1px);
+            -webkit-backdrop-filter: blur(1px);
             pointer-events: none;
         }
         /* 光の拡散効果（内側） */
@@ -59,9 +59,9 @@
             bottom: 0;
             background: radial-gradient(
                 circle at center,
-                rgba(255, 230, 220, 0.09) 0%,
-                rgba(255, 230, 220, 0.09) 50%,
-                rgba(255, 230, 220, 0.09) 100%
+                rgba(255, 200, 180, 0.06) 0%,
+                rgba(255, 200, 180, 0.06) 50%,
+                rgba(255, 200, 180, 0.06) 100%
             );
             mix-blend-mode: screen;
             pointer-events: none;
@@ -76,9 +76,9 @@
             bottom: -10%;
             background: radial-gradient(
                 circle at center,
-                rgba(255, 225, 210, 0.045) 0%,
-                rgba(255, 225, 210, 0.045) 50%,
-                rgba(255, 225, 210, 0.045) 100%
+                rgba(255, 190, 170, 0.03) 0%,
+                rgba(255, 190, 170, 0.03) 50%,
+                rgba(255, 190, 170, 0.03) 100%
             );
             mix-blend-mode: screen;
             pointer-events: none;
@@ -91,10 +91,10 @@
             align-items: center;
             justify-content: center;
             position: relative;
-            filter: blur(1px) brightness(1.2) saturate(1.08) contrast(1.08);
+            filter: blur(1px) brightness(1) saturate(1.2) contrast(1.08);
         }
         .display-text {
-            color: #fff0e6;
+            color: #ffd9c9;
             font-size: 5vw;
             font-weight: bold;
             position: relative;
