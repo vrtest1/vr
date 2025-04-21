@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>横浜の天気予報</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .weather-display {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: black;
+            position: relative;
+            filter: contrast(1.1);
+        }
+        .weather-display img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            position: absolute;
+            opacity: 0.015;
+            transition: all 0.5s ease;
+        }
+        .weather-display img.active {
+            opacity: 1;
+            filter: brightness(1.45) sepia(0.15) hue-rotate(-3deg) contrast(1.1);
+        }
+        /* すりガラス効果のオーバーレイ */
+        .weather-display::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            pointer-events: none;
+        }
+        /* 光の拡散効果（内側） */
+        .weather-display::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(
+                circle at center,
+                rgba(255, 230, 220, 0.09) 0%,
+                rgba(255, 230, 220, 0.09) 50%,
+                rgba(255, 230, 220, 0.09) 100%
+            );
+            mix-blend-mode: screen;
+            pointer-events: none;
+        }
+        /* 追加の光の拡散効果（外側） */
+        .weather-display > div::after {
+            content: '';
+            position: absolute;
+            top: -10%;
+            left: -10%;
+            right: -10%;
+            bottom: -10%;
+            background: radial-gradient(
+                circle at center,
+                rgba(255, 225, 210, 0.045) 0%,
+                rgba(255, 225, 210, 0.045) 50%,
+                rgba(255, 225, 210, 0.045) 100%
+            );
+            mix-blend-mode: screen;
+            pointer-events: none;
+            z-index: 1;
+        }
+        #display-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            filter: blur(1px) brightness(1.2) saturate(1.08) contrast(1.08);
+        }
+        .display-text {
+            color: #fff0e6;
+            font-size: 5vw;
+            font-weight: bold;
+            position: relative;
+            z-index: 10;
+        }
+        /* 非表示にする要素 */
+        .container h1,
+        .date,
+        .weather-info {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>横浜の天気予報</h1>
+        <div id="date" class="date"></div>
+        <div id="weather" class="weather-info"></div>
+        <div class="weather-display">
+            <div id="display-content"></div>
+        </div>
+    </div>
+
+    <script>
+        // 使用する天気アイコンの配列
+        const weatherIcons = [
+            'tomorrow_large.png',  // tomorrowアイコンを追加
+            'sunny_large.png',
+            'cloudy_large.png',
+            'rain_large.png',
+            'snow_large.png',
+            'tokidoki_large.png',
+            'nochi_large.png'
+        ];
+
+        // すべての天気アイコンを事前に表示
+        function preloadWeatherIcons() {
+            const displayContent = document.getElementById('display-content');
+            // 既存の画像をクリア
+            displayContent.innerHTML = '';
+
+            // 新しい画像を追加
+            weatherIcons.forEach(icon => {
+                const img = document.createElement('img');
+                img.src = `static/weather_icons/${icon}`;
+                img.alt = '天気表示';
+                img.style.opacity = '0.02';
+                img.style.transition = 'opacity 0.5s ease';
+                displayContent.appendChild(img);
+            });
+        }
+
+        function createImageElement(iconName) {
+            // すべての画像の透明度を0.02に設定
+            const allImages = document.querySelectorAll('.weather-display img');
+            allImages.forEach(img => {
+                img.classList.remove('active');
+                img.style.opacity = '0.02';
+            });
+
+            // 指定されたアイコンの画像を探して透明度を1に設定
+            const targetImage = Array.from(allImages).find(img => img.src.endsWith(iconName));
+            if (targetImage) {
+                targetImage.classList.add('active');
+            }
+            return null; // 新しい画像は作成しない
+        }
+
+        function createTextElement(text) {
+            const div = document.createElement('div');
+            div.className = 'display-text';
+            div.textContent = text;
+            return div;
+        }
+
+        function updateDisplay(displaySequence, currentIndex) {
+            const displayContent = document.getElementById('display-content');
+            const currentItem = displaySequence[currentIndex];
+            
+            // テキストの場合は既存のテキスト要素を更新または作成
+            if (currentItem.type === 'text') {
+                const existingText = displayContent.querySelector('.display-text');
+                if (existingText) {
+                    existingText.textContent = currentItem.content;
+                } else {
+                    displayContent.appendChild(createTextElement(currentItem.content));
+                }
+            } else {
+                // 画像の場合は透明度を更新
+                const allImages = document.querySelectorAll('.weather-display img');
+                const currentImage = currentItem.content;
+
+                allImages.forEach(img => {
+                    const imgName = img.src.split('/').pop(); // ファイル名のみを取得
+                    if (imgName === currentImage) {
+                        img.style.opacity = '1';
+                        img.classList.add('active');
+                    } else {
+                        img.style.opacity = '0.02';
+                        img.classList.remove('active');
+                    }
+                });
+            }
+        }
+
+        function getWeatherIcon(weather, weatherCode) {
+            console.log('getWeatherIcon input:', { weather, weatherCode }); // デバッグ用
+
+            // 気象庁の天気コードに基づいてアイコンを選択
+            if (weatherCode) {
+                const code = parseInt(weatherCode);
+                
+                // 晴れ系（100番台）
+                if (code >= 100 && code < 200) {
+                    // 時々/一時の場合
+                    if ([101, 102, 103, 104, 105, 106, 107, 108].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
+                    // 後の場合
+                    if ([110, 111, 112, 113, 114, 115, 116, 117, 118, 119].includes(code)) {
+                        return 'sunny_large.png';  // 最初のアイコンは晴れ
+                    }
+                    // 夕方/朝方の場合
+                    if ([120, 121, 122, 123, 124, 125, 126, 127, 128].includes(code)) {
+                        return 'sunny_large.png';
+                    }
+                    // その他の晴れ
+                    return 'sunny_large.png';
+                }
+                
+                // 曇り系（200番台）
+                else if (code >= 200 && code < 300) {
+                    // 時々/一時の場合
+                    if ([201, 202, 203, 204, 205, 206, 207, 208].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
+                    // 後の場合
+                    if ([210, 211, 212, 213, 214, 215, 216, 217, 218, 219].includes(code)) {
+                        return 'cloudy_large.png';
+                    }
+                    // その他の曇り
+                    return 'cloudy_large.png';
+                }
+                
+                // 雨系（300番台）
+                else if (code >= 300 && code < 400) {
+                    // 時々の場合
+                    if ([301, 302, 303].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
+                    // 後の場合
+                    if ([311, 313, 314, 315, 316, 317].includes(code)) {
+                        return 'rain_large.png';
+                    }
+                    // その他の雨
+                    return 'rain_large.png';
+                }
+                
+                // 雪系（400番台）
+                else if (code >= 400) {
+                    // 時々の場合
+                    if ([401, 402, 403, 409].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
+                    // 後の場合
+                    if ([411, 413, 414].includes(code)) {
+                        return 'snow_large.png';
+                    }
+                    // その他の雪
+                    return 'snow_large.png';
+                }
+            }
+
+            // 天気コードがない場合はテキストベースで判断
+            const weatherText = weather.trim();
+
+            // 「時々」または「一時」を含む場合の処理
+            if (weather.includes('時々') || weather.includes('一時')) {
+                return 'tokidoki_large.png';
+            }
+
+            // 完全一致で判定
+            if (weatherText === 'くもり' || weatherText === '曇り') {
+                return 'cloudy_large.png';
+            }
+            if (weatherText === '晴れ' || weatherText === '晴') {
+                return 'sunny_large.png';
+            }
+            if (weatherText === '雨') {
+                return 'rain_large.png';
+            }
+            if (weatherText === '雪') {
+                return 'snow_large.png';
+            }
+
+            // 部分一致で判定（完全一致で見つからなかった場合）
+            if (weather.includes('くもり') || weather.includes('曇')) {
+                return 'cloudy_large.png';
+            }
+            if (weather.includes('雨')) {
+                return 'rain_large.png';
+            }
+            if (weather.includes('雪')) {
+                return 'snow_large.png';
+            }
+            if (weather.includes('晴')) {
+                return 'sunny_large.png';
+            }
+
+            // デフォルト
+            return 'sunny_large.png';
+        }
+
+        async function getWeather() {
+            try {
+                // 最初に画像を事前読み込み
+                preloadWeatherIcons();
+
+                const response = await fetch('https://www.jma.go.jp/bosai/forecast/data/forecast/140000.json');
+                const data = await response.json();
+                
+                // 明日の天気を取得
+                const tomorrow = data[0].timeSeries[0].areas[0];
+                const weather = tomorrow.weathers[1];
+                const weatherCode = tomorrow.weatherCodes ? tomorrow.weatherCodes[1] : null;
+
+                console.log('Original weather:', weather); // デバッグ用
+
+                // 天気の状態を解析
+                let firstWeather, secondWeather;
+                let firstCode = weatherCode;
+                let secondCode = null;
+                let useNochi = true;  // デフォルトでnochiを使用
+                
+                if (weather.includes('夕方')) {
+                    // 「夕方」を含む場合の処理
+                    const beforeYugata = weather.split('夕方')[0].trim();
+                    const afterYugata = weather.split('夕方')[1].trim();
+                    
+                    firstWeather = beforeYugata;
+                    if (afterYugata.includes('から')) {
+                        secondWeather = afterYugata.split('から')[1].trim();
+                        if (weatherCode) {
+                            if (weatherCode === '111') { // 晴後曇
+                                secondCode = '200';  // 曇り
+                            } else if (weatherCode === '127') { // 晴夕方から雨
+                                secondCode = '300';  // 雨
+                            }
+                        }
+                    }
+                } else if (weather.includes('時々') || weather.includes('一時')) {
+                    let parts;
+                    if (weather.includes('時々')) {
+                        parts = weather.split('時々');
+                    } else {
+                        parts = weather.split('一時');
+                    }
+                    firstWeather = parts[0].trim();
+                    secondWeather = parts[1].trim();
+                    useNochi = false;  // 時々/一時の場合はtokidokiを使用
+                } else if (weather.includes('後')) {
+                    const parts = weather.split('後');
+                    firstWeather = parts[0].trim();
+                    secondWeather = parts[1].trim();
+                } else if (weather.includes('から')) {
+                    const parts = weather.split('から');
+                    firstWeather = parts[0].trim();
+                    secondWeather = parts[1].trim();
+                } else {
+                    firstWeather = weather.trim();
+                }
+
+                console.log('First weather:', firstWeather, 'code:', firstCode); // デバッグ用
+                console.log('Second weather:', secondWeather, 'code:', secondCode); // デバッグ用
+
+                // 表示シーケンスを作成
+                const displaySequence = [];
+
+                // 最初のシーケンス: tomorrow -> 最初の天気
+                displaySequence.push(
+                    { type: 'image', content: 'tomorrow_large.png' },
+                    { type: 'image', content: getWeatherIcon(firstWeather, firstCode) }
+                );
+
+                // 天気の変化がある場合の追加シーケンス
+                if (secondWeather) {
+                    const transitionIcon = useNochi ? 'nochi_large.png' : 'tokidoki_large.png';
+                    const secondWeatherIcon = getWeatherIcon(secondWeather, secondCode);
+                    
+                    // 変化を示すアイコンを表示
+                    displaySequence.push({ type: 'image', content: transitionIcon });
+                    
+                    // 2番目の天気を表示
+                    displaySequence.push({ type: 'image', content: secondWeatherIcon });
+                }
+
+                // 日付と天気情報を更新
+                document.getElementById('date').textContent = new Date().toLocaleDateString('ja-JP');
+                document.getElementById('weather').textContent = `明日の天気: ${weather}`;
+
+                // 表示ループを開始
+                let currentIndex = 0;
+                updateDisplay(displaySequence, currentIndex);
+
+                // インターバルをクリア（既存のものがあれば）
+                if (window.weatherInterval) {
+                    clearInterval(window.weatherInterval);
+                }
+
+                // 新しいインターバルを設定
+                window.weatherInterval = setInterval(() => {
+                    currentIndex = (currentIndex + 1) % displaySequence.length;
+                    updateDisplay(displaySequence, currentIndex);
+                }, 1500);
+
+            } catch (error) {
+                document.getElementById('weather').innerHTML = '<div class="error">天気情報の取得に失敗しました</div>';
+                console.error('Error fetching weather:', error);
+            }
+        }
+
+        // ページ読み込み時に天気情報を取得
+        window.addEventListener('load', getWeather);
+
+        // 30秒ごとに天気情報を更新
+        setInterval(getWeather, 30000);
+    </script>
+</body>
+</html> 
