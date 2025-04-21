@@ -210,16 +210,28 @@
                 // 晴れ系（100番台）
                 if (code >= 100 && code < 200) {
                     // 時々/一時の場合
-                    if ([101, 102, 103, 104, 105, 106, 107, 108].includes(code)) {
+                    if ([101, 102, 103, 105, 106, 107, 108, 120, 121, 122, 123, 124].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
+                    // 一時雪の場合（104）
+                    if (code === 104) {
+                        return 'tokidoki_large.png';
+                    }
+                    // 後時々の場合
+                    if ([110, 113, 116].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
+                    // 後一時の場合
+                    if ([112, 115].includes(code)) {
                         return 'tokidoki_large.png';
                     }
                     // 後の場合
-                    if ([110, 111, 112, 113, 114, 115, 116, 117, 118, 119].includes(code)) {
-                        return 'sunny_large.png';  // 最初のアイコンは晴れ
+                    if ([111, 114, 117, 118, 119, 132].includes(code)) {
+                        return 'nochi_large.png';
                     }
-                    // 夕方/朝方の場合
-                    if ([120, 121, 122, 123, 124, 125, 126, 127, 128].includes(code)) {
-                        return 'sunny_large.png';
+                    // 時間帯を示す場合（午後は、昼頃から、夕方から、夜は、明け方）
+                    if ([125, 126, 127, 128, 131].includes(code)) {
+                        return 'nochi_large.png';
                     }
                     // その他の晴れ
                     return 'sunny_large.png';
@@ -231,9 +243,17 @@
                     if ([201, 202, 203, 204, 205, 206, 207, 208].includes(code)) {
                         return 'tokidoki_large.png';
                     }
+                    // 後時々の場合
+                    if ([210, 213, 216].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
+                    // 後一時の場合
+                    if ([212, 215].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
                     // 後の場合
-                    if ([210, 211, 212, 213, 214, 215, 216, 217, 218, 219].includes(code)) {
-                        return 'cloudy_large.png';
+                    if ([211, 214, 217, 218, 219].includes(code)) {
+                        return 'nochi_large.png';
                     }
                     // その他の曇り
                     return 'cloudy_large.png';
@@ -245,11 +265,22 @@
                     if ([301, 302, 303].includes(code)) {
                         return 'tokidoki_large.png';
                     }
+                    // 後時々の場合
+                    if ([313, 314, 315, 316, 317].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
+                    // 後一時の場合
+                    if ([312, 315, 317].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
                     // 後の場合
-                    if ([311, 313, 314, 315, 316, 317].includes(code)) {
-                        return 'rain_large.png';
+                    if ([311, 313, 314, 316].includes(code)) {
+                        return 'nochi_large.png';
                     }
                     // その他の雨
+                    if (code === 328) {
+                        return 'rain_large.png';
+                    }
                     return 'rain_large.png';
                 }
                 
@@ -259,11 +290,22 @@
                     if ([401, 402, 403, 409].includes(code)) {
                         return 'tokidoki_large.png';
                     }
+                    // 後時々の場合
+                    if ([413, 414, 415, 416, 417].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
+                    // 後一時の場合
+                    if ([412, 415, 417].includes(code)) {
+                        return 'tokidoki_large.png';
+                    }
                     // 後の場合
-                    if ([411, 413, 414].includes(code)) {
-                        return 'snow_large.png';
+                    if ([411, 413, 414, 416].includes(code)) {
+                        return 'nochi_large.png';
                     }
                     // その他の雪
+                    if ([425, 426, 427].includes(code)) {
+                        return 'snow_large.png';
+                    }
                     return 'snow_large.png';
                 }
             }
@@ -322,6 +364,7 @@
                 const weatherCode = tomorrow.weatherCodes ? tomorrow.weatherCodes[1] : null;
 
                 console.log('Original weather:', weather); // デバッグ用
+                console.log('Weather code:', weatherCode); // デバッグ用
 
                 // 天気の状態を解析
                 let firstWeather, secondWeather;
@@ -329,67 +372,232 @@
                 let secondCode = null;
                 let useNochi = true;  // デフォルトでnochiを使用
                 
-                if (weather.includes('夕方')) {
-                    // 「夕方」を含む場合の処理
-                    const beforeYugata = weather.split('夕方')[0].trim();
-                    const afterYugata = weather.split('夕方')[1].trim();
-                    
-                    firstWeather = beforeYugata;
-                    if (afterYugata.includes('から')) {
-                        secondWeather = afterYugata.split('から')[1].trim();
-                        if (weatherCode) {
-                            if (weatherCode === '111') { // 晴後曇
-                                secondCode = '200';  // 曇り
-                            } else if (weatherCode === '127') { // 晴夕方から雨
-                                secondCode = '300';  // 雨
-                            }
-                        }
-                    }
-                } else if (weather.includes('時々') || weather.includes('一時')) {
-                    let parts;
-                    if (weather.includes('時々')) {
-                        parts = weather.split('時々');
-                    } else {
-                        parts = weather.split('一時');
-                    }
-                    firstWeather = parts[0].trim();
-                    secondWeather = parts[1].trim();
-                    useNochi = false;  // 時々/一時の場合はtokidokiを使用
-                } else if (weather.includes('後')) {
-                    const parts = weather.split('後');
-                    firstWeather = parts[0].trim();
-                    secondWeather = parts[1].trim();
-                } else if (weather.includes('から')) {
-                    const parts = weather.split('から');
-                    firstWeather = parts[0].trim();
-                    secondWeather = parts[1].trim();
-                } else {
-                    firstWeather = weather.trim();
-                }
-
-                console.log('First weather:', firstWeather, 'code:', firstCode); // デバッグ用
-                console.log('Second weather:', secondWeather, 'code:', secondCode); // デバッグ用
-
                 // 表示シーケンスを作成
                 const displaySequence = [];
 
                 // 最初のシーケンス: tomorrow -> 最初の天気
                 displaySequence.push(
-                    { type: 'image', content: 'tomorrow_large.png' },
-                    { type: 'image', content: getWeatherIcon(firstWeather, firstCode) }
+                    { type: 'image', content: 'tomorrow_large.png' }
                 );
 
-                // 天気の変化がある場合の追加シーケンス
-                if (secondWeather) {
-                    const transitionIcon = useNochi ? 'nochi_large.png' : 'tokidoki_large.png';
-                    const secondWeatherIcon = getWeatherIcon(secondWeather, secondCode);
+                // 天気コードに基づいて表示シーケンスを設定
+                if (weatherCode) {
+                    const code = parseInt(weatherCode);
                     
-                    // 変化を示すアイコンを表示
-                    displaySequence.push({ type: 'image', content: transitionIcon });
-                    
-                    // 2番目の天気を表示
-                    displaySequence.push({ type: 'image', content: secondWeatherIcon });
+                    // 最初の天気状態と同じ天気状態が遷移後に再表示されるパターン
+                    if ([306, 308, 309, 405, 406, 407, 409].includes(code)) {
+                        // 最初の天気状態のみを表示
+                        displaySequence.push(
+                            { type: 'image', content: getWeatherIcon(weather, weatherCode) }
+                        );
+                    } else if (weatherCode === '111') { // 晴れ後曇り
+                        displaySequence.push(
+                            { type: 'image', content: 'sunny_large.png' },
+                            { type: 'image', content: 'nochi_large.png' },
+                            { type: 'image', content: 'cloudy_large.png' }
+                        );
+                    } else if (weatherCode === '110') { // 晴れ後時々曇り
+                        displaySequence.push(
+                            { type: 'image', content: 'sunny_large.png' },
+                            { type: 'image', content: 'tokidoki_large.png' },
+                            { type: 'image', content: 'cloudy_large.png' }
+                        );
+                    } else if (weather.includes('夕方')) {
+                        // 「夕方」を含む場合の処理
+                        const beforeYugata = weather.split('夕方')[0].trim();
+                        const afterYugata = weather.split('夕方')[1].trim();
+                        
+                        firstWeather = beforeYugata;
+                        if (afterYugata.includes('から')) {
+                            secondWeather = afterYugata.split('から')[1].trim();
+                            if (weatherCode) {
+                                if (weatherCode === '127') { // 晴夕方から雨
+                                    secondCode = '300';  // 雨
+                                }
+                            }
+                        }
+                        
+                        // 最初の天気を追加
+                        displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
+                        
+                        // 天気の変化がある場合の追加シーケンス
+                        if (secondWeather) {
+                            const transitionIcon = useNochi ? 'nochi_large.png' : 'tokidoki_large.png';
+                            const secondWeatherIcon = getWeatherIcon(secondWeather, secondCode);
+                            
+                            // 変化を示すアイコンを表示
+                            displaySequence.push({ type: 'image', content: transitionIcon });
+                            
+                            // 2番目の天気を表示
+                            displaySequence.push({ type: 'image', content: secondWeatherIcon });
+                        }
+                    } else if (weather.includes('時々') || weather.includes('一時')) {
+                        let parts;
+                        if (weather.includes('時々')) {
+                            parts = weather.split('時々');
+                        } else {
+                            parts = weather.split('一時');
+                        }
+                        firstWeather = parts[0].trim();
+                        secondWeather = parts[1].trim();
+                        useNochi = false;  // 時々/一時の場合はtokidokiを使用
+                        
+                        // 最初の天気を追加
+                        displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
+                        
+                        // 天気の変化がある場合の追加シーケンス
+                        if (secondWeather) {
+                            const transitionIcon = useNochi ? 'nochi_large.png' : 'tokidoki_large.png';
+                            const secondWeatherIcon = getWeatherIcon(secondWeather, secondCode);
+                            
+                            // 変化を示すアイコンを表示
+                            displaySequence.push({ type: 'image', content: transitionIcon });
+                            
+                            // 2番目の天気を表示
+                            displaySequence.push({ type: 'image', content: secondWeatherIcon });
+                        }
+                    } else if (weather.includes('後')) {
+                        const parts = weather.split('後');
+                        firstWeather = parts[0].trim();
+                        secondWeather = parts[1].trim();
+                        
+                        // 最初の天気を追加
+                        displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
+                        
+                        // 天気の変化がある場合の追加シーケンス
+                        if (secondWeather) {
+                            const transitionIcon = useNochi ? 'nochi_large.png' : 'tokidoki_large.png';
+                            const secondWeatherIcon = getWeatherIcon(secondWeather, secondCode);
+                            
+                            // 変化を示すアイコンを表示
+                            displaySequence.push({ type: 'image', content: transitionIcon });
+                            
+                            // 2番目の天気を表示
+                            displaySequence.push({ type: 'image', content: secondWeatherIcon });
+                        }
+                    } else if (weather.includes('から')) {
+                        const parts = weather.split('から');
+                        firstWeather = parts[0].trim();
+                        secondWeather = parts[1].trim();
+                        
+                        // 最初の天気を追加
+                        displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
+                        
+                        // 天気の変化がある場合の追加シーケンス
+                        if (secondWeather) {
+                            const transitionIcon = useNochi ? 'nochi_large.png' : 'tokidoki_large.png';
+                            const secondWeatherIcon = getWeatherIcon(secondWeather, secondCode);
+                            
+                            // 変化を示すアイコンを表示
+                            displaySequence.push({ type: 'image', content: transitionIcon });
+                            
+                            // 2番目の天気を表示
+                            displaySequence.push({ type: 'image', content: secondWeatherIcon });
+                        }
+                    } else {
+                        firstWeather = weather.trim();
+                        
+                        // 最初の天気を追加
+                        displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
+                    }
+                } else {
+                    // 天気コードがない場合の処理（既存のコード）
+                    if (weather.includes('夕方')) {
+                        // 「夕方」を含む場合の処理
+                        const beforeYugata = weather.split('夕方')[0].trim();
+                        const afterYugata = weather.split('夕方')[1].trim();
+                        
+                        firstWeather = beforeYugata;
+                        if (afterYugata.includes('から')) {
+                            secondWeather = afterYugata.split('から')[1].trim();
+                        }
+                        
+                        // 最初の天気を追加
+                        displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
+                        
+                        // 天気の変化がある場合の追加シーケンス
+                        if (secondWeather) {
+                            const transitionIcon = useNochi ? 'nochi_large.png' : 'tokidoki_large.png';
+                            const secondWeatherIcon = getWeatherIcon(secondWeather, secondCode);
+                            
+                            // 変化を示すアイコンを表示
+                            displaySequence.push({ type: 'image', content: transitionIcon });
+                            
+                            // 2番目の天気を表示
+                            displaySequence.push({ type: 'image', content: secondWeatherIcon });
+                        }
+                    } else if (weather.includes('時々') || weather.includes('一時')) {
+                        let parts;
+                        if (weather.includes('時々')) {
+                            parts = weather.split('時々');
+                        } else {
+                            parts = weather.split('一時');
+                        }
+                        firstWeather = parts[0].trim();
+                        secondWeather = parts[1].trim();
+                        useNochi = false;  // 時々/一時の場合はtokidokiを使用
+                        
+                        // 最初の天気を追加
+                        displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
+                        
+                        // 天気の変化がある場合の追加シーケンス
+                        if (secondWeather) {
+                            const transitionIcon = useNochi ? 'nochi_large.png' : 'tokidoki_large.png';
+                            const secondWeatherIcon = getWeatherIcon(secondWeather, secondCode);
+                            
+                            // 変化を示すアイコンを表示
+                            displaySequence.push({ type: 'image', content: transitionIcon });
+                            
+                            // 2番目の天気を表示
+                            displaySequence.push({ type: 'image', content: secondWeatherIcon });
+                        }
+                    } else if (weather.includes('後')) {
+                        const parts = weather.split('後');
+                        firstWeather = parts[0].trim();
+                        secondWeather = parts[1].trim();
+                        
+                        // 最初の天気を追加
+                        displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
+                        
+                        // 天気の変化がある場合の追加シーケンス
+                        if (secondWeather) {
+                            const transitionIcon = useNochi ? 'nochi_large.png' : 'tokidoki_large.png';
+                            const secondWeatherIcon = getWeatherIcon(secondWeather, secondCode);
+                            
+                            // 変化を示すアイコンを表示
+                            displaySequence.push({ type: 'image', content: transitionIcon });
+                            
+                            // 2番目の天気を表示
+                            displaySequence.push({ type: 'image', content: secondWeatherIcon });
+                        }
+                    } else if (weather.includes('から')) {
+                        const parts = weather.split('から');
+                        firstWeather = parts[0].trim();
+                        secondWeather = parts[1].trim();
+                        
+                        // 最初の天気を追加
+                        displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
+                        
+                        // 天気の変化がある場合の追加シーケンス
+                        if (secondWeather) {
+                            const transitionIcon = useNochi ? 'nochi_large.png' : 'tokidoki_large.png';
+                            const secondWeatherIcon = getWeatherIcon(secondWeather, secondCode);
+                            
+                            // 変化を示すアイコンを表示
+                            displaySequence.push({ type: 'image', content: transitionIcon });
+                            
+                            // 2番目の天気を表示
+                            displaySequence.push({ type: 'image', content: secondWeatherIcon });
+                        }
+                    } else {
+                        firstWeather = weather.trim();
+                        
+                        // 最初の天気を追加
+                        displaySequence.push({ type: 'image', content: getWeatherIcon(firstWeather, firstCode) });
+                    }
                 }
+
+                console.log('Display sequence:', displaySequence); // デバッグ用
 
                 // 日付と天気情報を更新
                 document.getElementById('date').textContent = new Date().toLocaleDateString('ja-JP');
