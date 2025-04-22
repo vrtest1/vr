@@ -24,6 +24,7 @@
             background-color: black;
             position: relative;
             filter: contrast(1.1);
+            cursor: pointer; /* クリック可能であることを示す */
         }
         .weather-display img {
             max-width: 100%;
@@ -519,8 +520,79 @@
         // ページ読み込み時に天気情報を取得
         window.addEventListener('load', getWeather);
 
-        // 1時間ごとに天気情報を更新
+        // 5分ごとに天気情報を更新
         setInterval(getWeather, 3600000);
+
+        // 駅のアラーム音を再生する関数
+        function playStationPongWithEcho() {
+            try {
+                // オーディオコンテキストが既に存在する場合は再利用
+                if (!window.audioContext) {
+                    window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const ctx = window.audioContext;
+
+                // コンテキストが停止状態の場合は再開
+                if (ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+                
+                const delay = ctx.createDelay();
+                delay.delayTime.value = 0.1;
+
+                const feedback = ctx.createGain();
+                feedback.gain.value = 0.4;
+
+                delay.connect(feedback);
+                feedback.connect(delay);
+
+                const gain1 = ctx.createGain();
+                gain1.gain.value = 0.15;
+
+                const gain2 = ctx.createGain();
+                gain2.gain.value = 0.1;
+
+                const finalOutput = ctx.createGain();
+                gain1.connect(delay);
+                gain2.connect(delay);
+                delay.connect(finalOutput);
+                gain1.connect(finalOutput);
+                gain2.connect(finalOutput);
+                finalOutput.connect(ctx.destination);
+
+                const osc1 = ctx.createOscillator();
+                osc1.type = 'triangle';
+                osc1.frequency.setValueAtTime(392, ctx.currentTime);
+                osc1.connect(gain1);
+                osc1.start(ctx.currentTime);
+                osc1.stop(ctx.currentTime + 1);
+
+                const osc2 = ctx.createOscillator();
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(330, ctx.currentTime + 1.2);
+                osc2.connect(gain2);
+                osc2.start(ctx.currentTime + 1.5);
+                osc2.stop(ctx.currentTime + 3);
+
+            } catch (error) {
+                console.error('音声再生エラー:', error);
+                // エラーが発生した場合、新しいコンテキストを作成
+                window.audioContext = null;
+            }
+        }
+
+        // ページ読み込み時にオーディオコンテキストを初期化
+        window.addEventListener('load', () => {
+            try {
+                window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (error) {
+                console.error('オーディオコンテキストの初期化エラー:', error);
+            }
+        });
+
+        // 天気表示画面をクリックまたはタップした時のイベントリスナー
+        document.querySelector('.weather-display').addEventListener('click', playStationPongWithEcho);
+        document.querySelector('.weather-display').addEventListener('touchstart', playStationPongWithEcho);
     </script>
 </body>
 </html> 
