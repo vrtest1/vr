@@ -350,8 +350,14 @@
                 const weather = tomorrow.weathers[1];
                 const weatherCode = tomorrow.weatherCodes ? tomorrow.weatherCodes[1] : null;
 
-                console.log('Original weather:', weather); // デバッグ用
-                console.log('Weather code:', weatherCode); // デバッグ用
+                // 天気コードと日本語の意味をログ出力
+                console.log('天気コード:', weatherCode);
+                console.log('天気:', weather);
+
+                // エラー検知用の最小限のログ
+                if (!weatherCode) {
+                    console.warn('Weather code not found in API response');
+                }
 
                 // 表示シーケンスを作成
                 const displaySequence = [];
@@ -362,7 +368,6 @@
                 // 天気コードに基づいて表示シーケンスを設定
                 if (weatherCode) {
                     const code = parseInt(weatherCode);
-                    console.log('Processing weather code:', code); // デバッグ用
 
                     // 単一の天気状態のみを表示するコード
                     const singleWeatherCodes = [
@@ -414,12 +419,9 @@
                     } else if (code >= 400) {
                         firstWeatherIcon = 'snow_large.png';
                     }
-                    console.log('First weather icon:', firstWeatherIcon); // デバッグ用
 
                     // 2番目の天気状態を決定
                     let secondWeatherIcon = null;
-                    
-                    // コード番号から2番目の天気を判断
                     if (code >= 100 && code < 200) {
                         // 晴れ系の2番目の天気判定
                         if ([101, 110, 111, 131, 132].includes(code)) {
@@ -458,40 +460,36 @@
                         }
                     }
 
-                    console.log('Weather code:', code, 'Second weather icon:', secondWeatherIcon); // デバッグ用
-
                     // 単一の天気状態の場合
                     if (singleWeatherCodes.includes(code)) {
-                        console.log('Single weather code detected'); // デバッグ用
                         displaySequence.push({ type: 'image', content: firstWeatherIcon });
                     }
                     // 「のち」を含む天気の場合
                     else if (nochiWeatherCodes.includes(code)) {
-                        console.log('Nochi weather code detected'); // デバッグ用
                         displaySequence.push(
                             { type: 'image', content: firstWeatherIcon },
                             { type: 'image', content: 'nochi_large.png' }
                         );
                         if (secondWeatherIcon) {
-                            console.log('Adding second weather icon for nochi:', secondWeatherIcon); // デバッグ用
                             displaySequence.push({ type: 'image', content: secondWeatherIcon });
                         }
                     }
                     // 「ときどき」を含む天気の場合
                     else if (tokidokiWeatherCodes.includes(code)) {
-                        console.log('Tokidoki weather code detected'); // デバッグ用
                         displaySequence.push(
                             { type: 'image', content: firstWeatherIcon },
                             { type: 'image', content: 'tokidoki_large.png' }
                         );
                         if (secondWeatherIcon) {
-                            console.log('Adding second weather icon for tokidoki:', secondWeatherIcon); // デバッグ用
                             displaySequence.push({ type: 'image', content: secondWeatherIcon });
                         }
                     }
-                }
 
-                console.log('Final display sequence:', displaySequence); // デバッグ用
+                    // エラー検知用の最小限のログ
+                    if (displaySequence.length <= 1) {
+                        console.warn('Display sequence may be incomplete. Weather code:', code);
+                    }
+                }
 
                 // 日付と天気情報を更新
                 document.getElementById('date').textContent = new Date().toLocaleDateString('ja-JP');
@@ -513,16 +511,16 @@
                 }, 1500);
 
             } catch (error) {
+                console.error('Weather data fetch error:', error);
                 document.getElementById('weather').innerHTML = '<div class="error">天気情報の取得に失敗しました</div>';
-                console.error('Error fetching weather:', error);
             }
         }
 
         // ページ読み込み時に天気情報を取得
         window.addEventListener('load', getWeather);
 
-        // 30秒ごとに天気情報を更新
-        setInterval(getWeather, 30000);
+        // 1時間ごとに天気情報を更新
+        setInterval(getWeather, 3600000);
     </script>
 </body>
 </html> 
