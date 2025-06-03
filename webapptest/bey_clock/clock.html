@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>アナログ時計（秒針付き）</title>
+  <style>
+    .clock-container {
+      position: relative;
+      width: 300px;
+      height: 300px;
+    }
+    .clock-container img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform-origin: center center;
+    }
+    .clock-face {
+      z-index: 0;
+    }
+    .hour-hand {
+      z-index: 1;
+    }
+    .minute-hand {
+      z-index: 2;
+    }
+    .second-hand {
+      z-index: 3;
+    }
+  </style>
+</head>
+<body>
+
+<div class="clock-container">
+  <img src="clock_base.png" class="clock-face" alt="文字盤">
+  <img src="clock_hour.png" class="hour-hand" alt="短針">
+  <img src="clock_minute.png" class="minute-hand" alt="長針">
+  <img src="clock_second.png" class="second-hand" alt="秒針">
+</div>
+
+<script>
+  function updateClockSmooth() {
+    const now = new Date();
+    const ms = now.getMilliseconds();
+    const second = now.getSeconds() + ms / 1000;
+    const minute = now.getMinutes() + second / 60;
+    const hour = (now.getHours() % 12) + minute / 60;
+
+    const secondDeg = second * 6;
+    const minuteDeg = minute * 6;
+    const hourDeg = hour * 30;
+
+    document.querySelector('.second-hand').style.transform = `rotate(${secondDeg}deg)`;
+    document.querySelector('.minute-hand').style.transform = `rotate(${minuteDeg}deg)`;
+    document.querySelector('.hour-hand').style.transform = `rotate(${hourDeg}deg)`;
+
+    requestAnimationFrame(updateClockSmooth);
+  }
+
+  requestAnimationFrame(updateClockSmooth);
+</script>
+
+
+</body>
+</html>
