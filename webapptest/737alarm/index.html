@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boeing 737 Alarm Buttons</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .alarm-button {
+            padding: 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 200px;
+            position: relative;
+            overflow: hidden;
+        }
+        .alarm-button:hover {
+            background-color: #45a049;
+            transform: translateY(-2px);
+        }
+        .alarm-button:active {
+            transform: translateY(1px);
+            background-color: #3d8b40;
+        }
+        .alarm-button.playing {
+            animation: glow 1.5s ease-in-out infinite;
+        }
+        @keyframes glow {
+            0% {
+                box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(76, 175, 80, 0.8);
+            }
+            100% {
+                box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+            }
+        }
+        .stop-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 30px;
+            font-size: 16px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .stop-button:hover {
+            background-color: #d32f2f;
+            transform: translateY(-2px);
+        }
+        .stop-button:active {
+            transform: translateY(1px);
+            background-color: #b71c1c;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Boeing 737 Alarm Buttons</h1>
+        <div class="button-grid">
+            <button class="alarm-button" onclick="playAlarm(this, 'Boeing737Overspeed.mp3')">Overspeed Warning</button>
+            <button class="alarm-button" onclick="playAlarm(this, 'Boeing_PullUp.mp3')">Pull Up Warning</button>
+            <button class="alarm-button" onclick="playAlarm(this, 'Boeing737AutoPilot.mp3')">Autopilot Warning</button>
+            <button class="alarm-button" onclick="playAlarm(this, 'Boeing737MasterCaution.mp3')">Master Caution</button>
+            <button class="alarm-button" onclick="playAlarm(this, 'Boeing737ENGFireBell.mp3')">Engine Fire Bell</button>
+        </div>
+        <button class="stop-button" onclick="stopAlarm()">Stop</button>
+    </div>
+
+    <script>
+        let currentAudio = null;
+        let currentButton = null;
+
+        function playAlarm(button, soundFile) {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                if (currentButton) {
+                    currentButton.classList.remove('playing');
+                }
+            }
+            currentAudio = new Audio(soundFile);
+            currentAudio.play();
+            currentButton = button;
+            button.classList.add('playing');
+        }
+
+        function stopAlarm() {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                currentAudio = null;
+                if (currentButton) {
+                    currentButton.classList.remove('playing');
+                    currentButton = null;
+                }
+            }
+        }
+    </script>
+</body>
+</html> 
