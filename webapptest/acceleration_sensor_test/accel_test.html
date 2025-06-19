@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MP3ビブラートプレイヤー</title>
+    <title>MP3ビブラートプレイヤー（自然版）</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -130,7 +130,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>MP3ビブラートプレイヤー</h1>
+        <h1>MP3ビブラートプレイヤー（自然版）</h1>
         
         <div class="control-panel">
             <button id="btn_permission">加速度センサーを許可する</button>
@@ -150,7 +150,7 @@
             </div>
             <div class="data-item">
                 ビブラート速度
-                <div class="data-value" id="vibrato_rate">0.00</div>
+                <div class="data-value" id="vibrato_rate">5.00 Hz</div>
             </div>
             <div class="data-item">
                 ビブラート深さ
@@ -160,8 +160,8 @@
         
         <div class="vibrato-info">
             <div class="vibrato-item">
-                <strong>MP3専用ビブラート</strong><br>
-                スマホを揺らすとMP3音声に直接ビブラート効果がかかります
+                <strong>自然なビブラート効果</strong><br>
+                速度固定・深さ調整でMP3音声に自然なビブラートを適用
             </div>
             <div class="vibrato-item">
                 <strong>操作ガイド</strong><br>
@@ -174,8 +174,8 @@
             <p>1. 最初に「加速度センサーを許可する」ボタンを押してセンサーアクセスを許可してください</p>
             <p>2. 「MP3を読み込む」ボタンで同じフォルダにあるsound.mp3を読み込みます</p>
             <p>3. 「再生」ボタンで音声再生を開始します</p>
-            <p>4. スマホを揺らすと、MP3音声のピッチが変化します</p>
-            <p>※ 動きが強いほどビブラート効果が強くなります</p>
+            <p>4. スマホを揺らすと、MP3音声の音程が自然に揺れます（ビブラート速度は一定）</p>
+            <p>※ 動きが強いほどビブラート効果が深くなります</p>
         </div>
     </div>
 
@@ -187,7 +187,6 @@
         const btnStop = document.getElementById('btn_stop');
         const status = document.getElementById('status');
         const strengthDisplay = document.getElementById('strength');
-        const vibratoRateDisplay = document.getElementById('vibrato_rate');
         const vibratoDepthDisplay = document.getElementById('vibrato_depth');
         
         // オーディオ関連の変数
@@ -253,7 +252,7 @@
                 // ビブラート用ノードの作成
                 vibratoLFO = audioContext.createOscillator();
                 vibratoLFO.type = 'sine';
-                vibratoLFO.frequency.value = 5; // 基本周波数
+                vibratoLFO.frequency.value = 5; // 固定値: 5Hz（自然なビブラート速度）
                 
                 vibratoGain = audioContext.createGain();
                 vibratoGain.gain.value = 0; // 初期値は0
@@ -280,7 +279,7 @@
             if (audioElement.paused) {
                 audioElement.play()
                     .then(() => {
-                        status.textContent = '再生中... スマホを揺らすとMP3にビブラートがかかります';
+                        status.textContent = '再生中... スマホを揺らすとMP3に自然なビブラートがかかります';
                         btnPlay.textContent = '一時停止';
                         btnStop.disabled = false;
                         isPlaying = true;
@@ -334,17 +333,12 @@
             strengthDisplay.textContent = strength.toFixed(2);
             
             // 再生中のみビブラート効果を適用
-            if (isPlaying && vibratoLFO && vibratoGain) {
-                // ビブラートのパラメータ計算
-                const vibratoRate = 3 + strength * 10; // 速度: 3-13Hz
-                const vibratoDepth = strength * 0.5;   // 深さ: 0-0.5
-                
-                // 表示更新
-                vibratoRateDisplay.textContent = vibratoRate.toFixed(2);
+            if (isPlaying && vibratoGain) {
+                // ビブラートの深さだけ制御（0～0.5の範囲）
+                const vibratoDepth = Math.min(strength * 0.5, 0.5);
                 vibratoDepthDisplay.textContent = vibratoDepth.toFixed(2);
                 
-                // ビブラート効果の適用
-                vibratoLFO.frequency.value = vibratoRate;
+                // ビブラート効果の適用（深さのみ変更）
                 vibratoGain.gain.value = vibratoDepth;
             }
         }
