@@ -1,57 +1,337 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>加速度センサーサンプル</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; }
-    button { padding: 10px 20px; font-size: 16px; }
-    #result { font-size: 18px; margin-top: 20px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スマホ揺らしビブラートプレイヤー</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin-top: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.2rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        #btn_permission {
+            background: #2196F3;
+        }
+        #btn_permission:hover {
+            background: #0b7dda;
+        }
+        .status-box {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 1.1rem;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .sensor-data {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .data-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            flex: 1;
+            margin: 5px;
+            min-width: 120px;
+        }
+        .data-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-top: 5px;
+            color: #4CAF50;
+        }
+        .instructions {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            line-height: 1.6;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #FFD700;
+        }
+        .vibrato-info {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .vibrato-item {
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid #FFD700;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            flex: 1;
+            margin: 0 10px;
+        }
+        @media (max-width: 600px) {
+            .sensor-data, .vibrato-info {
+                flex-direction: column;
+            }
+            .data-item, .vibrato-item {
+                margin: 10px 0;
+            }
+        }
+    </style>
 </head>
 <body>
-  <h1>加速度センサーサンプル</h1>
-  <button id="btn_permission">加速度センサーを許可する</button>
-  <div id="result"></div>
+    <div class="container">
+        <h1>スマホ揺らしビブラートプレイヤー</h1>
+        
+        <div class="control-panel">
+            <button id="btn_permission">加速度センサーを許可する</button>
+            <button id="btn_load" disabled>MP3を読み込む</button>
+            <button id="btn_play" disabled>再生</button>
+            <button id="btn_stop" disabled>停止</button>
+        </div>
+        
+        <div class="status-box" id="status">
+            最初に「加速度センサーを許可する」を押してください
+        </div>
+        
+        <div class="sensor-data">
+            <div class="data-item">
+                動きの強さ
+                <div class="data-value" id="strength">0.00</div>
+            </div>
+            <div class="data-item">
+                ビブラート速度
+                <div class="data-value" id="vibrato_rate">0.00</div>
+            </div>
+            <div class="data-item">
+                ビブラート深さ
+                <div class="data-value" id="vibrato_depth">0.00</div>
+            </div>
+        </div>
+        
+        <div class="vibrato-info">
+            <div class="vibrato-item">
+                <strong>ビブラート効果</strong><br>
+                スマホを揺らすと音にビブラート（音の揺れ）効果がかかります
+            </div>
+            <div class="vibrato-item">
+                <strong>操作ガイド</strong><br>
+                1. センサー許可 → 2. MP3読み込み → 3. 再生
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>使い方</h3>
+            <p>1. 最初に「加速度センサーを許可する」ボタンを押してセンサーアクセスを許可してください</p>
+            <p>2. 「MP3を読み込む」ボタンで同じフォルダにあるsound.mp3を読み込みます</p>
+            <p>3. 「再生」ボタンで音声再生を開始します</p>
+            <p>4. スマホを揺らすと、揺らし方に応じて音にビブラート効果がかかります</p>
+            <p>※ 動きが強いほどビブラート効果が強くなります</p>
+        </div>
+    </div>
 
-  <script>
-    const btnPermission = document.getElementById('btn_permission');
-    const result = document.getElementById('result');
+    <audio id="audioPlayer" style="display: none;"></audio>
 
-    // iOSでセンサー利用許可を求める
-    function requestPermission() {
-      if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
-        DeviceMotionEvent.requestPermission()
-          .then(permissionState => {
-            if (permissionState === 'granted') {
-              startSensor();
+    <script>
+        // 要素の取得
+        const btnPermission = document.getElementById('btn_permission');
+        const btnLoad = document.getElementById('btn_load');
+        const btnPlay = document.getElementById('btn_play');
+        const btnStop = document.getElementById('btn_stop');
+        const status = document.getElementById('status');
+        const strengthDisplay = document.getElementById('strength');
+        const vibratoRateDisplay = document.getElementById('vibrato_rate');
+        const vibratoDepthDisplay = document.getElementById('vibrato_depth');
+        const audioPlayer = document.getElementById('audioPlayer');
+        
+        // オーディオ関連の変数
+        let audioContext;
+        let source;
+        let vibrato;
+        let isPlaying = false;
+        
+        // センサー関連の変数
+        let x_offset = 0, y_offset = 0, z_offset = 0;
+        let strength = 0;
+        let isCalibrated = false;
+        
+        // センサー許可（iOS用）
+        btnPermission.addEventListener('click', () => {
+            if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
+                DeviceMotionEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            status.textContent = 'センサー利用が許可されました。次に「MP3を読み込む」を押してください';
+                            btnLoad.disabled = false;
+                            startSensor();
+                        } else {
+                            status.textContent = 'センサー利用が許可されませんでした';
+                        }
+                    })
+                    .catch(error => {
+                        status.textContent = 'エラー: ' + error.message;
+                    });
             } else {
-              result.textContent = 'センサー利用が許可されませんでした';
+                status.textContent = 'このデバイスは加速度センサーを直接サポートしています';
+                btnLoad.disabled = false;
+                startSensor();
             }
-          })
-          .catch(console.error);
-      } else {
-        // Androidなど他のデバイス
-        startSensor();
-      }
-    }
-
-    function startSensor() {
-      btnPermission.style.display = 'none';
-      window.addEventListener('devicemotion', event => {
-        const x = event.accelerationIncludingGravity.x;
-        const y = event.accelerationIncludingGravity.y;
-        const z = event.accelerationIncludingGravity.z;
-        result.innerHTML = `
-          X: ${x.toFixed(2)}<br>
-          Y: ${y.toFixed(2)}<br>
-          Z: ${z.toFixed(2)}
-        `;
-      });
-    }
-
-    btnPermission.addEventListener('click', requestPermission);
-  </script>
-</body>
-</html>
+        });
+        
+        // MP3読み込み
+        btnLoad.addEventListener('click', async () => {
+            try {
+                status.textContent = 'MP3を読み込んでいます...';
+                
+                // オーディオコンテキストの作成
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // オーディオプレイヤーのソース設定
+                audioPlayer.src = 'sound.mp3';
+                audioPlayer.load();
+                
+                // オーディオノードの設定
+                source = audioContext.createMediaElementSource(audioPlayer);
+                
+                // ビブラート用のオシレーターとゲインの作成
+                const oscillator = audioContext.createOscillator();
+                const depthGain = audioContext.createGain();
+                
+                // オシレーター設定
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 5; // デフォルトのビブラート速度
+                oscillator.start();
+                
+                // ゲインノード設定（ビブラートの深さ）
+                depthGain.gain.value = 0;
+                
+                // オーディオチェーンの接続
+                oscillator.connect(depthGain);
+                depthGain.connect(source.context.destination);
+                source.connect(audioContext.destination);
+                
+                // 後で制御できるように保存
+                vibrato = {
+                    oscillator: oscillator,
+                    depthGain: depthGain
+                };
+                
+                status.textContent = 'MP3の読み込みが完了しました。「再生」を押してください';
+                btnPlay.disabled = false;
+                btnLoad.disabled = true;
+            } catch (error) {
+                status.textContent = 'MP3の読み込みエラー: ' + error.message;
+                console.error(error);
+            }
+        });
+        
+        // 再生
+        btnPlay.addEventListener('click', () => {
+            if (audioPlayer.paused) {
+                audioPlayer.play()
+                    .then(() => {
+                        status.textContent = '再生中... スマホを揺らすとビブラートがかかります';
+                        btnPlay.textContent = '一時停止';
+                        btnStop.disabled = false;
+                        isPlaying = true;
+                    })
+                    .catch(error => {
+                        status.textContent = '再生エラー: ' + error.message;
+                    });
+            } else {
+                audioPlayer.pause();
+                btnPlay.textContent = '再生';
+                status.textContent = '一時停止中';
+                isPlaying = false;
+            }
+        });
+        
+        // 停止
+        btnStop.addEventListener('click', () => {
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+            btnPlay.textContent = '再生';
+            status.textContent = '停止中';
+            btnStop.disabled = true;
+            isPlaying = false;
+        });
+        
+        // センサーの開始
+        function startSensor() {
+            window.addEventListener('devicemotion', handleMotion);
+            status.textContent += ' センサー監視を開始しました';
+        }
+        
+        // モーション処理
+        function handleMotion(event) {
+            // 初回のみキャリブレーション
+            if (!isCalibrated) {
+                x_offset = event.accelerationIncludingGravity.x;
+                y_offset = event.accelerationIncludingGravity.y;
+                z_offset = event.accelerationIncludingGravity.z;
+                isCalibrated = true;
+                status.textContent = 'キャリブレーション完了。MP3を読み込んでください';
+                return;
+            }
+            
+            // オフセットを引いて重力の影響を除去
+            const x = event.accelerationIncludingGravity.x - x_offset;
+            const y = event.accelerationIncludingGravity.y - y_offset;
+            const z = event.accelerationIncludingGravity.z - z_offset;
+            
+            // 動きの強さを計算
+            strength = Math.sqrt(x*x + y*y + z*z);
+            strengthDisplay.textContent = strength.toFixed(2);
+            
+            // 再生中のみビブラート効果を適用
+            if (isPlaying && vibrato) {
+                //
