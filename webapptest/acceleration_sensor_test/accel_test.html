@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MP3ビブラートプレイヤー（自然版）</title>
+    <title>1kHzサイン波ビブラートプレイヤー</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -130,13 +130,12 @@
 </head>
 <body>
     <div class="container">
-        <h1>MP3ビブラートプレイヤー（自然版）</h1>
+        <h1>1kHzサイン波ビブラートプレイヤー</h1>
         
         <div class="control-panel">
             <button id="btn_permission">加速度センサーを許可する</button>
-            <button id="btn_load" disabled>MP3を読み込む</button>
-            <button id="btn_play" disabled>再生</button>
-            <button id="btn_stop" disabled>停止</button>
+            <button id="btn_start" disabled>音を開始</button>
+            <button id="btn_stop" disabled>音を停止</button>
         </div>
         
         <div class="status-box" id="status">
@@ -149,8 +148,8 @@
                 <div class="data-value" id="strength">0.00</div>
             </div>
             <div class="data-item">
-                ビブラート速度
-                <div class="data-value" id="vibrato_rate">5.00 Hz</div>
+                現在の周波数
+                <div class="data-value" id="current_freq">1000 Hz</div>
             </div>
             <div class="data-item">
                 ビブラート深さ
@@ -160,41 +159,40 @@
         
         <div class="vibrato-info">
             <div class="vibrato-item">
-                <strong>自然なビブラート効果</strong><br>
-                速度固定・深さ調整でMP3音声に自然なビブラートを適用
+                <strong>1kHzサイン波</strong><br>
+                -12dBの1kHzサイン波にビブラート効果を適用
             </div>
             <div class="vibrato-item">
                 <strong>操作ガイド</strong><br>
-                1. センサー許可 → 2. MP3読み込み → 3. 再生
+                1. センサー許可 → 2. 音を開始
             </div>
         </div>
         
         <div class="instructions">
             <h3>使い方</h3>
-            <p>1. 最初に「加速度センサーを許可する」ボタンを押してセンサーアクセスを許可してください</p>
-            <p>2. 「MP3を読み込む」ボタンで同じフォルダにあるsound.mp3を読み込みます</p>
-            <p>3. 「再生」ボタンで音声再生を開始します</p>
-            <p>4. スマホを揺らすと、MP3音声の音程が自然に揺れます（ビブラート速度は一定）</p>
-            <p>※ 動きが強いほどビブラート効果が深くなります</p>
+            <p>1. 「加速度センサーを許可する」ボタンでセンサーアクセスを許可</p>
+            <p>2. 「音を開始」ボタンで1kHzサイン波を再生</p>
+            <p>3. スマホを揺らすと音程が変化（動きが強いほど変化幅が大きい）</p>
+            <p>4. 「音を停止」ボタンでサウンドをオフ</p>
         </div>
     </div>
 
     <script>
         // 要素の取得
         const btnPermission = document.getElementById('btn_permission');
-        const btnLoad = document.getElementById('btn_load');
-        const btnPlay = document.getElementById('btn_play');
+        const btnStart = document.getElementById('btn_start');
         const btnStop = document.getElementById('btn_stop');
         const status = document.getElementById('status');
         const strengthDisplay = document.getElementById('strength');
+        const currentFreqDisplay = document.getElementById('current_freq');
         const vibratoDepthDisplay = document.getElementById('vibrato_depth');
         
         // オーディオ関連の変数
         let audioContext;
-        let audioElement;
-        let mediaElementSource;
-        let vibratoLFO;
-        let vibratoGain;
+        let mainOscillator;
+        let gainNode;
+        let lfoOscillator;
+        let lfoGain;
         let isPlaying = false;
         
         // センサー関連の変数
@@ -209,8 +207,8 @@
                 DeviceMotionEvent.requestPermission()
                     .then(permissionState => {
                         if (permissionState === 'granted') {
-                            status.textContent = 'センサー利用が許可されました。次に「MP3を読み込む」を押してください';
-                            btnLoad.disabled = false;
+                            status.textContent = 'センサー利用が許可されました。次に「音を開始」を押してください';
+                            btnStart.disabled = false;
                             
                             if (!sensorListenerActive) {
                                 startSensor();
@@ -225,7 +223,7 @@
                     });
             } else {
                 status.textContent = 'このデバイスは加速度センサーを直接サポートしています';
-                btnLoad.disabled = false;
+                btnStart.disabled = false;
                 
                 if (!sensorListenerActive) {
                     startSensor();
@@ -234,75 +232,60 @@
             }
         });
         
-        // MP3読み込み
-        btnLoad.addEventListener('click', async () => {
-            try {
-                status.textContent = 'MP3を読み込んでいます...';
-                
+        // 音の開始
+        btnStart.addEventListener('click', () => {
+            if (!isPlaying) {
                 // オーディオコンテキストの作成
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // オーディオ要素の作成
-                audioElement = new Audio('sound.mp3');
-                audioElement.crossOrigin = "anonymous";
+                // メインオシレーターの作成 (1kHz)
+                mainOscillator = audioContext.createOscillator();
+                mainOscillator.type = 'sine';
+                mainOscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
                 
-                // メディア要素ソースの作成
-                mediaElementSource = audioContext.createMediaElementSource(audioElement);
+                // ゲインノードの作成 (-12dB ≈ 0.2512)
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = 0.2512;
                 
-                // ビブラート用ノードの作成
-                vibratoLFO = audioContext.createOscillator();
-                vibratoLFO.type = 'sine';
-                vibratoLFO.frequency.value = 5; // 固定値: 5Hz（自然なビブラート速度）
+                // LFOオシレーターの作成 (ビブラート用)
+                lfoOscillator = audioContext.createOscillator();
+                lfoOscillator.type = 'sine';
+                lfoOscillator.frequency.value = 5; // 5Hz固定
                 
-                vibratoGain = audioContext.createGain();
-                vibratoGain.gain.value = 0; // 初期値は0
+                // LFOゲインノード (ビブラートの深さ)
+                lfoGain = audioContext.createGain();
+                lfoGain.gain.value = 0;
                 
                 // オーディオチェーンの接続
-                vibratoLFO.connect(vibratoGain);
-                vibratoGain.connect(mediaElementSource.context.destination);
-                mediaElementSource.connect(vibratoGain);
+                lfoOscillator.connect(lfoGain);
+                lfoGain.connect(mainOscillator.frequency);
+                mainOscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
                 
-                // LFOを開始
-                vibratoLFO.start();
+                // オシレーターの開始
+                mainOscillator.start();
+                lfoOscillator.start();
                 
-                status.textContent = 'MP3の読み込みが完了しました。「再生」を押してください';
-                btnPlay.disabled = false;
-                btnLoad.disabled = true;
-            } catch (error) {
-                status.textContent = 'MP3の読み込みエラー: ' + error.message;
-                console.error(error);
+                status.textContent = '再生中... スマホを揺らすと音程が変化します';
+                btnStart.textContent = '再生中';
+                btnStop.disabled = false;
+                isPlaying = true;
             }
         });
         
-        // 再生
-        btnPlay.addEventListener('click', () => {
-            if (audioElement.paused) {
-                audioElement.play()
-                    .then(() => {
-                        status.textContent = '再生中... スマホを揺らすとMP3に自然なビブラートがかかります';
-                        btnPlay.textContent = '一時停止';
-                        btnStop.disabled = false;
-                        isPlaying = true;
-                    })
-                    .catch(error => {
-                        status.textContent = '再生エラー: ' + error.message;
-                    });
-            } else {
-                audioElement.pause();
-                btnPlay.textContent = '再生';
-                status.textContent = '一時停止中';
-                isPlaying = false;
-            }
-        });
-        
-        // 停止
+        // 音の停止
         btnStop.addEventListener('click', () => {
-            audioElement.pause();
-            audioElement.currentTime = 0;
-            btnPlay.textContent = '再生';
-            status.textContent = '停止中';
-            btnStop.disabled = true;
-            isPlaying = false;
+            if (isPlaying) {
+                mainOscillator.stop();
+                lfoOscillator.stop();
+                btnStart.textContent = '音を開始';
+                status.textContent = '停止中';
+                btnStop.disabled = true;
+                isPlaying = false;
+                
+                // リソース解放
+                audioContext.close();
+            }
         });
         
         // センサーの開始
@@ -319,7 +302,7 @@
                 y_offset = event.accelerationIncludingGravity.y;
                 z_offset = event.accelerationIncludingGravity.z;
                 isCalibrated = true;
-                status.textContent = 'キャリブレーション完了。MP3を読み込んでください';
+                status.textContent = 'キャリブレーション完了。音を開始してください';
                 return;
             }
             
@@ -333,13 +316,16 @@
             strengthDisplay.textContent = strength.toFixed(2);
             
             // 再生中のみビブラート効果を適用
-            if (isPlaying && vibratoGain) {
-                // ビブラートの深さだけ制御（0～0.5の範囲）
-                const vibratoDepth = Math.min(strength * 0.5, 0.5);
+            if (isPlaying && lfoGain) {
+                // ビブラートの深さを計算 (0～50Hzの範囲)
+                const vibratoDepth = Math.min(strength * 10, 50);
                 vibratoDepthDisplay.textContent = vibratoDepth.toFixed(2);
                 
-                // ビブラート効果の適用（深さのみ変更）
-                vibratoGain.gain.value = vibratoDepth;
+                // ビブラート効果の適用
+                lfoGain.gain.value = vibratoDepth;
+                
+                // 現在の周波数を表示 (中心値1000Hz ± ビブラート深さ)
+                currentFreqDisplay.textContent = `1000 ± ${vibratoDepth.toFixed(0)} Hz`;
             }
         }
     </script>
