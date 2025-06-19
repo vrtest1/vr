@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>加速度センサーサンプル</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    button { padding: 10px 20px; font-size: 16px; }
+    #result { font-size: 18px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>加速度センサーサンプル</h1>
+  <button id="btn_permission">加速度センサーを許可する</button>
+  <div id="result"></div>
+
+  <script>
+    const btnPermission = document.getElementById('btn_permission');
+    const result = document.getElementById('result');
+
+    // iOSでセンサー利用許可を求める
+    function requestPermission() {
+      if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
+        DeviceMotionEvent.requestPermission()
+          .then(permissionState => {
+            if (permissionState === 'granted') {
+              startSensor();
+            } else {
+              result.textContent = 'センサー利用が許可されませんでした';
+            }
+          })
+          .catch(console.error);
+      } else {
+        // Androidなど他のデバイス
+        startSensor();
+      }
+    }
+
+    function startSensor() {
+      btnPermission.style.display = 'none';
+      window.addEventListener('devicemotion', event => {
+        const x = event.accelerationIncludingGravity.x;
+        const y = event.accelerationIncludingGravity.y;
+        const z = event.accelerationIncludingGravity.z;
+        result.innerHTML = `
+          X: ${x.toFixed(2)}<br>
+          Y: ${y.toFixed(2)}<br>
+          Z: ${z.toFixed(2)}
+        `;
+      });
+    }
+
+    btnPermission.addEventListener('click', requestPermission);
+  </script>
+</body>
+</html>
