@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>スマホ揺らしビブラートプレイヤー</title>
+    <title>スマホ揺らしビブラートプレイヤー（修正版）</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            background: linear-gradient(135deg, #1a2a6c, #2a5298);
             color: white;
             min-height: 100vh;
         }
@@ -130,7 +130,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>スマホ揺らしビブラートプレイヤー</h1>
+        <h1>スマホ揺らしビブラートプレイヤー（修正版）</h1>
         
         <div class="control-panel">
             <button id="btn_permission">加速度センサーを許可する</button>
@@ -176,6 +176,7 @@
             <p>3. 「再生」ボタンで音声再生を開始します</p>
             <p>4. スマホを揺らすと、揺らし方に応じて音にビブラート効果がかかります</p>
             <p>※ 動きが強いほどビブラート効果が強くなります</p>
+            <p style="color: #ff9999; font-weight: bold;">※ 修正点: iOSでのセンサー許可処理を改善しました</p>
         </div>
     </div>
 
@@ -203,16 +204,23 @@
         let x_offset = 0, y_offset = 0, z_offset = 0;
         let strength = 0;
         let isCalibrated = false;
+        let sensorListenerActive = false;
         
-        // センサー許可（iOS用）
+        // センサー許可（iOS用） - 修正箇所
         btnPermission.addEventListener('click', () => {
+            // センサー許可リクエスト
             if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
                 DeviceMotionEvent.requestPermission()
                     .then(permissionState => {
                         if (permissionState === 'granted') {
                             status.textContent = 'センサー利用が許可されました。次に「MP3を読み込む」を押してください';
                             btnLoad.disabled = false;
-                            startSensor();
+                            
+                            // 許可後にセンサーリスナーを登録
+                            if (!sensorListenerActive) {
+                                startSensor();
+                                sensorListenerActive = true;
+                            }
                         } else {
                             status.textContent = 'センサー利用が許可されませんでした';
                         }
@@ -221,9 +229,14 @@
                         status.textContent = 'エラー: ' + error.message;
                     });
             } else {
+                // Androidなど他のデバイス
                 status.textContent = 'このデバイスは加速度センサーを直接サポートしています';
                 btnLoad.disabled = false;
-                startSensor();
+                
+                if (!sensorListenerActive) {
+                    startSensor();
+                    sensorListenerActive = true;
+                }
             }
         });
         
@@ -334,4 +347,19 @@
             
             // 再生中のみビブラート効果を適用
             if (isPlaying && vibrato) {
-                //
+                // ビブラートのパラメータ計算
+                const vibratoRate = 3 + strength * 10; // 速度: 3-13Hz
+                const vibratoDepth = strength * 0.5;   // 深さ: 0-0.5
+                
+                // 表示更新
+                vibratoRateDisplay.textContent = vibratoRate.toFixed(2);
+                vibratoDepthDisplay.textContent = vibratoDepth.toFixed(2);
+                
+                // ビブラート効果の適用
+                vibrato.oscillator.frequency.value = vibratoRate;
+                vibrato.depthGain.gain.value = vibratoDepth;
+            }
+        }
+    </script>
+</body>
+</html>
