@@ -48,8 +48,7 @@
   <!-- メッセージ -->
   <div id="message">画面をタップすると再生が始まります</div>
 
-  <!-- 停止音をプリロード -->
-  <audio id="stop-audio" src="tirori_stop.wav" preload="auto"></audio>
+
 
   <script>
     // 状態管理
@@ -61,8 +60,7 @@
     const images = ["1.jpg", "2.jpg"];
     let index = 0;
 
-    // 停止音のAudio要素
-    const stopAudio = document.getElementById('stop-audio');
+
 
     // スライドショー開始
     function startSlideshow() {
@@ -79,29 +77,97 @@
       index = 0;
     }
 
-    // ループ音声開始
+    // 音声バッファをキャッシュ
+    let loopAudioBuffer = null;
+    let stopAudioBuffer = null;
+
+    // 音声ファイルをプリロード
+    async function preloadAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      try {
+        // ループ音声をプリロード
+        if (!loopAudioBuffer) {
+          const loopResponse = await fetch('tirori_loop.wav');
+          const loopArrayBuffer = await loopResponse.arrayBuffer();
+          loopAudioBuffer = await audioContext.decodeAudioData(loopArrayBuffer);
+        }
+
+        // 停止音をプリロード
+        if (!stopAudioBuffer) {
+          const stopResponse = await fetch('tirori_stop.wav');
+          const stopArrayBuffer = await stopResponse.arrayBuffer();
+          stopAudioBuffer = await audioContext.decodeAudioData(stopArrayBuffer);
+        }
+      } catch (e) {
+        console.error('音声プリロードに失敗:', e);
+      }
+    }
+
+    // ループ音声開始（改善版）
     async function startLoopAudio() {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const response = await fetch('tirori_loop.wav');
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      // AudioContextが停止状態の場合は再開
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      // プリロードされていない場合は読み込み
+      if (!loopAudioBuffer) {
+        await preloadAudio();
+      }
+
       sourceNode = audioContext.createBufferSource();
-      sourceNode.buffer = audioBuffer;
+      sourceNode.buffer = loopAudioBuffer;
       sourceNode.loop = true;
       sourceNode.connect(audioContext.destination);
       sourceNode.start(0);
     }
 
-    // ループ音声停止
+    // ループ音声停止（改善版）
     function stopLoopAudio() {
       if (sourceNode) {
         sourceNode.stop();
         sourceNode.disconnect();
         sourceNode = null;
       }
-      if (audioContext) {
-        audioContext.close();
-        audioContext = null;
+      // AudioContextは再利用のため閉じない
+    }
+
+    // 停止音をWeb Audio APIで再生（ギャップレス対応）
+    async function playStopAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      // AudioContextが停止状態の場合は再開
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      // プリロードされていない場合は読み込み
+      if (!stopAudioBuffer) {
+        await preloadAudio();
+      }
+      
+      try {
+        const stopSourceNode = audioContext.createBufferSource();
+        stopSourceNode.buffer = stopAudioBuffer;
+        stopSourceNode.connect(audioContext.destination);
+        stopSourceNode.start(0);
+        
+        // 停止音の再生完了を待つ
+        return new Promise((resolve) => {
+          stopSourceNode.onended = resolve;
+        });
+      } catch (e) {
+        console.error('停止音の再生に失敗:', e);
+        throw e;
       }
     }
 
@@ -127,8 +193,7 @@
         stopLoopAudio();
         message.textContent = "停止音再生中...";
         try {
-          stopAudio.currentTime = 0; // 先頭から再生
-          await stopAudio.play();
+          await playStopAudio();
           message.textContent = "停止しました。再度タップで再開します";
         } catch (e) {
           message.textContent = "停止音の再生に失敗しました";
@@ -137,9 +202,10 @@
       }
     });
 
-    // ページ読み込み時に停止音をプリロード
-    window.addEventListener('DOMContentLoaded', () => {
-      stopAudio.load();
+    // ページ読み込み時に音声をプリロード
+    window.addEventListener('DOMContentLoaded', async () => {
+      // ユーザーの最初のタップ時に音声を初期化するため、ここでは何もしない
+      // モバイルブラウザではユーザーインタラクション後でないと音声コンテキストを作成できない
     });
   </script>
 
