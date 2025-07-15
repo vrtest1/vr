@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ギャップレスループ＋再スタート可能スライドショー</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f0f0f0;
+      margin: 0;
+      cursor: pointer;
+    }
+    #slideshow {
+      box-shadow: 0 2px 8px #bbb;
+      border-radius: 8px;
+      background: #fff;
+      padding: 20px;
+      max-width: 90vw;
+      max-height: 90vh;
+    }
+    img {
+      max-width: 100%;
+      max-height: 70vh;
+      height: auto;
+      width: auto;
+      display: block;
+      margin: 0 auto;
+      border-radius: 4px;
+    }
+    #message {
+      margin-top: 20px;
+      color: #666;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="slideshow">
+    <img id="slide-img" src="1.jpg" alt="スライド画像">
+  </div>
+  <div id="message">画面をタップすると音声とスライドショーが始まります</div>
+
+  <script>
+    // 状態管理
+    let running = false;   // 再生中かどうか
+    let slideTimer = null;
+    let sourceNode = null;
+    let audioContext = null;
+    let stopAudio = null;
+
+    const images = ["1.jpg", "2.jpg"];
+    let index = 0;
+
+    // スライドショー開始
+    function startSlideshow() {
+      slideTimer = setInterval(() => {
+        index = (index + 1) % images.length;
+        document.getElementById('slide-img').src = images[index];
+      }, 500);
+    }
+
+    // スライドショー停止
+    function stopSlideshow() {
+      clearInterval(slideTimer);
+      document.getElementById('slide-img').src = "1.jpg";
+      index = 0;
+    }
+
+    // ループ音声開始
+    async function startLoopAudio() {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const response = await fetch('tirori_loop.wav');
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      sourceNode = audioContext.createBufferSource();
+      sourceNode.buffer = audioBuffer;
+      sourceNode.loop = true;
+      sourceNode.connect(audioContext.destination);
+      sourceNode.start(0);
+    }
+
+    // ループ音声停止
+    function stopLoopAudio() {
+      if (sourceNode) {
+        sourceNode.stop();
+        sourceNode.disconnect();
+        sourceNode = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+    }
+
+    // 停止音再生
+    async function playStopSound() {
+      stopAudio = new Audio('tirori_stop.wav');
+      await stopAudio.play();
+    }
+
+    // タップイベント
+    window.addEventListener('click', async () => {
+      const message = document.getElementById('message');
+      if (!running) {
+        // 再生開始
+        running = true;
+        message.textContent = "再生中：もう一度タップで停止";
+        try {
+          await startLoopAudio();
+        } catch (e) {
+          message.textContent = "音声再生に失敗しました";
+          return;
+        }
+        startSlideshow();
+      } else {
+        // 停止処理
+        running = false;
+        stopSlideshow();
+        stopLoopAudio();
+        message.textContent = "停止音再生中...";
+        await playStopSound();
+        message.textContent = "停止しました。再度タップで再開します";
+      }
+    });
+  </script>
+
+</body>
+</html>
