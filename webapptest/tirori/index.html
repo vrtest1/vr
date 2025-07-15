@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>ギャップレスループ＋再スタート可能スライドショー</title>
+  <title>ギャップレスループ＋停止音プリロード</title>
   <style>
     body {
       display: flex;
@@ -40,21 +40,29 @@
 </head>
 <body>
 
+  <!-- スライドショー -->
   <div id="slideshow">
     <img id="slide-img" src="1.jpg" alt="スライド画像">
   </div>
-  <div id="message">画面をタップすると音声とスライドショーが始まります</div>
+
+  <!-- メッセージ -->
+  <div id="message">画面をタップすると再生が始まります</div>
+
+  <!-- 停止音をプリロード -->
+  <audio id="stop-audio" src="tirori_stop.wav" preload="auto"></audio>
 
   <script>
     // 状態管理
-    let running = false;   // 再生中かどうか
+    let running = false;
     let slideTimer = null;
     let sourceNode = null;
     let audioContext = null;
-    let stopAudio = null;
 
     const images = ["1.jpg", "2.jpg"];
     let index = 0;
+
+    // 停止音のAudio要素
+    const stopAudio = document.getElementById('stop-audio');
 
     // スライドショー開始
     function startSlideshow() {
@@ -97,15 +105,10 @@
       }
     }
 
-    // 停止音再生
-    async function playStopSound() {
-      stopAudio = new Audio('tirori_stop.wav');
-      await stopAudio.play();
-    }
-
     // タップイベント
     window.addEventListener('click', async () => {
       const message = document.getElementById('message');
+
       if (!running) {
         // 再生開始
         running = true;
@@ -123,9 +126,20 @@
         stopSlideshow();
         stopLoopAudio();
         message.textContent = "停止音再生中...";
-        await playStopSound();
-        message.textContent = "停止しました。再度タップで再開します";
+        try {
+          stopAudio.currentTime = 0; // 先頭から再生
+          await stopAudio.play();
+          message.textContent = "停止しました。再度タップで再開します";
+        } catch (e) {
+          message.textContent = "停止音の再生に失敗しました";
+          console.error(e);
+        }
       }
+    });
+
+    // ページ読み込み時に停止音をプリロード
+    window.addEventListener('DOMContentLoaded', () => {
+      stopAudio.load();
     });
   </script>
 
