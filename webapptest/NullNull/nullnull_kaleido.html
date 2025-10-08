@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>null²派生：カレイド×遅延ミラー（オーディオ連動）</title>
+  <style>
+    :root{--bg:#0b0c10;--fg:#e5e7eb;--muted:#9ca3af;--accent:#38bdf8;--warn:#fca5a5}
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--fg);font-family:ui-sans-serif,system-ui,Segoe UI,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
+    .wrap{display:grid;grid-template-rows:auto 1fr auto;min-height:100vh}
+    header,footer{padding:12px 16px}
+    header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border-bottom:1px solid #111827}
+    h1{font-size:18px;margin:0;letter-spacing:.02em}
+    .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .control{display:flex;align-items:center;gap:8px;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:8px 10px}
+    .control label{font-size:12px;color:var(--muted)}
+    input[type="range"]{width:160px}
+    select{background:#0b0f17;color:var(--fg);border:1px solid #374151;border-radius:10px;padding:6px 8px}
+    .toggle{display:flex;align-items:center;gap:6px}
+    .btn{appearance:none;border:1px solid #374151;background:#0b0f17;color:var(--fg);padding:8px 12px;border-radius:10px;cursor:pointer}
+    .btn:hover{border-color:#4b5563}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .canvas-wrap{position:relative;height:100%;display:grid;cursor:zoom-in}
+    .fs header,.fs footer,.fs .hint{display:none}
+    .fs .canvas-wrap{height:100vh}
+    .fs .canvas-wrap{cursor:zoom-out}
+    canvas{width:100%;height:100%;display:block}
+    .hint{position:absolute;left:12px;bottom:12px;color:#cbd5e1;background:rgba(2,6,23,.55);backdrop-filter:blur(6px);padding:6px 10px;border-radius:10px;font-size:12px;border:1px solid rgba(148,163,184,.25);max-width:min(640px,90vw)}
+    .warn{color:var(--warn)}
+    .tests{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .badge{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid #1f2937;background:#0b0f17}
+    .ok{color:#22c55e;border-color:#134e4a}
+    .ng{color:#ef4444;border-color:#7f1d1d}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>null²派生：カレイド×遅延ミラー（WebCam / 画像・動画 / オーディオ連動）</h1>
+    <div class="controls">
+      <div class="control"><label>振幅</label><input id="amp" type="range" min="0" max="0.25" step="0.001" value="0.07"><span id="ampv">0.07</span></div>
+      <div class="control"><label>周波数</label><input id="freq" type="range" min="0.5" max="14" step="0.1" value="6.5"><span id="freqv">6.5</span></div>
+      <div class="control"><label>速度</label><input id="speed" type="range" min="-3" max="3" step="0.05" value="1.2"><span id="speedv">1.2</span></div>
+      <div class="control"><label>ねじれ</label><input id="twist" type="range" min="-1.0" max="1.0" step="0.01" value="0.20"><span id="twistv">0.20</span></div>
+      <div class="control toggle"><input id="mirror" type="checkbox" checked><label>左右反転</label></div>
+      <div class="control toggle"><input id="flipY" type="checkbox" checked><label>上下反転</label></div>
+      <div class="control toggle"><input id="audioReactive" type="checkbox" checked><label>オーディオ反応</label></div>
+      <div class="control toggle"><input id="kaleidoOn" type="checkbox" checked><label>カレイド</label></div>
+      <div class="control"><label>面数</label><input id="kSeg" type="range" min="1" max="12" step="1" value="6"><span id="kSegv">6</span></div>
+      <div class="control"><label>遅延Mix</label><input id="feedback" type="range" min="0" max="0.95" step="0.01" value="0.25"><span id="feedbackv">0.25</span></div>
+      <div class="control"><label>Audioゲイン</label><input id="aGain" type="range" min="0" max="60" step="1" value="20"><span id="aGainv">20</span></div>
+      <div class="control">
+        <label>向き</label>
+        <select id="facing">
+          <option value="auto" selected>自動</option>
+          <option value="environment">環境（背面）</option>
+          <option value="user">ユーザー（前面）</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>解像度</label>
+        <select id="resolution">
+          <option value="auto" selected>自動</option>
+          <option value="640x480">640×480</option>
+          <option value="1280x720">1280×720</option>
+          <option value="1920x1080">1920×1080</option>
+        </select>
+      </div>
+      <div class="control"><label>FPS</label><input id="fps" type="range" min="10" max="60" step="1" value="30"><span id="fpsv">30</span></div>
+      <button id="startCam" class="btn">カメラ開始</button>
+      <button id="switchCam" class="btn" disabled>カメラ切替</button>
+      <button id="stopCam" class="btn" disabled>停止</button>
+      <label class="btn" style="cursor:pointer"><input id="fileInput" type="file" accept="video/*,image/*" style="display:none">ファイル入力</label>
+      <button id="snapshot" class="btn">スナップ保存</button>
+    </div>
+  </header>
+
+  <div class="canvas-wrap" id="stage" title="タップ/クリックで全画面の切替">
+    <canvas id="gl"></canvas>
+    <video id="video" playsinline muted autoplay style="display:none"></video>
+    <div id="msg" class="hint">HTTPS（または localhost）で開き、ブラウザのカメラ＆マイク許可をONにしてください。<br>遅延Mixは前フレームの像を混ぜ、カレイド面数は1で無効化。</div>
+  </div>
+
+  <footer>
+    <small class="muted">WebGL + getUserMedia + Web Audio API + フレームフィードバック。鏡を多面化＆残像で“生き物感”を増強。</small>
+  </footer>
+</div>
+
+<script>
+(async function(){
+  // ===== DOM =====
+  const cvs = document.getElementById('gl');
+  const video = document.getElementById('video');
+  const msg = document.getElementById('msg');
+  const q = id => document.getElementById(id);
+  const ui = {
+    amp:q('amp'), freq:q('freq'), speed:q('speed'), twist:q('twist'),
+    mirror:q('mirror'), flipY:q('flipY'), audioReactive:q('audioReactive'),
+    kaleidoOn:q('kaleidoOn'), kSeg:q('kSeg'), feedback:q('feedback'),
+    aGain:q('aGain'),
+    ampv:q('ampv'), freqv:q('freqv'), speedv:q('speedv'), twistv:q('twistv'),
+    kSegv:q('kSegv'), feedbackv:q('feedbackv'), aGainv:q('aGainv'),
+    facing:q('facing'), resSel:q('resolution'), fps:q('fps'), fpsv:q('fpsv'),
+    startCam:q('startCam'), switchCam:q('switchCam'), stopCam:q('stopCam'),
+    fileInput:q('fileInput'), snapshot:q('snapshot')
+  };
+  function refreshUI(){
+    if(ui.ampv) ui.ampv.textContent=(+ui.amp.value).toFixed(3);
+    if(ui.freqv) ui.freqv.textContent=(+ui.freq.value).toFixed(1);
+    if(ui.speedv) ui.speedv.textContent=(+ui.speed.value).toFixed(2);
+    if(ui.twistv) ui.twistv.textContent=(+ui.twist.value).toFixed(2);
+    if(ui.kSegv) ui.kSegv.textContent=(+ui.kSeg.value|0);
+    if(ui.feedbackv) ui.feedbackv.textContent=(+ui.feedback.value).toFixed(2);
+    if(ui.aGainv) ui.aGainv.textContent=(+ui.aGain.value|0);
+    if(ui.fpsv) ui.fpsv.textContent=(+ui.fps.value|0);
+  }
+  ['input','change'].forEach(ev=>{
+    ['amp','freq','speed','twist','kSeg','feedback','aGain','fps']
+      .forEach(id=> ui[id].addEventListener(ev, refreshUI));
+  });
+  refreshUI();
+
+  // ===== Audio =====
+  let audioCtx=null, analyser=null, dataArray=null;
+  async function initAudio(){
+    if(audioCtx) return true;
+    try{
+      const mic = await navigator.mediaDevices.getUserMedia({audio:true});
+      audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const src = audioCtx.createMediaStreamSource(mic);
+      analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024; dataArray = new Uint8Array(analyser.frequencyBinCount);
+      src.connect(analyser); return true;
+    }catch(e){ console.warn('マイク初期化失敗', e); msg.innerHTML = '<span class="warn">マイク権限が拒否されました（オーディオ反応は無効）。</span>'; return false; }
+  }
+  function getRMS(){ if(!analyser) return 0; analyser.getByteTimeDomainData(dataArray); let sum=0; for(let i=0;i<dataArray.length;i++){ const v=(dataArray[i]-128)/128; sum+=v*v; } return Math.sqrt(sum/dataArray.length); }
+
+  // ===== Camera (フォールバック付き) =====
+  let devices=[], camIndex=0, stream=null; let offImage=null, offCanvas=null, offCtx=null;
+  async function listCams(){ if(!navigator.mediaDevices?.enumerateDevices) return []; const all = await navigator.mediaDevices.enumerateDevices(); devices = all.filter(d=>d.kind==='videoinput'); ui.switchCam.disabled = devices.length<=1; return devices; }
+  function stopCurrentStream(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; ui.stopCam.disabled=true; } }
+  function currentFacing(){ const v=ui.facing.value; return v==='auto'?undefined:v; }
+  function currentResolution(){ const v=ui.resSel.value; if(v==='auto') return null; const [w,h]=v.split('x').map(Number); return {width:w,height:h}; }
+  function buildConstraintsSequence(device){ const facing=currentFacing(); const res=currentResolution(); const fps=parseInt(ui.fps.value,10)||30; const seq=[]; const common={audio:false}; if(device){ const base={video:{deviceId:{exact:device.deviceId}}}; if(facing) base.video.facingMode={ideal:facing}; if(res){base.video.width={ideal:res.width}; base.video.height={ideal:res.height};} base.video.frameRate={ideal:fps,max:60}; seq.push(Object.assign({},common,base)); } const base2={video:{}}; if(facing) base2.video.facingMode={ideal:facing}; if(res){base2.video.width={ideal:res.width}; base2.video.height={ideal:res.height};} base2.video.frameRate={ideal:fps,max:60}; seq.push(Object.assign({},common,base2)); const base3={video:{frameRate:{ideal:fps,max:60}}}; if(res){base3.video.width={ideal:res.width}; base3.video.height={ideal:res.height};} seq.push(Object.assign({},common,base3)); seq.push({audio:false, video:true}); return seq; }
+  async function tryGetStream(seq){ let lastErr=null,lastTried=null; for(const c of seq){ try{ lastTried=JSON.stringify(c.video||c); const s=await navigator.mediaDevices.getUserMedia(c); return {stream:s, used:c}; }catch(err){ lastErr=err; if(err && (err.name==='SecurityError'||err.name==='NotAllowedError')){ throw Object.assign(err,{lastTried}); } } } if(lastErr) throw Object.assign(lastErr,{lastTried}); throw new Error('Unknown camera error'); }
+  async function openCam(index=0){ if(!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia未対応'); stopCurrentStream(); const device = devices.length ? devices[index % devices.length] : null; const seq=buildConstraintsSequence(device); const {stream:st, used}=await tryGetStream(seq); stream=st; video.srcObject=stream; await video.play(); resize(); ui.stopCam.disabled=false; const label=device?.label || (devices[index]?.label) || 'camera'; msg.textContent = `使用中: ${label} / constraints: ${JSON.stringify(used.video||used)}`; }
+  
+  ui.startCam.addEventListener('click', async()=>{
+    try{
+      if(ui.audioReactive.checked) await initAudio();
+      if(location.protocol!=='https:' && location.hostname!=='localhost'){ msg.innerHTML='<span class="warn">非HTTPSです。localhost 以外ではブロックされます。</span>'; }
+      await listCams(); await openCam(camIndex);
+    }catch(err){ console.error(err); const detail = err?.name ? `${err.name}: ${err.message||''}` : String(err); const tried = err?.lastTried ? ` lastTried=${err.lastTried}` : ''; msg.innerHTML = `<span class=\"warn\">起動失敗：${detail}.${tried}</span>`; }
+  });
+  ui.switchCam.addEventListener('click', async()=>{ try{ if(!devices.length) await listCams(); if(!devices.length) return; camIndex=(camIndex+1)%devices.length; await openCam(camIndex);}catch(err){ console.error(err); msg.innerHTML = `<span class=\"warn\">切替失敗: ${err.name||'Error'} ${err.message||''}</span>`; } });
+  ui.stopCam.addEventListener('click', ()=>{ stopCurrentStream(); msg.textContent='カメラ停止中'; });
+
+  // ファイル入力（動画/画像）
+  ui.fileInput.addEventListener('change', ()=>{ const file=ui.fileInput.files?.[0]; if(!file) return; const url=URL.createObjectURL(file); stopCurrentStream(); offImage=null; offCanvas=null; offCtx=null; if(file.type.startsWith('video')){ video.srcObject=null; video.src=url; video.loop=true; video.muted=true; video.play(); msg.textContent='ファイル動画入力中…'; } else if(file.type.startsWith('image')){ const img=new Image(); img.onload=()=>{ offImage=img; offCanvas=document.createElement('canvas'); offCanvas.width=img.naturalWidth; offCanvas.height=img.naturalHeight; offCtx=offCanvas.getContext('2d'); msg.textContent='静止画像入力中…'; }; img.src=url; } });
+
+  // ===== WebGL =====
+  /** @type {WebGLRenderingContext} */
+  const gl = cvs.getContext('webgl', { preserveDrawingBuffer:true, alpha:false, antialias:true });
+  if(!gl){ msg.innerHTML='<span class="warn">WebGLが無効です。別ブラウザでお試しください。</span>'; return; }
+  const vertSrc = `
+    attribute vec2 a_pos; varying vec2 v_uv;
+    void main(){ v_uv=(a_pos+1.0)*0.5; gl_Position=vec4(a_pos,0.0,1.0);} 
+  `;
+  const fragSrc = `
+    precision highp float; varying vec2 v_uv; 
+    uniform sampler2D u_tex0; // video/image
+    uniform sampler2D u_prev; // previous frame
+    uniform vec2 u_res; uniform float u_time; 
+    uniform float u_amp; uniform float u_freq; uniform float u_speed; uniform float u_twist; 
+    uniform bool u_mirror; uniform bool u_flipY; 
+    uniform bool u_kaleido; uniform float u_kSeg; uniform float u_feedback;
+
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); }
+    float noise(vec2 p){ vec2 i=floor(p), f=fract(p); float a=hash(i); float b=hash(i+vec2(1.,0.)); float c=hash(i+vec2(0.,1.)); float d=hash(i+vec2(1.,1.)); vec2 u=f*f*(3.-2.*f); return mix(a,b,u.x)+(c-a)*u.y*(1.-u.x)+(d-b)*u.x*u.y; }
+
+    vec2 kaleido(vec2 uv, float seg){
+      if(seg<1.5) return uv; // 1で無効
+      vec2 p = uv - 0.5; float a = atan(p.y,p.x); float r = length(p);
+      float sector = 6.2831853/max(1.0, seg);
+      a = mod(a, sector); a = min(a, sector - a); // mirror within wedge
+      vec2 k = vec2(cos(a), sin(a)) * r; return k + 0.5;
+    }
+
+    void main(){
+      vec2 uv = v_uv;
+      if(u_flipY) uv.y = 1.0 - uv.y;
+      if(u_kaleido) uv = kaleido(uv, u_kSeg);
+
+      float t = u_time * u_speed;
+      float sx = sin(uv.y * u_freq * 6.28318 + t);
+      float sy = sin(uv.x * (u_freq*0.9) * 6.28318 - t*1.05);
+      float n = noise(uv * (u_freq*2.0) + t*0.1) - 0.5;
+      vec2 disp = vec2(sx, sy) * u_amp + n * u_amp * 0.4;
+
+      vec2 p = uv - 0.5; float ang = u_twist * length(p) * 2.5; float ca = cos(ang), sa = sin(ang);
+      p = mat2(ca,-sa,sa,ca)*p; uv = p + 0.5 + disp;
+      if(u_mirror) uv.x = 1.0 - uv.x;
+
+      vec2 suv = clamp(uv, 0.001, 0.999);
+
+      float off = 0.0025 * u_amp * 5.0; 
+      vec3 cur;
+      cur.r = texture2D(u_tex0, suv + vec2( off, 0.0)).r;
+      cur.g = texture2D(u_tex0, suv ).g;
+      cur.b = texture2D(u_tex0, suv - vec2( off, 0.0)).b;
+
+      vec3 prev = texture2D(u_prev, v_uv).rgb; // mix in image-space to keep trails stable
+      vec3 col = mix(cur, prev, clamp(u_feedback, 0.0, 0.95));
+
+      float d2 = distance(v_uv, vec2(0.5));
+      float vig = smoothstep(0.98, 0.55, d2);
+      col *= vig;
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+  function compile(type, src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+  function program(vs,fs){ const p=gl.createProgram(); gl.attachShader(p,compile(gl.VERTEX_SHADER,vs)); gl.attachShader(p,compile(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(p); if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
+  const prog = program(vertSrc, fragSrc); gl.useProgram(prog);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW); const locPos = gl.getAttribLocation(prog,'a_pos'); gl.enableVertexAttribArray(locPos); gl.vertexAttribPointer(locPos,2,gl.FLOAT,false,0,0);
+  const u = { tex0:gl.getUniformLocation(prog,'u_tex0'), prev:gl.getUniformLocation(prog,'u_prev'), res:gl.getUniformLocation(prog,'u_res'), time:gl.getUniformLocation(prog,'u_time'), amp:gl.getUniformLocation(prog,'u_amp'), freq:gl.getUniformLocation(prog,'u_freq'), speed:gl.getUniformLocation(prog,'u_speed'), twist:gl.getUniformLocation(prog,'u_twist'), mirror:gl.getUniformLocation(prog,'u_mirror'), flipY:gl.getUniformLocation(prog,'u_flipY'), kaleido:gl.getUniformLocation(prog,'u_kaleido'), kSeg:gl.getUniformLocation(prog,'u_kSeg'), feedback:gl.getUniformLocation(prog,'u_feedback') };
+
+  // video texture (TEXTURE0)
+  const tex = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); gl.uniform1i(u.tex0, 0);
+  
+  // previous frame texture (TEXTURE1)
+  let prevTex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, prevTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.uniform1i(u.prev, 1);
+
+  let W=0,H=0, prevReady=false;
+  function allocPrevTex(){
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, prevTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    prevReady=false;
+  }
+
+  function resize(){ const dpr=Math.min(window.devicePixelRatio||1,2); const w=cvs.clientWidth, h=cvs.clientHeight; const newW=Math.max(1,Math.floor(w*dpr)), newH=Math.max(1,Math.floor(h*dpr)); if(W!==newW || H!==newH){ W=newW; H=newH; cvs.width=W; cvs.height=H; gl.viewport(0,0,W,H); gl.uniform2f(u.res,W,H); allocPrevTex(); } }
+  addEventListener('resize', resize);
+
+  // Snapshot
+  ui.snapshot.addEventListener('click', ()=>{ const a=document.createElement('a'); a.href=cvs.toDataURL('image/png'); a.download=`null2_kaleido_delay_${Date.now()}.png`; a.click(); });
+
+  // ===== Render loop =====
+  let start=performance.now();
+  function render(){
+    const now=performance.now(); const t=(now-start)/1000;
+
+    // upload video or image to TEXTURE0
+    if(offImage){ if(!offCanvas){ offCanvas=document.createElement('canvas'); offCanvas.width=offImage.naturalWidth||offImage.width; offCanvas.height=offImage.naturalHeight||offImage.height; offCtx=offCanvas.getContext('2d'); }
+      offCtx.drawImage(offImage,0,0,offCanvas.width,offCanvas.height);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,offCanvas);
+    } else if(video.readyState>=2){ gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); try{ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,video);}catch(e){} }
+
+    // uniforms
+    const rms = (ui.audioReactive.checked && analyser) ? getRMS() : 0;
+    const dynFreq = parseFloat(ui.freq.value) + rms * parseFloat(ui.aGain.value);
+    gl.uniform1f(u.time, t);
+    gl.uniform1f(u.amp, parseFloat(ui.amp.value));
+    gl.uniform1f(u.freq, dynFreq);
+    gl.uniform1f(u.speed, parseFloat(ui.speed.value));
+    gl.uniform1f(u.twist, parseFloat(ui.twist.value));
+    gl.uniform1i(u.mirror, ui.mirror.checked?1:0);
+    gl.uniform1i(u.flipY, ui.flipY.checked?1:0);
+    gl.uniform1i(u.kaleido, ui.kaleidoOn.checked?1:0);
+    gl.uniform1f(u.kSeg, parseFloat(ui.kSeg.value));
+    gl.uniform1f(u.feedback, parseFloat(ui.feedback.value));
+
+    // bind prevTex on unit 1
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, prevTex);
+
+    // draw
+    gl.drawArrays(gl.TRIANGLES,0,6);
+
+    // copy current framebuffer to prevTex for next frame
+    if(W>0 && H>0){
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, prevTex);
+      if(!prevReady){ gl.copyTexImage2D(gl.TEXTURE_2D,0,gl.RGBA,0,0,W,H,0); prevReady=true; }
+      else { gl.copyTexSubImage2D(gl.TEXTURE_2D,0,0,0,0,0,W,H); }
+    }
+
+    requestAnimationFrame(render);
+  }
+
+  // ===== Fullscreen toggle =====
+  const stage = document.getElementById('stage');
+  async function enterFS(){ try{ if(stage.requestFullscreen) await stage.requestFullscreen(); else if(stage.webkitRequestFullscreen) stage.webkitRequestFullscreen(); document.body.classList.add('fs'); }catch(e){} }
+  async function exitFS(){ try{ if(document.exitFullscreen) await document.exitFullscreen(); else if(document.webkitExitFullscreen) document.webkitExitFullscreen(); document.body.classList.remove('fs'); }catch(e){} }
+  stage.addEventListener('click', async ()=>{ if(!document.fullscreenElement && !document.webkitFullscreenElement) await enterFS(); else await exitFS(); });
+  document.addEventListener('fullscreenchange', ()=>{ if(!document.fullscreenElement) document.body.classList.remove('fs'); });
+
+  // ===== Bootstrap =====
+  try{
+    resize(); requestAnimationFrame(render);
+  }catch(err){ console.error(err); msg.innerHTML = `<span class="warn">初期化失敗: ${err.name||'Error'} ${err.message||''}</span>`; }
+})();
+</script>
+</body>
+</html>
