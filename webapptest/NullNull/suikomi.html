@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>null²風「鏡＋ゆらぎ」Webカメラ（フル機能＋オーディオ連動＋ダム穴＋3D反射β）</title>
+  <title>null²風「鏡＋ゆらぎ」Webカメラ（フル機能＋オーディオ連動＋ダム穴＋3D反射：皿/ホーン）</title>
   <style>
     :root{--bg:#0b0c10;--fg:#e5e7eb;--muted:#9ca3af;--accent:#38bdf8;--warn:#fca5a5}
     *{box-sizing:border-box} html,body{height:100%}
@@ -38,7 +38,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>null²風：鏡面×ゆらぎ（WebCam / 画像・動画 / オーディオ連動 / ダム穴 / 3D反射β）</h1>
+    <h1>null²風：鏡面×ゆらぎ（WebCam / 画像・動画 / オーディオ連動 / ダム穴 / 3D反射：皿/ホーン）</h1>
     <div class="controls">
       <div class="control"><label>振幅</label><input id="amp" type="range" min="0" max="0.2" step="0.001" value="0.06"><span id="ampv">0.06</span></div>
       <div class="control"><label>周波数</label><input id="freq" type="range" min="0.5" max="12" step="0.1" value="6"><span id="freqv">6.0</span></div>
@@ -58,9 +58,17 @@
       <div class="control"><label>範囲</label><input id="vWanderRange" type="range" min="0" max="0.45" step="0.01" value="0.20"><span id="vWanderRangev">0.20</span></div>
       <div class="control"><label>速度</label><input id="vWanderSpeed" type="range" min="0" max="1.0" step="0.01" value="0.15"><span id="vWanderSpeedv">0.15</span></div>
 
-      <!-- ★ 3D反射（皿）β -->
-      <div class="control toggle"><input id="refl3D" type="checkbox"><label>3D反射（皿）β</label></div>
-      <div class="control"><label>皿の深さ</label><input id="bDepth" type="range" min="0.02" max="0.60" step="0.01" value="0.25"><span id="bDepthv">0.25</span></div>
+      <!-- ★ 3D反射：皿/ホーン -->
+      <div class="control toggle"><input id="refl3D" type="checkbox"><label>3D反射 ON</label></div>
+      <div class="control"><label>形状</label>
+        <select id="reflShape">
+          <option value="bowl" selected>皿（球面キャップ）</option>
+          <option value="horn">ホーン（フレア）</option>
+        </select>
+      </div>
+      <div class="control"><label>皿/ホーンの深さ</label><input id="bDepth" type="range" min="0.02" max="0.60" step="0.01" value="0.25"><span id="bDepthv">0.25</span></div>
+      <div class="control"><label>喉半径</label><input id="throat" type="range" min="0.02" max="0.50" step="0.01" value="0.18"><span id="throatv">0.18</span></div>
+      <div class="control"><label>フレア度</label><input id="flare" type="range" min="0" max="1.0" step="0.01" value="0.65"><span id="flarev">0.65</span></div>
       <div class="control"><label>背景スケール</label><input id="bgScale" type="range" min="0.5" max="2.0" step="0.01" value="1.00"><span id="bgScalev">1.00</span></div>
 
       <div class="control">
@@ -93,11 +101,11 @@
   <div class="canvas-wrap" id="stage" title="タップ/クリックで全画面の切替">
     <canvas id="gl"></canvas>
     <video id="video" playsinline muted autoplay style="display:none"></video>
-    <div id="msg" class="hint">HTTPS（または localhost）で開き、ブラウザのカメラ＆マイク許可をONにしてください。<br>吸い込み＝2D変形、3D反射β＝皿状ミラー＋反射線の平面交差で擬似的に反射を再構成します。</div>
+    <div id="msg" class="hint">HTTPS（または localhost）で開き、ブラウザのカメラ＆マイク許可をONにしてください。<br>3D反射は 皿=球面キャップ、ホーン=回転体プロファイル（喉→フレア）で擬似反射を行います。</div>
   </div>
 
   <footer>
-    <small class="muted">WebGL + getUserMedia + Web Audio API。3D反射βは球面キャップの法線で反射ベクトルを算出し、仮想背景平面と交差させてサンプリングします。</small>
+    <small class="muted">WebGL + getUserMedia + Web Audio API。3D反射は法線から反射ベクトルを出し、仮想背景平面と交差させる近似。ホーンは半径関数 z(r) と dz/dr から法線を算出。</small>
     <div id="tests" class="tests"></div>
   </footer>
 </div>
@@ -114,10 +122,10 @@
     amp:q('amp'), freq:q('freq'), speed:q('speed'), twist:q('twist'),
     mirror:q('mirror'), flipY:q('flipY'), audioReactive:q('audioReactive'),
     vortex:q('vortex'), vDiameter:q('vDiameter'), vStrength:q('vStrength'), vLfoAmp:q('vLfoAmp'), vLfoSpeed:q('vLfoSpeed'), vWander:q('vWander'), vWanderRange:q('vWanderRange'), vWanderSpeed:q('vWanderSpeed'),
-    refl3D:q('refl3D'), bDepth:q('bDepth'), bgScale:q('bgScale'),
+    refl3D:q('refl3D'), reflShape:q('reflShape'), bDepth:q('bDepth'), bgScale:q('bgScale'), throat:q('throat'), flare:q('flare'),
     ampv:q('ampv'), freqv:q('freqv'), speedv:q('speedv'), twistv:q('twistv'),
     vDiameterv:q('vDiameterv'), vStrengthv:q('vStrengthv'), vLfoAmpv:q('vLfoAmpv'), vLfoSpeedv:q('vLfoSpeedv'), vWanderRangev:q('vWanderRangev'), vWanderSpeedv:q('vWanderSpeedv'),
-    bDepthv:q('bDepthv'), bgScalev:q('bgScalev'),
+    bDepthv:q('bDepthv'), bgScalev:q('bgScalev'), throatv:q('throatv'), flarev:q('flarev'),
     facing:q('facing'), resSel:q('resolution'), fps:q('fps'), fpsv:q('fpsv'),
     startCam:q('startCam'), switchCam:q('switchCam'), stopCam:q('stopCam'),
     fileInput:q('fileInput'), runTests:q('runTests'), snapshot:q('snapshot')
@@ -136,9 +144,11 @@
     ui.vWanderSpeedv.textContent=(+ui.vWanderSpeed.value).toFixed(2);
     ui.bDepthv.textContent=(+ui.bDepth.value).toFixed(2);
     ui.bgScalev.textContent=(+ui.bgScale.value).toFixed(2);
+    ui.throatv.textContent=(+ui.throat.value).toFixed(2);
+    ui.flarev.textContent=(+ui.flare.value).toFixed(2);
     ui.fpsv.textContent=(+ui.fps.value).toFixed(0);
   }
-  ['input','change'].forEach(ev=>{ ['amp','freq','speed','twist','fps','vDiameter','vStrength','vLfoAmp','vLfoSpeed','vWanderRange','vWanderSpeed','bDepth','bgScale'].forEach(id=>ui[id].addEventListener(ev, refreshUI)); });
+  ['input','change'].forEach(ev=>{ ['amp','freq','speed','twist','fps','vDiameter','vStrength','vLfoAmp','vLfoSpeed','vWanderRange','vWanderSpeed','bDepth','bgScale','throat','flare','reflShape'].forEach(id=>ui[id].addEventListener(ev, refreshUI)); });
   refreshUI();
 
   // ===== Audio (initialized on user gesture) =====
@@ -185,8 +195,40 @@
   const vertSrc = `attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = (a_pos+1.0)*0.5; gl_Position = vec4(a_pos,0.0,1.0);} `;
   const fragSrc = `precision highp float; varying vec2 v_uv; uniform sampler2D u_tex0; uniform vec2 u_res; uniform float u_time; uniform float u_amp; uniform float u_freq; uniform float u_speed; uniform float u_twist; uniform bool u_mirror; uniform bool u_flipY; // vortex
 uniform bool u_vortex; uniform vec2 u_vCenter; uniform float u_vRadius; uniform float u_vStrength; // 3D reflection
-uniform bool u_refl3D; uniform float u_bDepth; uniform float u_planeDist; uniform float u_camZ; uniform float u_bgScale; 
+uniform bool u_refl3D; uniform int  u_shape; // 0=bowl,1=horn
+uniform float u_bDepth; uniform float u_planeDist; uniform float u_camZ; uniform float u_bgScale; 
+uniform float u_throat; uniform float u_flare; // horn params (ratio, 0..1)
 float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); } float noise(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); float a = hash(i); float b = hash(i+vec2(1.0,0.0)); float c = hash(i+vec2(0.0,1.0)); float d = hash(i+vec2(1.0,1.0)); vec2 u = f*f*(3.0-2.0*f); return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y; }
+
+// profile: return vec2(z, dzdr)
+vec2 bowlProfile(float r, float Rb, float h){
+  float R = (Rb*Rb + h*h) / (2.0*h); // sphere radius
+  float s = max(0.0, R*R - r*r);
+  float z = (R - sqrt(s)) - h; // <=0
+  float dz = (r>1e-5)? r / max(1e-5, sqrt(s)) : 0.0;
+  return vec2(z, dz);
+}
+
+vec2 hornProfile(float r, float Rb, float h, float throat, float flare){
+  float r0 = clamp(throat*Rb, 0.001, Rb*0.98);
+  float z0 = -h;        // center depth
+  float z1 = -0.25*h;   // depth at r0 (should be shallower than center)
+  float alpha = 1.25;   // throat exponent
+  float z, dz;
+  if(r < r0){
+    float t = r / r0;
+    float pa = pow(t, alpha);
+    z = mix(z0, z1, pa);
+    dz = (z1 - z0) * alpha * pow(t, alpha-1.0) / max(1e-5, r0);
+  }else if(r < Rb){
+    float u = (r - r0) / max(1e-5, (Rb - r0));
+    float gamma = mix(0.5, 3.0, clamp(flare,0.0,1.0));
+    float pg = pow(u, gamma);
+    z = mix(z1, 0.0, pg);
+    dz = (0.0 - z1) * gamma * pow(u, gamma-1.0) / max(1e-5, (Rb - r0));
+  }else{ z=0.0; dz=0.0; }
+  return vec2(z, dz);
+}
 
 vec2 reflectUV(vec2 uv){
   // aspect-corrected local coords around center
@@ -194,23 +236,19 @@ vec2 reflectUV(vec2 uv){
   vec2 o = uv - u_vCenter; // in 0..1 space
   vec2 q = o * ap;          // make circle metric
   float r = length(q);
-  // bowl parameters (radius & depth)
   float Rb = max(0.001, u_vRadius);
   float h  = max(0.001, u_bDepth);
-  float R  = (Rb*Rb + h*h) / (2.0*h);     // sphere radius from cap
-  float zc = -(R - h);                    // sphere center z (below plane)
 
-  // surface point & normal
-  vec3 P; vec3 N;
-  if(r < Rb){
-    float zSurf = (R - sqrt(max(0.0, R*R - r*r))) - h; // <=0 (bowl into -z)
-    P = vec3(q, zSurf);
-    vec3 C = vec3(0.0, 0.0, zc);
-    N = normalize(P - C);
-  }else{
-    P = vec3(q, 0.0);
-    N = vec3(0.0, 0.0, 1.0);
-  }
+  vec2 prof = (u_shape==0) ? bowlProfile(r, Rb, h)
+                           : hornProfile(r, Rb, h, clamp(u_throat,0.02,0.95), clamp(u_flare,0.0,1.0));
+  float z = prof.x; float dz = prof.y;
+
+  // surface point & normal from height map z(r)
+  vec3 P = vec3(q, z);
+  float rr = max(r, 1e-5);
+  vec3 N = normalize(vec3(-dz * q.x/rr, -dz * q.y/rr, 1.0));
+
+  // reflect ray to background plane
   vec3 ro = vec3(0.0, 0.0, u_camZ);
   vec3 I = normalize(P - ro);       // incident (camera->surface)
   vec3 Rdir = reflect(I, N);        // reflected direction
@@ -254,7 +292,7 @@ void main(){ vec2 uv = v_uv; if(u_flipY){ uv.y = 1.0 - uv.y; }
   function program(vs,fs){ const p=gl.createProgram(); gl.attachShader(p,compile(gl.VERTEX_SHADER,vs)); gl.attachShader(p,compile(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(p); if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
   const prog = program(vertSrc, fragSrc); gl.useProgram(prog);
   const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW); const locPos = gl.getAttribLocation(prog,'a_pos'); gl.enableVertexAttribArray(locPos); gl.vertexAttribPointer(locPos,2,gl.FLOAT,false,0,0);
-  const u = { tex0:gl.getUniformLocation(prog,'u_tex0'), res:gl.getUniformLocation(prog,'u_res'), time:gl.getUniformLocation(prog,'u_time'), amp:gl.getUniformLocation(prog,'u_amp'), freq:gl.getUniformLocation(prog,'u_freq'), speed:gl.getUniformLocation(prog,'u_speed'), twist:gl.getUniformLocation(prog,'u_twist'), mirror:gl.getUniformLocation(prog,'u_mirror'), flipY:gl.getUniformLocation(prog,'u_flipY'), vortex:gl.getUniformLocation(prog,'u_vortex'), vCenter:gl.getUniformLocation(prog,'u_vCenter'), vRadius:gl.getUniformLocation(prog,'u_vRadius'), vStrength:gl.getUniformLocation(prog,'u_vStrength'), refl3D:gl.getUniformLocation(prog,'u_refl3D'), bDepth:gl.getUniformLocation(prog,'u_bDepth'), planeDist:gl.getUniformLocation(prog,'u_planeDist'), camZ:gl.getUniformLocation(prog,'u_camZ'), bgScale:gl.getUniformLocation(prog,'u_bgScale') };
+  const u = { tex0:gl.getUniformLocation(prog,'u_tex0'), res:gl.getUniformLocation(prog,'u_res'), time:gl.getUniformLocation(prog,'u_time'), amp:gl.getUniformLocation(prog,'u_amp'), freq:gl.getUniformLocation(prog,'u_freq'), speed:gl.getUniformLocation(prog,'u_speed'), twist:gl.getUniformLocation(prog,'u_twist'), mirror:gl.getUniformLocation(prog,'u_mirror'), flipY:gl.getUniformLocation(prog,'u_flipY'), vortex:gl.getUniformLocation(prog,'u_vortex'), vCenter:gl.getUniformLocation(prog,'u_vCenter'), vRadius:gl.getUniformLocation(prog,'u_vRadius'), vStrength:gl.getUniformLocation(prog,'u_vStrength'), refl3D:gl.getUniformLocation(prog,'u_refl3D'), shape:gl.getUniformLocation(prog,'u_shape'), bDepth:gl.getUniformLocation(prog,'u_bDepth'), planeDist:gl.getUniformLocation(prog,'u_planeDist'), camZ:gl.getUniformLocation(prog,'u_camZ'), bgScale:gl.getUniformLocation(prog,'u_bgScale'), throat:gl.getUniformLocation(prog,'u_throat'), flare:gl.getUniformLocation(prog,'u_flare') };
   const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   function resize(){ const dpr=Math.min(window.devicePixelRatio||1,2); const w=cvs.clientWidth, h=cvs.clientHeight; const W=Math.max(1,Math.floor(w*dpr)), H=Math.max(1,Math.floor(h*dpr)); if(cvs.width!==W||cvs.height!==H){ cvs.width=W; cvs.height=H; gl.viewport(0,0,W,H); gl.uniform2f(u.res,W,H);} }
@@ -271,9 +309,7 @@ void main(){ vec2 uv = v_uv; if(u_flipY){ uv.y = 1.0 - uv.y; }
     const speed = parseFloat(ui.vWanderSpeed.value);
     const range = parseFloat(ui.vWanderRange.value);
     if(!ui.vWander.checked || speed<=0){ vTarget = {x:0.5,y:0.5}; }
-    else {
-      wanderTimer -= dt; if(wanderTimer<=0){ const ang = Math.random()*Math.PI*2; const r = range*Math.sqrt(Math.random()); vTarget = {x:0.5 + r*Math.cos(ang), y:0.5 + r*Math.sin(ang)}; wanderTimer = 2 + Math.random()*3; }
-    }
+    else { wanderTimer -= dt; if(wanderTimer<=0){ const ang = Math.random()*Math.PI*2; const r = range*Math.sqrt(Math.random()); vTarget = {x:0.5 + r*Math.cos(ang), y:0.5 + r*Math.sin(ang)}; wanderTimer = 2 + Math.random()*3; } }
     const step = Math.max(0.001, speed*0.02);
     vCenter.x += (vTarget.x - vCenter.x)*step;
     vCenter.y += (vTarget.y - vCenter.y)*step;
@@ -315,10 +351,13 @@ void main(){ vec2 uv = v_uv; if(u_flipY){ uv.y = 1.0 - uv.y; }
 
     // 3D reflection uniforms
     gl.uniform1i(u.refl3D, ui.refl3D.checked?1:0);
+    gl.uniform1i(u.shape, ui.reflShape.value==='horn'?1:0);
     gl.uniform1f(u.bDepth, parseFloat(ui.bDepth.value));
     gl.uniform1f(u.bgScale, parseFloat(ui.bgScale.value));
-    gl.uniform1f(u.camZ, 1.0);       // 視点距離（仮定1.0）
-    gl.uniform1f(u.planeDist, 1.2);  // 背景平面の距離（仮定1.2）
+    gl.uniform1f(u.throat, parseFloat(ui.throat.value));
+    gl.uniform1f(u.flare, parseFloat(ui.flare.value));
+    gl.uniform1f(u.camZ, 1.0);       // 視点距離（仮）
+    gl.uniform1f(u.planeDist, 1.2);  // 背景平面の距離（仮）
 
     gl.drawArrays(gl.TRIANGLES,0,6);
     requestAnimationFrame(render);
