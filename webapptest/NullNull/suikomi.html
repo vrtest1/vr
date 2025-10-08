@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>null²風「鏡＋ゆらぎ」Webカメラ（フル機能＋オーディオ連動＋ダム穴）</title>
+  <title>null²風「鏡＋ゆらぎ」Webカメラ（フル機能＋オーディオ連動＋ダム穴＋3D反射β）</title>
   <style>
     :root{--bg:#0b0c10;--fg:#e5e7eb;--muted:#9ca3af;--accent:#38bdf8;--warn:#fca5a5}
     *{box-sizing:border-box} html,body{height:100%}
@@ -38,7 +38,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>null²風：鏡面×ゆらぎ（WebCam / 画像・動画 / オーディオ連動 / ダム穴）</h1>
+    <h1>null²風：鏡面×ゆらぎ（WebCam / 画像・動画 / オーディオ連動 / ダム穴 / 3D反射β）</h1>
     <div class="controls">
       <div class="control"><label>振幅</label><input id="amp" type="range" min="0" max="0.2" step="0.001" value="0.06"><span id="ampv">0.06</span></div>
       <div class="control"><label>周波数</label><input id="freq" type="range" min="0.5" max="12" step="0.1" value="6"><span id="freqv">6.0</span></div>
@@ -57,6 +57,11 @@
       <div class="control toggle"><input id="vWander" type="checkbox" checked><label>中心をさまよわせる</label></div>
       <div class="control"><label>範囲</label><input id="vWanderRange" type="range" min="0" max="0.45" step="0.01" value="0.20"><span id="vWanderRangev">0.20</span></div>
       <div class="control"><label>速度</label><input id="vWanderSpeed" type="range" min="0" max="1.0" step="0.01" value="0.15"><span id="vWanderSpeedv">0.15</span></div>
+
+      <!-- ★ 3D反射（皿）β -->
+      <div class="control toggle"><input id="refl3D" type="checkbox"><label>3D反射（皿）β</label></div>
+      <div class="control"><label>皿の深さ</label><input id="bDepth" type="range" min="0.02" max="0.60" step="0.01" value="0.25"><span id="bDepthv">0.25</span></div>
+      <div class="control"><label>背景スケール</label><input id="bgScale" type="range" min="0.5" max="2.0" step="0.01" value="1.00"><span id="bgScalev">1.00</span></div>
 
       <div class="control">
         <label>向き</label>
@@ -88,11 +93,11 @@
   <div class="canvas-wrap" id="stage" title="タップ/クリックで全画面の切替">
     <canvas id="gl"></canvas>
     <video id="video" playsinline muted autoplay style="display:none"></video>
-    <div id="msg" class="hint">HTTPS（または localhost）で開き、ブラウザのカメラ＆マイク許可をONにしてください。<br>OverconstrainedError なら「向き＝自動」「解像度＝自動」「FPS＝30」を推奨。</div>
+    <div id="msg" class="hint">HTTPS（または localhost）で開き、ブラウザのカメラ＆マイク許可をONにしてください。<br>吸い込み＝2D変形、3D反射β＝皿状ミラー＋反射線の平面交差で擬似的に反射を再構成します。</div>
   </div>
 
   <footer>
-    <small class="muted">WebGL + getUserMedia + Web Audio API。音量RMSで周波数変動。吸い込み（ダム穴）は直径ゆっくり変化＆中心がランダムに徘徊。</small>
+    <small class="muted">WebGL + getUserMedia + Web Audio API。3D反射βは球面キャップの法線で反射ベクトルを算出し、仮想背景平面と交差させてサンプリングします。</small>
     <div id="tests" class="tests"></div>
   </footer>
 </div>
@@ -109,8 +114,10 @@
     amp:q('amp'), freq:q('freq'), speed:q('speed'), twist:q('twist'),
     mirror:q('mirror'), flipY:q('flipY'), audioReactive:q('audioReactive'),
     vortex:q('vortex'), vDiameter:q('vDiameter'), vStrength:q('vStrength'), vLfoAmp:q('vLfoAmp'), vLfoSpeed:q('vLfoSpeed'), vWander:q('vWander'), vWanderRange:q('vWanderRange'), vWanderSpeed:q('vWanderSpeed'),
+    refl3D:q('refl3D'), bDepth:q('bDepth'), bgScale:q('bgScale'),
     ampv:q('ampv'), freqv:q('freqv'), speedv:q('speedv'), twistv:q('twistv'),
     vDiameterv:q('vDiameterv'), vStrengthv:q('vStrengthv'), vLfoAmpv:q('vLfoAmpv'), vLfoSpeedv:q('vLfoSpeedv'), vWanderRangev:q('vWanderRangev'), vWanderSpeedv:q('vWanderSpeedv'),
+    bDepthv:q('bDepthv'), bgScalev:q('bgScalev'),
     facing:q('facing'), resSel:q('resolution'), fps:q('fps'), fpsv:q('fpsv'),
     startCam:q('startCam'), switchCam:q('switchCam'), stopCam:q('stopCam'),
     fileInput:q('fileInput'), runTests:q('runTests'), snapshot:q('snapshot')
@@ -127,9 +134,11 @@
     ui.vLfoSpeedv.textContent=(+ui.vLfoSpeed.value).toFixed(2);
     ui.vWanderRangev.textContent=(+ui.vWanderRange.value).toFixed(2);
     ui.vWanderSpeedv.textContent=(+ui.vWanderSpeed.value).toFixed(2);
+    ui.bDepthv.textContent=(+ui.bDepth.value).toFixed(2);
+    ui.bgScalev.textContent=(+ui.bgScale.value).toFixed(2);
     ui.fpsv.textContent=(+ui.fps.value).toFixed(0);
   }
-  ['input','change'].forEach(ev=>{ ['amp','freq','speed','twist','fps','vDiameter','vStrength','vLfoAmp','vLfoSpeed','vWanderRange','vWanderSpeed'].forEach(id=>ui[id].addEventListener(ev, refreshUI)); });
+  ['input','change'].forEach(ev=>{ ['amp','freq','speed','twist','fps','vDiameter','vStrength','vLfoAmp','vLfoSpeed','vWanderRange','vWanderSpeed','bDepth','bgScale'].forEach(id=>ui[id].addEventListener(ev, refreshUI)); });
   refreshUI();
 
   // ===== Audio (initialized on user gesture) =====
@@ -161,9 +170,9 @@
       if(ui.audioReactive.checked) await initAudio();
       if(location.protocol!=='https:' && location.hostname!=='localhost'){ msg.innerHTML='<span class="warn">非HTTPSです。localhost 以外ではブロックされます。</span>'; }
       await listCams(); await openCam(camIndex);
-    }catch(err){ console.error(err); const detail = err?.name ? `${err.name}: ${err.message||''}` : String(err); const tried = err?.lastTried ? ` lastTried=${err.lastTried}` : ''; msg.innerHTML = `<span class="warn">起動失敗：${detail}.${tried}</span>`; }
+    }catch(err){ console.error(err); const detail = err?.name ? `${err.name}: ${err.message||''}` : String(err); const tried = err?.lastTried ? ` lastTried=${err.lastTried}` : ''; msg.innerHTML = `<span class=\"warn\">起動失敗：${detail}.${tried}</span>`; }
   });
-  ui.switchCam.addEventListener('click', async()=>{ try{ if(!devices.length) await listCams(); if(!devices.length) return; camIndex=(camIndex+1)%devices.length; await openCam(camIndex);}catch(err){ console.error(err); msg.innerHTML = `<span class="warn">切替失敗: ${err.name||'Error'} ${err.message||''}</span>`; } });
+  ui.switchCam.addEventListener('click', async()=>{ try{ if(!devices.length) await listCams(); if(!devices.length) return; camIndex=(camIndex+1)%devices.length; await openCam(camIndex);}catch(err){ console.error(err); msg.innerHTML = `<span class=\"warn\">切替失敗: ${err.name||'Error'} ${err.message||''}</span>`; } });
   ui.stopCam.addEventListener('click', ()=>{ stopCurrentStream(); msg.textContent='カメラ停止中'; });
 
   // ファイル入力（動画/画像）
@@ -175,31 +184,77 @@
   if(!gl){ msg.innerHTML='<span class="warn">WebGLが無効です。別ブラウザでお試しください。</span>'; return; }
   const vertSrc = `attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = (a_pos+1.0)*0.5; gl_Position = vec4(a_pos,0.0,1.0);} `;
   const fragSrc = `precision highp float; varying vec2 v_uv; uniform sampler2D u_tex0; uniform vec2 u_res; uniform float u_time; uniform float u_amp; uniform float u_freq; uniform float u_speed; uniform float u_twist; uniform bool u_mirror; uniform bool u_flipY; // vortex
-uniform bool u_vortex; uniform vec2 u_vCenter; uniform float u_vRadius; uniform float u_vStrength; 
-float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); } float noise(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); float a = hash(i); float b = hash(i+vec2(1.0,0.0)); float c = hash(i+vec2(0.0,1.0)); float d = hash(i+vec2(1.0,1.0)); vec2 u = f*f*(3.0-2.0*f); return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y; } void main(){ vec2 uv = v_uv; if(u_flipY){ uv.y = 1.0 - uv.y; } float t = u_time * u_speed; float sx = sin(uv.y * u_freq * 6.28318 + t); float sy = sin(uv.x * (u_freq*0.9) * 6.28318 - t*1.05); float n = noise(uv * (u_freq*2.0) + t*0.1) - 0.5; vec2 disp = vec2(sx, sy) * u_amp + n * u_amp * 0.4; vec2 p = uv - 0.5; float ang = u_twist * length(p) * 2.5; float ca = cos(ang), sa = sin(ang); p = mat2(ca,-sa,sa,ca) * p; uv = p + 0.5 + disp; // --- VORTEX (dam hole like)
-  if(u_vortex){
-      // 吸い込み（中心に落ちる）: 中心付近のサンプル半径を外側へ押し出す
-      // これにより画素は“外側のテクスチャ”を参照し、中心が欠け落ちるように見える
-      float aspect = u_res.x / u_res.y;
-      vec2 d  = uv - u_vCenter;           // uv空間の差
-      vec2 da = vec2(d.x*aspect, d.y);    // アスペクト補正した差
-      float rA = length(da);              // 補正後半径（効果判定はこれで）
+uniform bool u_vortex; uniform vec2 u_vCenter; uniform float u_vRadius; uniform float u_vStrength; // 3D reflection
+uniform bool u_refl3D; uniform float u_bDepth; uniform float u_planeDist; uniform float u_camZ; uniform float u_bgScale; 
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); } float noise(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); float a = hash(i); float b = hash(i+vec2(1.0,0.0)); float c = hash(i+vec2(0.0,1.0)); float d = hash(i+vec2(1.0,1.0)); vec2 u = f*f*(3.0-2.0*f); return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y; }
 
-      // fall: 中心=1、半径境界=0
+vec2 reflectUV(vec2 uv){
+  // aspect-corrected local coords around center
+  vec2 ap = vec2(u_res.x/u_res.y, 1.0);
+  vec2 o = uv - u_vCenter; // in 0..1 space
+  vec2 q = o * ap;          // make circle metric
+  float r = length(q);
+  // bowl parameters (radius & depth)
+  float Rb = max(0.001, u_vRadius);
+  float h  = max(0.001, u_bDepth);
+  float R  = (Rb*Rb + h*h) / (2.0*h);     // sphere radius from cap
+  float zc = -(R - h);                    // sphere center z (below plane)
+
+  // surface point & normal
+  vec3 P; vec3 N;
+  if(r < Rb){
+    float zSurf = (R - sqrt(max(0.0, R*R - r*r))) - h; // <=0 (bowl into -z)
+    P = vec3(q, zSurf);
+    vec3 C = vec3(0.0, 0.0, zc);
+    N = normalize(P - C);
+  }else{
+    P = vec3(q, 0.0);
+    N = vec3(0.0, 0.0, 1.0);
+  }
+  vec3 ro = vec3(0.0, 0.0, u_camZ);
+  vec3 I = normalize(P - ro);       // incident (camera->surface)
+  vec3 Rdir = reflect(I, N);        // reflected direction
+  float t = (-u_planeDist - P.z) / max(1e-5, Rdir.z);
+  vec2 XY = P.xy + Rdir.xy * t;     // hit point on background plane z=-u_planeDist
+  vec2 uvTex = u_vCenter + (XY / ap) / max(0.001, u_bgScale);
+  return uvTex;
+}
+
+void main(){ vec2 uv = v_uv; if(u_flipY){ uv.y = 1.0 - uv.y; }
+  float t = u_time * u_speed;
+  // 3D reflection branch
+  if(u_refl3D){
+    vec2 suv = reflectUV(uv);
+    vec3 col = texture2D(u_tex0, clamp(suv, 0.001, 0.999)).rgb;
+    gl_FragColor = vec4(col,1.0);
+    return;
+  }
+  // --- 2D wobble branch (既存)
+  float sx = sin(uv.y * u_freq * 6.28318 + t);
+  float sy = sin(uv.x * (u_freq*0.9) * 6.28318 - t*1.05);
+  float n = noise(uv * (u_freq*2.0) + t*0.1) - 0.5;
+  vec2 disp = vec2(sx, sy) * u_amp + n * u_amp * 0.4;
+  vec2 p = uv - 0.5; float ang = u_twist * length(p) * 2.5; float ca = cos(ang), sa = sin(ang); p = mat2(ca,-sa,sa,ca) * p; uv = p + 0.5 + disp;
+  // --- VORTEX (dam hole like)
+  if(u_vortex){
+      float aspect = u_res.x / u_res.y;
+      vec2 d  = uv - u_vCenter;
+      vec2 da = vec2(d.x*aspect, d.y);
+      float rA = length(da);
       float fall = 1.0 - smoothstep(0.0, u_vRadius, rA);
       float k = clamp(u_vStrength * fall * fall, 0.0, 1.0);
-
-      // 半径を rA -> mix(rA, u_vRadius, k) に置換（内側ほどRへ押し出す）
       float rA2 = mix(rA, u_vRadius, k);
-      float s = (rA > 1e-5) ? (rA2 / rA) : 0.0; // 拡大量
+      float s = (rA > 1e-5) ? (rA2 / rA) : 0.0;
       uv = u_vCenter + d * s;
   }
-  if(u_mirror){ uv.x = 1.0 - uv.x; } vec2 suv = clamp(uv, 0.001, 0.999); float off = 0.0025 * u_amp * 5.0; vec3 col; col.r = texture2D(u_tex0, suv + vec2( off, 0.0)).r; col.g = texture2D(u_tex0, suv ).g; col.b = texture2D(u_tex0, suv - vec2( off, 0.0)).b; float d2 = distance(v_uv, vec2(0.5)); float vig = smoothstep(0.95, 0.5, d2); col *= vig; gl_FragColor = vec4(col, 1.0); }`;
+  if(u_mirror){ uv.x = 1.0 - uv.x; }
+  vec2 suv = clamp(uv, 0.001, 0.999);
+  float off = 0.0025 * u_amp * 5.0; vec3 col; col.r = texture2D(u_tex0, suv + vec2( off, 0.0)).r; col.g = texture2D(u_tex0, suv ).g; col.b = texture2D(u_tex0, suv - vec2( off, 0.0)).b; float d2 = distance(v_uv, vec2(0.5)); float vig = smoothstep(0.95, 0.5, d2); col *= vig; gl_FragColor = vec4(col, 1.0); }`;
   function compile(type, src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
   function program(vs,fs){ const p=gl.createProgram(); gl.attachShader(p,compile(gl.VERTEX_SHADER,vs)); gl.attachShader(p,compile(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(p); if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
   const prog = program(vertSrc, fragSrc); gl.useProgram(prog);
   const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW); const locPos = gl.getAttribLocation(prog,'a_pos'); gl.enableVertexAttribArray(locPos); gl.vertexAttribPointer(locPos,2,gl.FLOAT,false,0,0);
-  const u = { tex0:gl.getUniformLocation(prog,'u_tex0'), res:gl.getUniformLocation(prog,'u_res'), time:gl.getUniformLocation(prog,'u_time'), amp:gl.getUniformLocation(prog,'u_amp'), freq:gl.getUniformLocation(prog,'u_freq'), speed:gl.getUniformLocation(prog,'u_speed'), twist:gl.getUniformLocation(prog,'u_twist'), mirror:gl.getUniformLocation(prog,'u_mirror'), flipY:gl.getUniformLocation(prog,'u_flipY'), vortex:gl.getUniformLocation(prog,'u_vortex'), vCenter:gl.getUniformLocation(prog,'u_vCenter'), vRadius:gl.getUniformLocation(prog,'u_vRadius'), vStrength:gl.getUniformLocation(prog,'u_vStrength') };
+  const u = { tex0:gl.getUniformLocation(prog,'u_tex0'), res:gl.getUniformLocation(prog,'u_res'), time:gl.getUniformLocation(prog,'u_time'), amp:gl.getUniformLocation(prog,'u_amp'), freq:gl.getUniformLocation(prog,'u_freq'), speed:gl.getUniformLocation(prog,'u_speed'), twist:gl.getUniformLocation(prog,'u_twist'), mirror:gl.getUniformLocation(prog,'u_mirror'), flipY:gl.getUniformLocation(prog,'u_flipY'), vortex:gl.getUniformLocation(prog,'u_vortex'), vCenter:gl.getUniformLocation(prog,'u_vCenter'), vRadius:gl.getUniformLocation(prog,'u_vRadius'), vStrength:gl.getUniformLocation(prog,'u_vStrength'), refl3D:gl.getUniformLocation(prog,'u_refl3D'), bDepth:gl.getUniformLocation(prog,'u_bDepth'), planeDist:gl.getUniformLocation(prog,'u_planeDist'), camZ:gl.getUniformLocation(prog,'u_camZ'), bgScale:gl.getUniformLocation(prog,'u_bgScale') };
   const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   function resize(){ const dpr=Math.min(window.devicePixelRatio||1,2); const w=cvs.clientWidth, h=cvs.clientHeight; const W=Math.max(1,Math.floor(w*dpr)), H=Math.max(1,Math.floor(h*dpr)); if(cvs.width!==W||cvs.height!==H){ cvs.width=W; cvs.height=H; gl.viewport(0,0,W,H); gl.uniform2f(u.res,W,H);} }
@@ -215,17 +270,9 @@ float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123)
   function updateVortexCenter(dt){
     const speed = parseFloat(ui.vWanderSpeed.value);
     const range = parseFloat(ui.vWanderRange.value);
-    if(!ui.vWander.checked || speed<=0){
-      // return to center slowly
-      vTarget = {x:0.5,y:0.5};
-    } else {
-      wanderTimer -= dt;
-      if(wanderTimer<=0){
-        const ang = Math.random()*Math.PI*2;
-        const r = range*Math.sqrt(Math.random());
-        vTarget = {x:0.5 + r*Math.cos(ang), y:0.5 + r*Math.sin(ang)};
-        wanderTimer = 2 + Math.random()*3; // 2-5sごとに目標更新
-      }
+    if(!ui.vWander.checked || speed<=0){ vTarget = {x:0.5,y:0.5}; }
+    else {
+      wanderTimer -= dt; if(wanderTimer<=0){ const ang = Math.random()*Math.PI*2; const r = range*Math.sqrt(Math.random()); vTarget = {x:0.5 + r*Math.cos(ang), y:0.5 + r*Math.sin(ang)}; wanderTimer = 2 + Math.random()*3; }
     }
     const step = Math.max(0.001, speed*0.02);
     vCenter.x += (vTarget.x - vCenter.x)*step;
@@ -235,27 +282,23 @@ float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123)
   }
 
   // ===== Render loop =====
-  let start=performance.now();
-  let prev=performance.now();
+  let start=performance.now(); let prev=performance.now();
   function render(){
-    const now=performance.now();
-    const t=(now-start)/1000;
-    const dt=(now-prev)/1000; prev=now;
+    const now=performance.now(); const t=(now-start)/1000; const dt=(now-prev)/1000; prev=now;
 
-    // Update texture from video or still image
+    // upload latest frame
     if(offImage && offCtx){ offCtx.drawImage(offImage,0,0,offCanvas.width,offCanvas.height); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,offCanvas); gl.uniform1i(u.tex0,0); }
     else if(video.readyState>=2){ gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); try{ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,video);}catch(e){} gl.uniform1i(u.tex0,0); }
 
     const rms = (ui.audioReactive.checked && audioCtx && analyser) ? getRMS() : 0;
-    const baseFreq=parseFloat(ui.freq.value); const dynamicFreq = baseFreq + rms * 20.0; // 音量に応じて周波数加算
+    const baseFreq=parseFloat(ui.freq.value); const dynamicFreq = baseFreq + rms * 20.0;
 
-    // Vortex uniforms
     updateVortexCenter(dt);
-    const diamBase = parseFloat(ui.vDiameter.value); // 0..1.2 of min dimension
-    const lfoAmp = parseFloat(ui.vLfoAmp.value); // 0..0.9 (割合)
-    const lfoSpd = parseFloat(ui.vLfoSpeed.value); // Hz 相当のスケール
+    const diamBase = parseFloat(ui.vDiameter.value);
+    const lfoAmp = parseFloat(ui.vLfoAmp.value);
+    const lfoSpd = parseFloat(ui.vLfoSpeed.value);
     const diam = Math.max(0.05, diamBase * (1.0 + lfoAmp*Math.sin(6.28318*lfoSpd*t)));
-    const radius = 0.5 * diam; // uv基準
+    const radius = 0.5 * diam;
 
     gl.uniform1f(u.time,t);
     gl.uniform1f(u.amp, parseFloat(ui.amp.value));
@@ -270,6 +313,13 @@ float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123)
     gl.uniform1f(u.vRadius, radius);
     gl.uniform1f(u.vStrength, parseFloat(ui.vStrength.value));
 
+    // 3D reflection uniforms
+    gl.uniform1i(u.refl3D, ui.refl3D.checked?1:0);
+    gl.uniform1f(u.bDepth, parseFloat(ui.bDepth.value));
+    gl.uniform1f(u.bgScale, parseFloat(ui.bgScale.value));
+    gl.uniform1f(u.camZ, 1.0);       // 視点距離（仮定1.0）
+    gl.uniform1f(u.planeDist, 1.2);  // 背景平面の距離（仮定1.2）
+
     gl.drawArrays(gl.TRIANGLES,0,6);
     requestAnimationFrame(render);
   }
@@ -281,8 +331,8 @@ float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123)
 
   // ===== Fullscreen toggle =====
   const stage = document.getElementById('stage');
-  async function enterFS(){ try{ if(stage.requestFullscreen) await stage.requestFullscreen(); else if(stage.webkitRequestFullscreen) stage.webkitRequestFullscreen(); document.body.classList.add('fs'); }catch(e){ /* silently ignore */ } }
-  async function exitFS(){ try{ if(document.exitFullscreen) await document.exitFullscreen(); else if(document.webkitExitFullscreen) document.webkitExitFullscreen(); document.body.classList.remove('fs'); }catch(e){ /* ignore */ } }
+  async function enterFS(){ try{ if(stage.requestFullscreen) await stage.requestFullscreen(); else if(stage.webkitRequestFullscreen) stage.webkitRequestFullscreen(); document.body.classList.add('fs'); }catch(e){ } }
+  async function exitFS(){ try{ if(document.exitFullscreen) await document.exitFullscreen(); else if(document.webkitExitFullscreen) document.webkitExitFullscreen(); document.body.classList.remove('fs'); }catch(e){ } }
   stage.addEventListener('click', async ()=>{ if(!document.fullscreenElement && !document.webkitFullscreenElement){ await enterFS(); } else { await exitFS(); } });
   document.addEventListener('fullscreenchange', ()=>{ if(!document.fullscreenElement) document.body.classList.remove('fs'); });
   document.addEventListener('keydown', (e)=>{ if(e.key==='f') (!document.fullscreenElement? enterFS():exitFS()); });
