@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>null²風「鏡＋ゆらぎ」Webカメラ（上下反転オプション付き）</title>
+  <title>null²風「鏡＋ゆらぎ」Webカメラ（上下反転オプション＋フル機能）</title>
   <style>
     :root{--bg:#0b0c10;--fg:#e5e7eb;--muted:#9ca3af;--accent:#38bdf8;--warn:#fca5a5}
     *{box-sizing:border-box} html,body{height:100%}
@@ -25,7 +25,6 @@
     canvas{width:100%;height:100%;display:block}
     .hint{position:absolute;left:12px;bottom:12px;color:#cbd5e1;background:rgba(2,6,23,.55);backdrop-filter:blur(6px);padding:6px 10px;border-radius:10px;font-size:12px;border:1px solid rgba(148,163,184,.25);max-width:min(600px,90vw)}
     .warn{color:var(--warn)}
-    .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
     .tests{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
     .badge{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid #1f2937;background:#0b0f17}
     .ok{color:#22c55e;border-color:#134e4a}
@@ -66,6 +65,7 @@
       <button id="stopCam" class="btn" disabled>停止</button>
       <label class="btn" style="cursor:pointer"><input id="fileInput" type="file" accept="video/*,image/*" style="display:none">ファイル入力</label>
       <button id="runTests" class="btn">自己診断</button>
+      <button id="snapshot" class="btn">スナップ保存</button>
     </div>
   </header>
 
@@ -76,28 +76,122 @@
   </div>
 
   <footer>
-    <small class="muted">WebGL + getUserMedia。UVに sin 波＋ノイズの変位を与え、中心からのねじれと鏡処理を適用。ファイル入力（画像・動画）でも再生可。</small>
+    <small class="muted">WebGL + getUserMedia。UVに sin 波＋ノイズの変位を与え、中心からのねじれ・鏡処理・上下反転を適用。ファイル入力（画像・動画）でも再生可。</small>
     <div id="tests" class="tests"></div>
   </footer>
 </div>
 
 <script>
 (async function(){
+  // ============ DOM / UI ============
   const cvs = document.getElementById('gl');
   const video = document.getElementById('video');
   const msg = document.getElementById('msg');
   const testsEl = document.getElementById('tests');
   const q = id => document.getElementById(id);
   const ui = {
-    amp: q('amp'), freq: q('freq'), speed: q('speed'), twist: q('twist'), mirror: q('mirror'), flipY: q('flipY'),
+    amp: q('amp'), freq: q('freq'), speed: q('speed'), twist: q('twist'),
+    mirror: q('mirror'), flipY: q('flipY'),
     ampv: q('ampv'), freqv: q('freqv'), speedv: q('speedv'), twistv: q('twistv'),
     facing: q('facing'), resSel: q('resolution'), fps: q('fps'), fpsv: q('fpsv'),
     startCam: q('startCam'), switchCam: q('switchCam'), stopCam: q('stopCam'),
-    fileInput: q('fileInput'), runTests: q('runTests')
+    fileInput: q('fileInput'), runTests: q('runTests'), snapshot: q('snapshot')
   };
 
-  // WebGL
-  const gl = cvs.getContext('webgl', { preserveDrawingBuffer: true, alpha:false, antialias:true });
+  function setBadge(text, ok){
+    const span = document.createElement('span');
+    span.className = `badge ${ok? 'ok':'ng'}`;
+    span.textContent = `${ok? 'PASS':'FAIL'}: ${text}`;
+    testsEl.appendChild(span);
+  }
+
+  // ============ Camera / Constraints ============
+  let devices = [], camIndex = 0, stream = null;
+  function currentFacing(){ const v = ui.facing.value; return v==='auto'? undefined : v; }
+  function currentResolution(){ const v = ui.resSel.value; if(v==='auto') return null; const [w,h]=v.split('x').map(Number); return {width:w,height:h}; }
+
+  async function listCams(){
+    if(!navigator.mediaDevices?.enumerateDevices) return [];
+    const all = await navigator.mediaDevices.enumerateDevices();
+    devices = all.filter(d=>d.kind==='videoinput');
+    ui.switchCam.disabled = devices.length <= 1;
+    return devices;
+  }
+  function stopCurrentStream(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; ui.stopCam.disabled=true; } }
+
+  function buildConstraintsSequence(device){
+    const facing = currentFacing();
+    const res = currentResolution();
+    const fps = parseInt(ui.fps.value,10) || 30;
+    const seq = [];
+    const common = {audio:false};
+
+    if(device){
+      const base = {video:{deviceId:{exact:device.deviceId}}};
+      if(facing) base.video.facingMode = { ideal: facing };
+      if(res){ base.video.width={ideal:res.width}; base.video.height={ideal:res.height}; }
+      base.video.frameRate = { ideal: fps, max: 60 };
+      seq.push(Object.assign({}, common, base));
+    }
+    const base2 = {video:{}}; if(facing) base2.video.facingMode={ideal:facing}; if(res){base2.video.width={ideal:res.width}; base2.video.height={ideal:res.height};} base2.video.frameRate={ideal:fps,max:60}; seq.push(Object.assign({}, common, base2));
+    const base3 = {video:{ frameRate:{ ideal: fps, max:60 } }}; if(res){base3.video.width={ideal:res.width}; base3.video.height={ideal:res.height};} seq.push(Object.assign({}, common, base3));
+    seq.push({audio:false, video:true});
+    return seq;
+  }
+
+  async function tryGetStream(seq){
+    let lastErr=null, lastTried=null;
+    for(const c of seq){
+      try{
+        lastTried = JSON.stringify(c.video||c);
+        const s = await navigator.mediaDevices.getUserMedia(c);
+        return {stream:s, used:c};
+      }catch(err){
+        lastErr = err; // continue
+        if(err && (err.name==='SecurityError' || err.name==='NotAllowedError')){
+          throw Object.assign(err,{lastTried});
+        }
+      }
+    }
+    if(lastErr) throw Object.assign(lastErr,{lastTried});
+    throw new Error('Unknown camera error');
+  }
+
+  async function openCam(index=0){
+    if(!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia未対応');
+    stopCurrentStream();
+    const device = devices.length ? devices[index % devices.length] : null;
+    const seq = buildConstraintsSequence(device);
+    const {stream:st, used} = await tryGetStream(seq);
+    stream = st; video.srcObject = stream; await video.play();
+    resize(); ui.stopCam.disabled=false;
+    const label = device?.label || (devices[index]?.label) || 'camera';
+    msg.textContent = `使用中: ${label} / constraints: ${JSON.stringify(used.video||used)}`;
+  }
+
+  ui.startCam.addEventListener('click', async ()=>{
+    testsEl.innerHTML='';
+    try{
+      if(location.protocol!=='https:' && location.hostname!=='localhost'){
+        msg.innerHTML = '<span class="warn">非HTTPSです。localhost 以外ではカメラがブロックされます。</span>';
+      }
+      await listCams();
+      await openCam(camIndex);
+    }catch(err){
+      console.error(err);
+      const detail = err?.name ? `${err.name}: ${err.message||''}` : String(err);
+      const tried = err?.lastTried ? ` lastTried=${err.lastTried}` : '';
+      msg.innerHTML = `<span class="warn">起動失敗：${detail}.${tried} \n サイト設定→カメラ許可、OSプライバシー設定、他アプリの占有をご確認ください。</span>`;
+    }
+  });
+  ui.switchCam.addEventListener('click', async ()=>{ try{ if(!devices.length) await listCams(); if(!devices.length) return; camIndex=(camIndex+1)%devices.length; await openCam(camIndex);}catch(err){ console.error(err); msg.innerHTML=`<span class="warn">切替失敗: ${err.name||'Error'} ${err.message||''}</span>`; }});
+  ui.stopCam.addEventListener('click', ()=>{ stopCurrentStream(); msg.textContent='カメラ停止中'; });
+
+  // ============ WebGL ============
+  /** @type {WebGLRenderingContext} */
+  const gl = cvs.getContext('webgl', { preserveDrawingBuffer:true, alpha:false, antialias:true });
+  if(!gl){ msg.innerHTML='<span class="warn">WebGLが無効です。別ブラウザでお試しください。</span>'; return; }
+
   const vertSrc = `
   attribute vec2 a_pos; varying vec2 v_uv; 
   void main(){ v_uv = (a_pos+1.0)*0.5; gl_Position = vec4(a_pos,0.0,1.0);} 
@@ -105,14 +199,14 @@
   const fragSrc = `
   precision highp float; varying vec2 v_uv; uniform sampler2D u_tex0; 
   uniform vec2 u_res; uniform float u_time; uniform float u_amp; 
-  uniform float u_freq; uniform float u_speed; uniform float u_twist; uniform bool u_mirror; uniform bool u_flipY;
+  uniform float u_freq; uniform float u_speed; uniform float u_twist; 
+  uniform bool u_mirror; uniform bool u_flipY;
 
   float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); }
   float noise(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); float a = hash(i); float b = hash(i+vec2(1.0,0.0)); float c = hash(i+vec2(0.0,1.0)); float d = hash(i+vec2(1.0,1.0)); vec2 u = f*f*(3.0-2.0*f); return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y; }
 
   void main(){
-    vec2 uv = v_uv;
-    if(u_flipY){ uv.y = 1.0 - uv.y; }
+    vec2 uv = v_uv; if(u_flipY){ uv.y = 1.0 - uv.y; }
     float t = u_time * u_speed;
     float sx = sin(uv.y * u_freq * 6.28318 + t);
     float sy = sin(uv.x * (u_freq*0.9) * 6.28318 - t*1.05);
@@ -129,8 +223,8 @@
     gl_FragColor = vec4(col, 1.0);
   }`;
 
-  function compile(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; }
-  function program(vsSrc, fsSrc){ const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSrc)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSrc)); gl.linkProgram(p); return p; }
+  function compile(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+  function program(vsSrc, fsSrc){ const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSrc)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSrc)); gl.linkProgram(p); if(!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
   const prog = program(vertSrc, fragSrc); gl.useProgram(prog);
 
   const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -143,6 +237,7 @@
     twist: gl.getUniformLocation(prog,'u_twist'), mirror: gl.getUniformLocation(prog,'u_mirror'), flipY: gl.getUniformLocation(prog,'u_flipY')
   };
 
+  // video/texture
   const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -152,9 +247,25 @@
   function resize(){ const dpr = Math.min(window.devicePixelRatio||1, 2); const w = cvs.clientWidth, h = cvs.clientHeight; const W = Math.max(1, Math.floor(w*dpr)), H = Math.max(1, Math.floor(h*dpr)); if(cvs.width!==W || cvs.height!==H){ cvs.width = W; cvs.height = H; gl.viewport(0,0,W,H); gl.uniform2f(u.res, W, H);} }
   addEventListener('resize', resize);
 
-  let offImage=null,offCanvas=null,offCtx=null; let start=performance.now();
+  // Snapshot
+  ui.snapshot.addEventListener('click', ()=>{ const a=document.createElement('a'); a.href=cvs.toDataURL('image/png'); a.download=`null2_wobble_${Date.now()}.png`; a.click(); });
+
+  // File input fallback (video / image)
+  let offImage=null, offCanvas=null, offCtx=null;
+  ui.fileInput.addEventListener('change', ()=>{
+    const file = ui.fileInput.files?.[0]; if(!file) return; const url = URL.createObjectURL(file);
+    stopCurrentStream(); offImage=null; offCanvas=null; offCtx=null;
+    if(file.type.startsWith('video')){ video.srcObject=null; video.src=url; video.loop=true; video.muted=true; video.play(); msg.textContent='ファイル動画入力中…'; }
+    else if(file.type.startsWith('image')){ const img=new Image(); img.onload=()=>{ offImage=img; offCanvas=document.createElement('canvas'); offCanvas.width=img.naturalWidth; offCanvas.height=img.naturalHeight; offCtx=offCanvas.getContext('2d'); msg.textContent='静止画像入力中…'; }; img.src=url; }
+  });
+
+  // Render loop
+  let start = performance.now();
   function render(){
     const now = performance.now(); const t = (now - start) / 1000;
+    if(offImage && offCtx){ offCtx.drawImage(offImage,0,0,offCanvas.width,offCanvas.height); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,offCanvas); gl.uniform1i(u.tex0,0); }
+    else if(video.readyState >= 2){ gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex); try{ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,video);}catch(e){} gl.uniform1i(u.tex0,0); }
+
     gl.uniform1f(u.time, t);
     gl.uniform1f(u.amp, parseFloat(ui.amp.value));
     gl.uniform1f(u.freq, parseFloat(ui.freq.value));
@@ -162,10 +273,28 @@
     gl.uniform1f(u.twist, parseFloat(ui.twist.value));
     gl.uniform1i(u.mirror, ui.mirror.checked?1:0);
     gl.uniform1i(u.flipY, ui.flipY.checked?1:0);
-    requestAnimationFrame(render);
+
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+    requestAnimationFrame(render);
   }
-  resize(); render();
+
+  // Self tests
+  async function runSelfTests(){
+    testsEl.innerHTML='';
+    setBadge('enumerateDevices API', !!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices));
+    let permOk=false; try{ if('permissions' in navigator && navigator.permissions?.query){ const p=await navigator.permissions.query({name:'camera'}); permOk=!!p.state; } }catch{} finally{ setBadge('Permissions API(camera)', permOk); }
+    let gumOk=false; let s=null; try{ s=await navigator.mediaDevices.getUserMedia({video:true,audio:false}); gumOk=true; }catch(e){ gumOk=false; } finally{ setBadge('getUserMedia(video:true)', gumOk); if(s) s.getTracks().forEach(t=>t.stop()); }
+    let gum720=false; s=null; try{ s=await navigator.mediaDevices.getUserMedia({audio:false, video:{width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:30,max:60}}}); gum720=true; }catch(e){ gum720=false; } finally{ setBadge('getUserMedia(ideal 720p/30)', gum720); if(s) s.getTracks().forEach(t=>t.stop()); }
+  }
+  ui.runTests.addEventListener('click', runSelfTests);
+
+  // Bootstrap
+  try{
+    resize(); render();
+    if('permissions' in navigator && navigator.permissions?.query){ try{ const p=await navigator.permissions.query({name:'camera'}); if(p.state==='denied') msg.innerHTML='<span class="warn">ブラウザがカメラを拒否しています。サイトの権限設定を「許可」に変更してください。</span>'; }catch{} }
+    if(location.protocol!=='https:' && location.hostname!=='localhost'){ msg.innerHTML='<span class="warn">HTTPSではありません。多くのブラウザでカメラが無効化されます。localhost 以外ではHTTPSで開いてください。</span>'; }
+    await listCams();
+  }catch(err){ console.error(err); msg.innerHTML = `<span class="warn">初期化失敗: ${err.name||'Error'} ${err.message||''}</span>`; }
 })();
 </script>
 </body>
