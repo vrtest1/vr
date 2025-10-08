@@ -21,7 +21,11 @@
     .btn{appearance:none;border:1px solid #374151;background:#0b0f17;color:var(--fg);padding:8px 12px;border-radius:10px;cursor:pointer}
     .btn:hover{border-color:#4b5563}
     .btn:disabled{opacity:.5;cursor:not-allowed}
-    .canvas-wrap{position:relative;height:100%;display:grid}
+    .canvas-wrap{position:relative;height:100%;display:grid;cursor:zoom-in}
+    /* Fullscreen UI trim */
+    .fs header,.fs footer,.fs .hint{display:none}
+    .fs .canvas-wrap{height:100vh}
+    .fs .canvas-wrap{cursor:zoom-out}
     canvas{width:100%;height:100%;display:block}
     .hint{position:absolute;left:12px;bottom:12px;color:#cbd5e1;background:rgba(2,6,23,.55);backdrop-filter:blur(6px);padding:6px 10px;border-radius:10px;font-size:12px;border:1px solid rgba(148,163,184,.25);max-width:min(640px,90vw)}
     .warn{color:var(--warn)}
@@ -70,7 +74,7 @@
     </div>
   </header>
 
-  <div class="canvas-wrap">
+  <div class="canvas-wrap" id="stage" title="タップ/クリックで全画面の切替">
     <canvas id="gl"></canvas>
     <video id="video" playsinline muted autoplay style="display:none"></video>
     <div id="msg" class="hint">HTTPS（または localhost）で開き、ブラウザのカメラ＆マイク許可をONにしてください。<br>OverconstrainedError なら「向き＝自動」「解像度＝自動」「FPS＝30」を推奨。</div>
@@ -185,6 +189,31 @@
   function setBadge(text, ok){ const span=document.createElement('span'); span.className=`badge ${ok?'ok':'ng'}`; span.textContent=`${ok?'PASS':'FAIL'}: ${text}`; testsEl.appendChild(span); }
   async function runSelfTests(){ testsEl.innerHTML=''; setBadge('enumerateDevices', !!(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices)); let s=null; try{ s=await navigator.mediaDevices.getUserMedia({video:true}); setBadge('getUserMedia(video:true)', true);}catch(e){ setBadge('getUserMedia(video:true)', false);} finally{ if(s) s.getTracks().forEach(t=>t.stop()); } }
   ui.runTests.addEventListener('click', runSelfTests);
+
+  // ===== Fullscreen toggle =====
+  const stage = document.getElementById('stage');
+  async function enterFS(){
+    try{
+      if(stage.requestFullscreen) await stage.requestFullscreen();
+      else if(stage.webkitRequestFullscreen) stage.webkitRequestFullscreen();
+      document.body.classList.add('fs');
+    }catch(e){ /* silently ignore */ }
+  }
+  async function exitFS(){
+    try{
+      if(document.exitFullscreen) await document.exitFullscreen();
+      else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+      document.body.classList.remove('fs');
+    }catch(e){ /* ignore */ }
+  }
+  stage.addEventListener('click', async ()=>{
+    if(!document.fullscreenElement && !document.webkitFullscreenElement){ await enterFS(); }
+    else { await exitFS(); }
+  });
+  document.addEventListener('fullscreenchange', ()=>{
+    if(!document.fullscreenElement) document.body.classList.remove('fs');
+  });
+  document.addEventListener('keydown', (e)=>{ if(e.key==='f') (!document.fullscreenElement? enterFS():exitFS()); });
 
   // ===== Bootstrap =====
   try{ resize(); render(); await listCams(); if('permissions' in navigator && navigator.permissions?.query){ try{ const p=await navigator.permissions.query({name:'camera'}); if(p.state==='denied') msg.innerHTML='<span class="warn">ブラウザがカメラを拒否しています。サイトの権限設定を「許可」に変更してください。</span>'; }catch{} }
