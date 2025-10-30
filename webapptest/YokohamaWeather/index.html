@@ -434,9 +434,9 @@
                         }
                     } else if (code >= 200 && code < 300) {
                         // 曇り系の2番目の天気判定
-                        if ([201, 210, 211, 214, 223].includes(code)) {
+                        if ([201, 210, 211, 223].includes(code)) {
                             secondWeatherIcon = 'sunny_large.png';   // 晴れ
-                        } else if ([202, 203, 206, 207, 208, 212, 213, 218, 219, 221, 222, 224, 225, 240].includes(code)) {
+                        } else if ([202, 203, 206, 207, 208, 212, 213, 214, 218, 219, 221, 222, 224, 225, 240].includes(code)) {
                             secondWeatherIcon = 'rain_large.png';    // 雨
                         } else if ([204, 205, 215, 216, 217, 228, 229, 250, 260, 270, 281].includes(code)) {
                             secondWeatherIcon = 'snow_large.png';    // 雪
