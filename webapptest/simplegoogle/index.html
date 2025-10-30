@@ -5,31 +5,63 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Google Classic 検索（udm=14）</title>
   <style>
-    :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; }
-    body { display:flex; min-height:100dvh; margin:0; align-items:center; justify-content:center; background:#f6f7f9; }
-    .card { background:#fff; padding:32px; border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); width:min(680px,92vw); }
+    :root {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+    }
+    body {
+      display:flex; min-height:100dvh; margin:0;
+      align-items:center; justify-content:center;
+      background:#f6f7f9; color:#111;
+    }
+    .card {
+      background:#fff; color:#111;
+      padding:32px; border-radius:16px;
+      box-shadow:0 6px 24px rgba(0,0,0,.08);
+      width:min(680px,92vw);
+    }
     h1 { margin:0 0 16px; font-size:1.2rem; }
     form { display:flex; gap:10px; }
     label { position:absolute; left:-9999px; }
     input[type="text"] {
-      flex:1; padding:14px 16px; font-size:16px; border:1px solid #d0d5dd; border-radius:12px;
-      outline:none;
+      flex:1; padding:14px 16px; font-size:16px;
+      border:1px solid #d0d5dd; border-radius:12px;
+      outline:none; background:#fff; color:#111;
     }
-    input[type="text"]:focus { border-color:#4c8bf5; box-shadow:0 0 0 3px rgba(76,139,245,.2); }
+    input[type="text"]:focus {
+      border-color:#4c8bf5; box-shadow:0 0 0 3px rgba(76,139,245,.2);
+    }
     button {
-      padding:14px 18px; font-size:16px; border:0; border-radius:12px; cursor:pointer;
+      padding:14px 18px; font-size:16px;
+      border:0; border-radius:12px; cursor:pointer;
     }
     .primary { background:#1a73e8; color:#fff; }
     .ghost { background:transparent; color:#1a73e8; }
     .row { margin-top:10px; display:flex; gap:10px; align-items:center; }
     small { color:#667085; }
+
+    /* 🌙 ダークテーマ対応 */
+    @media (prefers-color-scheme: dark) {
+      body { background:#121212; color:#eaeaea; }
+      .card {
+        background:#1f1f1f; color:#f2f2f2;
+        box-shadow:0 4px 24px rgba(0,0,0,.5);
+      }
+      input[type="text"] {
+        background:#2a2a2a; border-color:#444; color:#fff;
+      }
+      input[type="text"]:focus {
+        border-color:#8ab4f8; box-shadow:0 0 0 3px rgba(138,180,248,.3);
+      }
+      .primary { background:#8ab4f8; color:#000; }
+      .ghost { color:#8ab4f8; }
+      small { color:#9ca3af; }
+    }
   </style>
 </head>
 <body>
   <main class="card">
     <h1>Google「クラシック」検索（AIなし / udm=14）</h1>
 
-    <!-- もっとも確実でシンプル：Google 公式エンドポイントに hidden で udm=14 を付与 -->
     <form action="https://www.google.com/search" method="get" target="_self">
       <label for="q">検索キーワード</label>
       <input id="q" name="q" type="text" placeholder="例）Oasis band" autofocus autocomplete="on" />
@@ -44,17 +76,15 @@
   </main>
 
   <script>
-    // 「新しいタブ」ボタン：現在の入力値で &udm=14 付き検索URLを組み立てて別タブで開く
+    // 「新しいタブ」ボタン
     document.getElementById('openNew').addEventListener('click', () => {
       const q = document.getElementById('q').value.trim();
+      if (!q) return;
       const url = new URL('https://www.google.com/search');
       url.searchParams.set('q', q);
       url.searchParams.set('udm', '14');
       window.open(url.toString(), '_blank', 'noopener');
     });
-
-    // Enter で送信（フォームが既に対応）。IME確定後の Enter で動作します。
-    // 追加のJSは不要ですが、用途に応じてカスタマイズできます。
   </script>
 </body>
 </html>
