@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>いきなりストリートビュー</title>
+</head>
+<body>
+<button id="btn">今いる場所のストリートビューを開く</button>
+
+<script>
+document.getElementById("btn").addEventListener("click", () => {
+  if (!navigator.geolocation) {
+    alert("このブラウザは位置情報に対応していません");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+
+      // さっき試したURLの lat,lon 部分に差し込んでるだけ
+      const url =
+        `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+
+      location.href = url; // ← これでストリートビューを開く
+    },
+    (err) => {
+      alert("位置情報が取得できませんでした：" + err.message);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    }
+  );
+});
+</script>
+</body>
+</html>
