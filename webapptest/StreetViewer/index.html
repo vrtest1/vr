@@ -15,24 +15,54 @@
       font-family: sans-serif;
     }
     #btn {
-      font-size: 24px;        /* 文字を大きく */
-      padding: 20px 40px;     /* ボタンの内側を広く */
-      border-radius: 12px;    /* 角丸 */
+      font-size: 24px;
+      padding: 20px 40px;
+      border-radius: 12px;
       border: none;
-      background: #2196f3;    /* 青色 */
+      background: #2196f3;
       color: white;
       cursor: pointer;
     }
     #btn:active {
-      background: #1976d2;    /* 押した時に少し濃く */
+      background: #1976d2;
     }
   </style>
 </head>
 <body>
 
-<button id="btn">今いる場所のストリートビューを開く</button>
+<button id="btn">今いる方向のストリートビューを開く</button>
 
 <script>
+let currentHeading = 0;
+
+// ▼ スマホのコンパスを読む
+// iOS は許可が必要
+function requestOrientationPermission() {
+  if (typeof DeviceOrientationEvent !== "undefined" &&
+      typeof DeviceOrientationEvent.requestPermission === "function") {
+
+    DeviceOrientationEvent.requestPermission().then(response => {
+      if (response === "granted") {
+        window.addEventListener("deviceorientation", handleOrientation);
+      }
+    }).catch(console.error);
+
+  } else {
+    // Android / PC など
+    window.addEventListener("deviceorientation", handleOrientation);
+  }
+}
+
+function handleOrientation(event) {
+  if (event.absolute === true || event.alpha !== null) {
+    currentHeading = event.alpha; // 0〜360度
+  }
+}
+
+// ▼ ページ読み込み時に許可要求
+requestOrientationPermission();
+
+// ▼ ボタンクリックでGPS＋heading 付きのURLへ
 document.getElementById("btn").addEventListener("click", () => {
   if (!navigator.geolocation) {
     alert("このブラウザは位置情報に対応していません");
@@ -44,8 +74,13 @@ document.getElementById("btn").addEventListener("click", () => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
 
+      // heading を0〜360に丸める
+      const heading = Math.round(currentHeading || 0);
+
       const url =
-        `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+        `https://www.google.com/maps/@?api=1&map_action=pano` +
+        `&viewpoint=${lat},${lng}` +
+        `&heading=${heading}`;
 
       location.href = url;
     },
