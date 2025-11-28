@@ -3,8 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <title>いきなりストリートビュー</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      height: 100vh;
+      justify-content: center;
+      align-items: center;
+      background: #f5f5f5;
+      font-family: sans-serif;
+    }
+    #btn {
+      font-size: 24px;        /* 文字を大きく */
+      padding: 20px 40px;     /* ボタンの内側を広く */
+      border-radius: 12px;    /* 角丸 */
+      border: none;
+      background: #2196f3;    /* 青色 */
+      color: white;
+      cursor: pointer;
+    }
+    #btn:active {
+      background: #1976d2;    /* 押した時に少し濃く */
+    }
+  </style>
 </head>
 <body>
+
 <button id="btn">今いる場所のストリートビューを開く</button>
 
 <script>
@@ -19,11 +44,10 @@ document.getElementById("btn").addEventListener("click", () => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
 
-      // さっき試したURLの lat,lon 部分に差し込んでるだけ
       const url =
         `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
 
-      location.href = url; // ← これでストリートビューを開く
+      location.href = url;
     },
     (err) => {
       alert("位置情報が取得できませんでした：" + err.message);
@@ -36,5 +60,6 @@ document.getElementById("btn").addEventListener("click", () => {
   );
 });
 </script>
+
 </body>
 </html>
