@@ -38,7 +38,6 @@
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
 
-  // Render scale (lower = faster).
   const RENDER_SCALE = 1.0;
 
   function resize() {
@@ -49,16 +48,13 @@
   addEventListener("resize", resize, {passive:true});
   resize();
 
-  // Gravity vector (screen-ish). Smoothed.
-  let gTarget = {x: 0, y: 1};  // down
+  let gTarget = {x: 0, y: 1};
   let g = {x: 0, y: 1};
 
-  // Liquid state
-  let fill = 0.75;          // 0..1
-  let foam = 0.55;          // 0..1
-  let temperature = 0.0;    // motion energy
+  let fill = 0.75;
+  let foam = 0.55;
+  let temperature = 0.0;
 
-  // Drip particles
   const drips = [];
   function spawnDrip(x, y, vx, vy, n=2) {
     for (let i=0;i<n;i++){
@@ -72,7 +68,6 @@
     }
   }
 
-  // Foam blobs (metaball-ish via additive blurred circles)
   const blobs = [];
   const BLOB_N = 24;
   function initBlobs() {
@@ -121,10 +116,9 @@
     }, { passive: true });
   }
 
-  // Touch helpers: double tap refill / press drink
   let touchMode = null;
   let lastTapTime = 0;
-  addEventListener("pointerdown", (e) => {
+  addEventListener("pointerdown", () => {
     const t = performance.now();
     if (t - lastTapTime < 300) {
       fill = 0.9;
@@ -187,48 +181,50 @@
     ctx.clip();
   }
 
-  // === FIX #1 + FIX #2 + FIX #3: liquid surface computed so that area matches "fill",
-  // with x inverted (-g.x) and maxSlope increased so it can exceed ~45deg.
+  // === Recommended: slope from gx/gy so it naturally approaches vertical near 90° ===
+  // Also keeps area constant by solving yMid (so spill happens naturally).
   function liquidSurface(w,h, box){
     const cx = (box.x0+box.x1)*0.5;
 
-    // FIX #1: invert x so direction matches intuition
-    const tilt = clamp(-g.x, -1, 1);
+    // Use smoothed gravity vector
+    // gx inverted to match intuition (right tilt -> liquid wants left)
+    const gx = -g.x;
+    const gy =  g.y;
 
-    // FIX #3: allow steeper than ~45deg (tan(70°)=2.75)
-    const maxSlope = 2.75;
-    const slope = clamp(tilt * 2.8, -maxSlope, maxSlope);
+    // When gy -> 0 (near sideways), slope should blow up (near 90°)
+    const eps = 0.06;           // smaller => steeper near 90, but can get crazy
+    let slope = gx / (Math.abs(gy) + eps);
+
+    // A little gain to taste
+    slope *= 1.1;
+
+    // Still clamp to avoid infinite / unstable extremes (tan(87°)≈19.1)
+    const maxSlope = 20.0;
+    slope = clamp(slope, -maxSlope, maxSlope);
 
     const W = (box.x1 - box.x0);
     const H = (box.y1 - box.y0);
     const fullArea = W * H;
     const targetArea = fullArea * fill;
 
-    // Area below the line y = yMid + slope*(x-cx), clamped inside glass rect.
     function areaFor(yMid){
-      const N = 36; // sample count (higher = more accurate)
+      const N = 36;
       let area = 0;
-
       for (let i=0;i<N;i++){
         const t = (i+0.5)/N;
         const x = box.x0 + t*W;
         const yLine = yMid + slope*(x - cx);
-
         const yTop = clamp(yLine, box.y0, box.y1);
         area += (box.y1 - yTop) * (W / N);
       }
       return area;
     }
 
-    // FIX #2: solve yMid so area matches targetArea (bisection)
     let lo = box.y0 - H*2;
     let hi = box.y1 + H*2;
-
     for (let it=0; it<26; it++){
       const mid = (lo+hi)*0.5;
       const a = areaFor(mid);
-
-      // If area too big, raise the line (increase yMid) to reduce area.
       if (a > targetArea) lo = mid;
       else hi = mid;
     }
@@ -273,7 +269,6 @@
   function drawFoam(w,h, box, surf, edge){
     const {cx, yMid, slope} = surf;
     const {yL, yR} = edge;
-
     if (fill < 0.05) return;
 
     ctx.save();
@@ -321,23 +316,20 @@
   function updateSpill(w,h, box, surf, edge, dt){
     const {yL, yR} = edge;
 
-    // Spill when the surface line rises above the rim
     const rimY = box.y0;
     const overflowL = rimY - yL;
     const overflowR = rimY - yR;
 
     let overflow = 0;
-    let side = 0; // -1 left, +1 right
+    let side = 0;
     if (overflowL > overflowR) { overflow = overflowL; side = -1; }
     else { overflow = overflowR; side = +1; }
 
     const speed = Math.hypot(g.x - gTarget.x, g.y - gTarget.y);
-
     temperature = clamp(temperature + (speed*2.0 + Math.abs(g.x)*0.4)*dt, 0, 1.5);
     temperature *= Math.pow(0.4, dt);
 
     if (overflow > 0.5 && fill > 0.0) {
-      // More overflow -> faster spill
       const spillRate = (overflow / (box.y1-box.y0)) * (0.55 + Math.abs(g.x)*1.2);
       fill = clamp(fill - spillRate*dt, 0, 1);
       foam = clamp(foam - spillRate*0.25*dt, 0, 1);
@@ -349,7 +341,6 @@
       spawnDrip(x, y, vx, vy, 2 + (overflow>20 ? 2 : 0));
     }
 
-    // Long-press drink (optional)
     if (touchMode) {
       fill = clamp(fill - 0.08*dt, 0, 1);
       foam = clamp(foam - 0.03*dt, 0, 1);
@@ -406,7 +397,6 @@
     const dt = Math.min(0.033, (now-last)/1000);
     last = now;
 
-    // Smooth gravity
     const a = 1 - Math.pow(0.001, dt);
     g.x = g.x + (gTarget.x - g.x)*a;
     g.y = g.y + (gTarget.y - g.y)*a;
@@ -418,14 +408,11 @@
 
     const box = drawGlass(w,h);
 
-    // Surface must be computed from current fill (area-preserving)
     const surf = liquidSurface(w,h, box);
     const edge = drawLiquid(w,h, box, surf);
 
-    // Now spill can happen naturally when rim is exceeded
     updateSpill(w,h, box, surf, edge, dt);
 
-    // Foam & drips
     drawFoam(w,h, box, surf, edge);
     updateDrips(w,h, dt);
     drawDrips();
@@ -434,14 +421,9 @@
     requestAnimationFrame(frame);
   }
 
-  // Start button
   const ui = document.getElementById("ui");
   document.getElementById("start").addEventListener("click", async () => {
-    try {
-      await enableMotion();
-    } catch (e) {
-      console.warn(e);
-    }
+    try { await enableMotion(); } catch (e) { console.warn(e); }
 
     // Desktop/no sensor fallback: drag to simulate tilt
     let dragging = false;
