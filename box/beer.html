@@ -38,7 +38,7 @@
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d");
 
-  // Render scale (lower = faster). You can tweak on weak phones.
+  // Render scale (lower = faster).
   const RENDER_SCALE = 1.0;
 
   function resize() {
@@ -49,14 +49,14 @@
   addEventListener("resize", resize, {passive:true});
   resize();
 
-  // Gravity vector (screen-ish). We’ll smooth it.
-  let gTarget = {x: 0, y: 1};  // downwards
+  // Gravity vector (screen-ish). Smoothed.
+  let gTarget = {x: 0, y: 1};  // down
   let g = {x: 0, y: 1};
 
   // Liquid state
   let fill = 0.75;          // 0..1
-  let foam = 0.55;          // 0..1 (visual strength)
-  let temperature = 0.0;    // motion energy for foam jiggle
+  let foam = 0.55;          // 0..1
+  let temperature = 0.0;    // motion energy
 
   // Drip particles
   const drips = [];
@@ -72,15 +72,15 @@
     }
   }
 
-  // Foam blobs (metaball-ish by additive blurred circles)
+  // Foam blobs (metaball-ish via additive blurred circles)
   const blobs = [];
   const BLOB_N = 24;
   function initBlobs() {
     blobs.length = 0;
     for (let i=0;i<BLOB_N;i++){
       blobs.push({
-        u: Math.random(), // along surface
-        v: Math.random(), // thickness
+        u: Math.random(),
+        v: Math.random(),
         r: 18 + Math.random()*26,
         w: (Math.random()*2-1) * 0.16
       });
@@ -88,7 +88,6 @@
   }
   initBlobs();
 
-  // Orientation helper: rotate accel to match screen angle roughly
   function rotateByScreenAngle(x, y) {
     const angle = (screen.orientation && typeof screen.orientation.angle === "number")
       ? screen.orientation.angle
@@ -96,12 +95,10 @@
 
     const rad = angle * Math.PI / 180;
     const c = Math.cos(rad), s = Math.sin(rad);
-    // Rotate (x,y) by +rad
     return { x: x*c - y*s, y: x*s + y*c };
   }
 
   async function enableMotion() {
-    // iOS permission flow
     if (typeof DeviceMotionEvent !== "undefined" &&
         typeof DeviceMotionEvent.requestPermission === "function") {
       const r = await DeviceMotionEvent.requestPermission();
@@ -112,26 +109,22 @@
       const a = e.accelerationIncludingGravity;
       if (!a) return;
 
-      // Use x,y only (good enough for "tilt-to-spill" feel)
       let ax = a.x || 0;
       let ay = a.y || 0;
 
-      // Rotate to match screen orientation (roughly)
       const r = rotateByScreenAngle(ax, ay);
       ax = r.x; ay = r.y;
 
       const len = Math.hypot(ax, ay) || 1;
-      // Target gravity direction in screen coords where +y is down
       gTarget.x = ax / len;
       gTarget.y = ay / len;
     }, { passive: true });
   }
 
-  // Touch: "drink" / "refill" gestures (optional nicety)
+  // Touch helpers: double tap refill / press drink
   let touchMode = null;
   let lastTapTime = 0;
   addEventListener("pointerdown", (e) => {
-    // Double-tap to refill
     const t = performance.now();
     if (t - lastTapTime < 300) {
       fill = 0.9;
@@ -139,11 +132,8 @@
       temperature = 0.0;
     }
     lastTapTime = t;
-
-    // Long press to "drink" slowly
     touchMode = { t0: t };
   }, {passive:true});
-
   addEventListener("pointerup", () => { touchMode = null; }, {passive:true});
   addEventListener("pointercancel", () => { touchMode = null; }, {passive:true});
 
@@ -153,9 +143,7 @@
     const pad = Math.min(w,h)*0.06;
     const rim = pad*1.1;
 
-    // Frame / vignette
     ctx.save();
-    ctx.globalAlpha = 1;
     const grd = ctx.createRadialGradient(w*0.5,h*0.45, Math.min(w,h)*0.1, w*0.5,h*0.45, Math.max(w,h)*0.7);
     grd.addColorStop(0, "rgba(120,160,220,0.18)");
     grd.addColorStop(1, "rgba(0,0,0,0.85)");
@@ -163,7 +151,6 @@
     ctx.fillRect(0,0,w,h);
     ctx.restore();
 
-    // Glass outline
     ctx.save();
     ctx.lineWidth = Math.max(2, Math.min(w,h)*0.01);
     ctx.strokeStyle = "rgba(220,240,255,0.28)";
@@ -174,7 +161,6 @@
 
     const r = pad*0.9;
     ctx.beginPath();
-    // rounded rect
     ctx.moveTo(x0+r, y0);
     ctx.arcTo(x1, y0, x1, y0+r, r);
     ctx.arcTo(x1, y1, x1-r, y1, r);
@@ -184,7 +170,6 @@
     ctx.fill();
     ctx.stroke();
 
-    // Rim highlight
     ctx.strokeStyle = "rgba(255,255,255,0.18)";
     ctx.lineWidth *= 0.6;
     ctx.beginPath();
@@ -193,25 +178,7 @@
     ctx.stroke();
 
     ctx.restore();
-
     return {x0,y0,x1,y1,pad};
-  }
-
-  // Compute liquid surface line: y = yMid + slope*(x - cx)
-  function liquidSurface(w,h, box){
-    const cx = (box.x0+box.x1)*0.5;
-    const liquidHeight = (box.y1 - box.y0) * fill;
-
-    // Base surface level measured from bottom (y1) upwards
-    let yMid = box.y1 - liquidHeight;
-
-    // Tilt slope: driven by gravity x. Clamped for stability
-    // More tilt => bigger slope
-    const tilt = clamp(-g.x, -1, 1);
-    const maxSlope = 0.9; // visual tilt limit
-    const slope = clamp(tilt * 1.2, -maxSlope, maxSlope);
-
-    return {cx, yMid, slope};
   }
 
   function clipToGlass(box){
@@ -220,18 +187,65 @@
     ctx.clip();
   }
 
+  // === FIX #1 + FIX #2 + FIX #3: liquid surface computed so that area matches "fill",
+  // with x inverted (-g.x) and maxSlope increased so it can exceed ~45deg.
+  function liquidSurface(w,h, box){
+    const cx = (box.x0+box.x1)*0.5;
+
+    // FIX #1: invert x so direction matches intuition
+    const tilt = clamp(-g.x, -1, 1);
+
+    // FIX #3: allow steeper than ~45deg (tan(70°)=2.75)
+    const maxSlope = 2.75;
+    const slope = clamp(tilt * 2.8, -maxSlope, maxSlope);
+
+    const W = (box.x1 - box.x0);
+    const H = (box.y1 - box.y0);
+    const fullArea = W * H;
+    const targetArea = fullArea * fill;
+
+    // Area below the line y = yMid + slope*(x-cx), clamped inside glass rect.
+    function areaFor(yMid){
+      const N = 36; // sample count (higher = more accurate)
+      let area = 0;
+
+      for (let i=0;i<N;i++){
+        const t = (i+0.5)/N;
+        const x = box.x0 + t*W;
+        const yLine = yMid + slope*(x - cx);
+
+        const yTop = clamp(yLine, box.y0, box.y1);
+        area += (box.y1 - yTop) * (W / N);
+      }
+      return area;
+    }
+
+    // FIX #2: solve yMid so area matches targetArea (bisection)
+    let lo = box.y0 - H*2;
+    let hi = box.y1 + H*2;
+
+    for (let it=0; it<26; it++){
+      const mid = (lo+hi)*0.5;
+      const a = areaFor(mid);
+
+      // If area too big, raise the line (increase yMid) to reduce area.
+      if (a > targetArea) lo = mid;
+      else hi = mid;
+    }
+
+    const yMid = (lo+hi)*0.5;
+    return {cx, yMid, slope};
+  }
+
   function drawLiquid(w,h, box, surf){
     const {cx, yMid, slope} = surf;
 
-    // Liquid polygon = intersection of below-half-plane with glass rect
-    // Line: y = yMid + slope*(x-cx)
     const yL = yMid + slope*(box.x0 - cx);
     const yR = yMid + slope*(box.x1 - cx);
 
     ctx.save();
     clipToGlass(box);
 
-    // Fill liquid body below the line
     ctx.beginPath();
     ctx.moveTo(box.x0, yL);
     ctx.lineTo(box.x1, yR);
@@ -239,14 +253,12 @@
     ctx.lineTo(box.x0, box.y1);
     ctx.closePath();
 
-    // Beer-ish gradient
     const g1 = ctx.createLinearGradient(0, box.y0, 0, box.y1);
     g1.addColorStop(0, "rgba(255, 200, 90, 0.78)");
     g1.addColorStop(1, "rgba(195, 110, 30, 0.92)");
     ctx.fillStyle = g1;
     ctx.fill();
 
-    // Surface highlight
     ctx.strokeStyle = "rgba(255,255,255,0.22)";
     ctx.lineWidth = Math.max(1.5, Math.min(w,h)*0.004);
     ctx.beginPath();
@@ -255,7 +267,6 @@
     ctx.stroke();
 
     ctx.restore();
-
     return { yL, yR };
   }
 
@@ -263,35 +274,25 @@
     const {cx, yMid, slope} = surf;
     const {yL, yR} = edge;
 
-    // Foam only if there is enough fill
     if (fill < 0.05) return;
 
     ctx.save();
     clipToGlass(box);
 
-    // Region: above liquid line but within a small thickness
-    // We'll just draw blobs near the surface line.
-    ctx.globalCompositeOperation = "lighter"; // additive = metaball-ish merge
-
-    // Soft white foam
+    ctx.globalCompositeOperation = "lighter";
     ctx.fillStyle = "rgba(255,255,255,0.18)";
     ctx.filter = "blur(8px)";
 
-    // “energy” makes foam jiggle more when moving
     const jiggle = 1 + clamp(temperature*0.9, 0, 1.3);
 
     for (const b of blobs){
-      // Slide along surface
       b.u = (b.u + b.w*(0.016*jiggle)) % 1;
       if (b.u < 0) b.u += 1;
 
       const x = box.x0 + b.u*(box.x1-box.x0);
-
-      // Surface y at x
       const y = yMid + slope*(x - cx);
 
-      // Push foam toward top side when tilted (looks like it gathers)
-      const bias = clamp(-g.x, -1, 1) * 18; // foam shift
+      const bias = clamp(-g.x, -1, 1) * 18;
       const y2 = y - 14 - b.v*22 + (Math.random()-0.5)*2*jiggle;
       const x2 = x + bias + (Math.random()-0.5)*2*jiggle;
 
@@ -301,7 +302,6 @@
       ctx.fill();
     }
 
-    // Crisp layer on top
     ctx.filter = "blur(2px)";
     ctx.fillStyle = "rgba(255,255,255,0.16)";
     ctx.globalCompositeOperation = "screen";
@@ -319,37 +319,29 @@
   }
 
   function updateSpill(w,h, box, surf, edge, dt){
-    const {cx, yMid, slope} = surf;
     const {yL, yR} = edge;
 
-    // Spill when the surface line rises above the rim (top of glass box).
-    // If y at any side is above y0 => means liquid would touch/overflow rim.
+    // Spill when the surface line rises above the rim
     const rimY = box.y0;
-    const overflowL = rimY - yL; // positive => line is above rim => overflow
+    const overflowL = rimY - yL;
     const overflowR = rimY - yR;
 
-    // Choose side that overflows more
     let overflow = 0;
     let side = 0; // -1 left, +1 right
     if (overflowL > overflowR) { overflow = overflowL; side = -1; }
     else { overflow = overflowR; side = +1; }
 
-    const tiltMag = Math.hypot(g.x, g.y);
     const speed = Math.hypot(g.x - gTarget.x, g.y - gTarget.y);
 
-    // Increase "temperature" with motion/tilt
     temperature = clamp(temperature + (speed*2.0 + Math.abs(g.x)*0.4)*dt, 0, 1.5);
-    temperature *= Math.pow(0.4, dt); // decay
+    temperature *= Math.pow(0.4, dt);
 
     if (overflow > 0.5 && fill > 0.0) {
-      // Spill rate grows with overflow and tilt
-      const spillRate = (overflow / (box.y1-box.y0)) * (0.35 + Math.abs(g.x)*0.9);
+      // More overflow -> faster spill
+      const spillRate = (overflow / (box.y1-box.y0)) * (0.55 + Math.abs(g.x)*1.2);
       fill = clamp(fill - spillRate*dt, 0, 1);
-
-      // Foam reduces slowly as you spill/drink
       foam = clamp(foam - spillRate*0.25*dt, 0, 1);
 
-      // Emit drips from the overflowing rim side
       const x = (side < 0) ? box.x0 + 8 : box.x1 - 8;
       const y = box.y0 + 6;
       const vx = side * (90 + Math.random()*60);
@@ -357,7 +349,7 @@
       spawnDrip(x, y, vx, vy, 2 + (overflow>20 ? 2 : 0));
     }
 
-    // Long-press "drink" (optional)
+    // Long-press drink (optional)
     if (touchMode) {
       fill = clamp(fill - 0.08*dt, 0, 1);
       foam = clamp(foam - 0.03*dt, 0, 1);
@@ -415,30 +407,30 @@
     last = now;
 
     // Smooth gravity
-    const a = 1 - Math.pow(0.001, dt); // smoothing factor
+    const a = 1 - Math.pow(0.001, dt);
     g.x = g.x + (gTarget.x - g.x)*a;
     g.y = g.y + (gTarget.y - g.y)*a;
 
     const w = canvas.width, h = canvas.height;
 
-    // Clear
     ctx.setTransform(1,0,0,1,0,0);
     ctx.clearRect(0,0,w,h);
 
     const box = drawGlass(w,h);
+
+    // Surface must be computed from current fill (area-preserving)
     const surf = liquidSurface(w,h, box);
     const edge = drawLiquid(w,h, box, surf);
 
+    // Now spill can happen naturally when rim is exceeded
     updateSpill(w,h, box, surf, edge, dt);
 
-    // draw foam after spill update (so it responds)
+    // Foam & drips
     drawFoam(w,h, box, surf, edge);
-
     updateDrips(w,h, dt);
     drawDrips();
 
     drawHUD(w,h);
-
     requestAnimationFrame(frame);
   }
 
@@ -448,11 +440,10 @@
     try {
       await enableMotion();
     } catch (e) {
-      // If permission denied, still allow mouse/drag fallback on desktop
       console.warn(e);
     }
 
-    // Desktop / no sensor fallback: drag to simulate tilt
+    // Desktop/no sensor fallback: drag to simulate tilt
     let dragging = false;
     let lastX = 0, lastY = 0;
     window.addEventListener("pointerdown", (ev)=>{ dragging=true; lastX=ev.clientX; lastY=ev.clientY; }, {passive:true});
@@ -461,7 +452,7 @@
       const dx = (ev.clientX-lastX)/Math.max(1,innerWidth);
       const dy = (ev.clientY-lastY)/Math.max(1,innerHeight);
       lastX=ev.clientX; lastY=ev.clientY;
-      // Update target gravity from drag
+
       gTarget.x = clamp(gTarget.x + dx*2.2, -1, 1);
       gTarget.y = clamp(gTarget.y + dy*2.2, -1, 1);
       const len = Math.hypot(gTarget.x, gTarget.y) || 1;
@@ -479,4 +470,3 @@
 </script>
 </body>
 </html>
-
