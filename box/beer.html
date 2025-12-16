@@ -207,7 +207,7 @@
 
     // Tilt slope: driven by gravity x. Clamped for stability
     // More tilt => bigger slope
-    const tilt = clamp(g.x, -1, 1);
+    const tilt = clamp(-g.x, -1, 1);
     const maxSlope = 0.9; // visual tilt limit
     const slope = clamp(tilt * 1.2, -maxSlope, maxSlope);
 
@@ -479,3 +479,4 @@
 </script>
 </body>
 </html>
+
