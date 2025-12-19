@@ -81,9 +81,9 @@
       </div>
 
       <div class="small">
-        ・`sample.fbx` は index.html と同じフォルダに置いてください（http://localhost:8000/sample.fbx）<br>
-        ・Reset Cam は「FBXロード直後の基準カメラ位置/ターゲット」に戻します<br>
-        ・Calib Pos は「いまの顔位置（Pseudo position）を 0 として扱う」センタリングです（位置だけ）
+        ・`sample.fbx` は index.html と同じフォルダに置いてください（GitHub PagesでもOK）<br>
+        ・Calib Pos は「いまの顔位置（Pseudo position）を 0 として扱う」センタリング（位置だけ）<br>
+        ・★追加：右の3Dビューはドラッグでカメラ操作できます（iPhoneはタッチ）
       </div>
     </div>
 
@@ -159,11 +159,8 @@
       has: false
     };
 
-    // ★追加：位置キャリブレーション（センタリング）用
-    const posZero = {
-      px: 0, py: 0, pz: 0,
-      has: false
-    };
+    // 位置キャリブレーション（センタリング）用
+    const posZero = { px: 0, py: 0, pz: 0, has: false };
 
     function setCanvasSize() {
       const w = video.videoWidth || 500;
@@ -263,6 +260,33 @@
     controls.enableDamping = true;
     controls.target.set(0, 120, 0);
 
+    // ===== ★追加（ここから）：ドラッグでカメラ操作 =====
+    let isInteracting = false;
+
+    // iPhone/タッチ向け（デフォルトでも動くが明示）
+    controls.touches.ONE = THREE.TOUCH.ROTATE;     // 1本指：回転
+    controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;  // 2本指：ズーム/パン
+
+    controls.addEventListener("start", () => {
+      isInteracting = true;
+    });
+
+    controls.addEventListener("end", () => {
+      isInteracting = false;
+
+      // ドラッグ後のカメラ位置を「新しい基準」にする（以後ここから相対位置適用）
+      baseCamPos.copy(camera.position);
+
+      // 位置トラッキングがジャンプしないように、今の顔位置をゼロに取り直す
+      if (smoothed.has) {
+        posZero.px = smoothed.px;
+        posZero.py = smoothed.py;
+        posZero.pz = smoothed.pz;
+        posZero.has = true;
+      }
+    });
+    // ===== ★追加（ここまで） =====
+
     const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
     scene.add(hemi);
     const dir = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -291,20 +315,15 @@
       camera.position.copy(refCamPos);
       controls.target.copy(refTarget);
 
-      // 回転基準も戻す（角度は今0運用なので実質影響なし）
-      baseCamRot.set(0, 0, 0, "YXZ");
-      camera.rotation.set(0, 0, 0, "YXZ");
-
       // トラッキング平滑化もリセット（暴れ防止）
       smoothed.has = false;
 
-      // ★追加：位置センタリングも解除（基準に戻したいならここで切る）
+      // 位置センタリング解除（必要なら維持したい場合はこの2行を消してください）
       posZero.has = false;
     }
-
     btnResetCam.addEventListener("click", resetCamera);
 
-    // ★追加：位置キャリブレーション（いまの顔位置を0扱い）
+    // 位置キャリブレーション（いまの顔位置を0扱い）
     function calibratePosition() {
       if (!smoothed.has) return;
       posZero.px = smoothed.px;
@@ -362,6 +381,9 @@
     const tmpEuler = new THREE.Euler(0, 0, 0, "YXZ");
 
     function applyFaceToCamera() {
+      // ★追加：操作中はトラッキングで上書きしない
+      if (isInteracting) return;
+
       const sRot = parseFloat(rotYPSlider.value);
       const sRoll = parseFloat(rotRollSlider.value);
 
@@ -377,7 +399,7 @@
         "YXZ"
       );
 
-      // ★ここが本題：位置だけセンタリング（smoothed - posZero）
+      // 位置だけセンタリング（smoothed - posZero）
       const px = posZero.has ? (smoothed.px - posZero.px) : smoothed.px;
       const py = posZero.has ? (smoothed.py - posZero.py) : smoothed.py;
       const pz = posZero.has ? (smoothed.pz - posZero.pz) : smoothed.pz;
@@ -440,6 +462,10 @@
               smoothed.eyeDist = ema(smoothed.eyeDist, pp.eyeDist, a);
             }
 
+            const cx = posZero.has ? (smoothed.px - posZero.px) : smoothed.px;
+            const cy = posZero.has ? (smoothed.py - posZero.py) : smoothed.py;
+            const cz = posZero.has ? (smoothed.pz - posZero.pz) : smoothed.pz;
+
             out.textContent =
 `Face pose (smoothed):  ※角度は現在ほぼ無効（rotYP/rotRoll=0）
   yaw   : ${rad2deg(smoothed.yaw).toFixed(2)} deg
@@ -450,13 +476,14 @@ Pseudo position (raw):
   x:${smoothed.px.toFixed(4)} y:${smoothed.py.toFixed(4)} z:${smoothed.pz.toFixed(4)}
 
 Calibrated position (used):
-  x:${(posZero.has ? (smoothed.px - posZero.px) : smoothed.px).toFixed(4)}
-  y:${(posZero.has ? (smoothed.py - posZero.py) : smoothed.py).toFixed(4)}
-  z:${(posZero.has ? (smoothed.pz - posZero.pz) : smoothed.pz).toFixed(4)}
+  x:${cx.toFixed(4)} y:${cy.toFixed(4)} z:${cz.toFixed(4)}
   (calib: ${posZero.has ? "ON" : "OFF"})
 
 Debug:
-  eyeDist: ${smoothed.eyeDist.toFixed(4)}`;
+  eyeDist: ${smoothed.eyeDist.toFixed(4)}
+
+Camera drag:
+  ${isInteracting ? "Dragging..." : "Idle"}`;
           } else {
             out.textContent = "姿勢行列が取れませんでした（outputFacialTransformationMatrixes を確認）";
           }
@@ -489,10 +516,7 @@ Debug:
         lastVideoTime = -1;
         smoothed.has = false;
 
-        // トラッキング開始後、Resetボタンは使える（FBX基準があれば）
         btnResetCam.disabled = !hasReference;
-
-        // ★Calib Pos は「顔が取れてから」使うのが安全なので一旦有効にしておく
         btnCalibPos.disabled = false;
 
         faceLoop();
