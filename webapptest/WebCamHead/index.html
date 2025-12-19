@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Face Tracking + FBX Viewer (Three.js)</title>
+  <link rel="icon" href="data:,">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 12px; }
+    h1 { margin: 0 0 10px 0; font-size: 20px; }
+    .grid { display: grid; grid-template-columns: 520px 1fr; gap: 12px; align-items: start; }
+    @media (max-width: 1100px){ .grid{ grid-template-columns: 1fr; } }
+
+    .panel { background: #f6f6f6; border-radius: 14px; padding: 10px; }
+    .row { display:flex; gap: 10px; flex-wrap: wrap; align-items:center; margin-bottom: 8px; }
+    button { padding: 9px 12px; border-radius: 10px; border: 0; cursor: pointer; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+
+    label { font-size: 12px; color: #222; display:flex; gap: 8px; align-items:center; }
+    input[type="range"]{ width: 160px; }
+    .tag { display:inline-block; padding:2px 8px; border-radius:999px; background:#e9e9e9; font-size:12px; }
+
+    video, canvas#overlay {
+      width: 500px; max-width: 95vw;
+      border-radius: 12px; background:#111;
+      display:block;
+    }
+    #threeWrap { width: 100%; height: 640px; border-radius: 14px; overflow: hidden; background:#111; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; }
+    .small { font-size: 12px; color:#666; margin-top: 6px; line-height: 1.4; }
+  </style>
+</head>
+
+<body>
+  <h1>Webカメラ顔トラッキング → FBX表示 → カメラへ反映（JSのみ）</h1>
+
+  <div class="grid">
+    <!-- Left: Face tracking -->
+    <div class="panel">
+      <div class="row">
+        <button id="btnStart">Start</button>
+        <button id="btnStop" disabled>Stop</button>
+        <button id="btnResetCam" disabled>Reset Cam</button>
+        <button id="btnCalibPos" disabled>Calib Pos</button>
+        <span class="tag">FaceLandmarker + Pseudo position</span>
+      </div>
+
+      <div class="row">
+        <label>スムージング
+          <input id="smooth" type="range" min="0" max="0.95" step="0.01" value="0.75">
+          <span id="smoothVal">0.75</span>
+        </label>
+        <label>位置スケール(XY)
+          <input id="posXY" type="range" min="0" max="5" step="0.01" value="0.50">
+          <span id="posXYVal">0.50</span>
+        </label>
+        <label>位置スケール(Z)
+          <input id="posZ" type="range" min="0" max="5" step="0.01" value="0.50">
+          <span id="posZVal">0.50</span>
+        </label>
+      </div>
+
+      <div class="row">
+        <label>回転スケール(Yaw/Pitch)
+          <input id="rotYP" type="range" min="0" max="2" step="0.01" value="0.00">
+          <span id="rotYPVal">0.00</span>
+        </label>
+        <label>Roll弱め
+          <input id="rotRoll" type="range" min="0" max="1" step="0.01" value="0.00">
+          <span id="rotRollVal">0.00</span>
+        </label>
+      </div>
+
+      <div style="position:relative; margin-top: 8px;">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay" style="position:absolute; left:0; top:0;"></canvas>
+      </div>
+
+      <div class="panel" style="margin-top:10px;">
+        <pre id="out">未開始</pre>
+      </div>
+
+      <div class="small">
+        ・`sample.fbx` は index.html と同じフォルダに置いてください（http://localhost:8000/sample.fbx）<br>
+        ・Reset Cam は「FBXロード直後の基準カメラ位置/ターゲット」に戻します<br>
+        ・Calib Pos は「いまの顔位置（Pseudo position）を 0 として扱う」センタリングです（位置だけ）
+      </div>
+    </div>
+
+    <!-- Right: Three.js -->
+    <div id="threeWrap"></div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest";
+
+    import * as THREE from "three";
+    import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    // --- UI ---
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("overlay");
+    const ctx = canvas.getContext("2d");
+    const out = document.getElementById("out");
+
+    const btnStart = document.getElementById("btnStart");
+    const btnStop  = document.getElementById("btnStop");
+    const btnResetCam = document.getElementById("btnResetCam");
+    const btnCalibPos = document.getElementById("btnCalibPos");
+
+    const smoothSlider = document.getElementById("smooth");
+    const smoothVal = document.getElementById("smoothVal");
+
+    const posXYSlider = document.getElementById("posXY");
+    const posXYVal = document.getElementById("posXYVal");
+
+    const posZSlider = document.getElementById("posZ");
+    const posZVal = document.getElementById("posZVal");
+
+    const rotYPSlider = document.getElementById("rotYP");
+    const rotYPVal = document.getElementById("rotYPVal");
+
+    const rotRollSlider = document.getElementById("rotRoll");
+    const rotRollVal = document.getElementById("rotRollVal");
+
+    const syncLabel = () => {
+      smoothVal.textContent = Number(smoothSlider.value).toFixed(2);
+      posXYVal.textContent = Number(posXYSlider.value).toFixed(2);
+      posZVal.textContent = Number(posZSlider.value).toFixed(2);
+      rotYPVal.textContent = Number(rotYPSlider.value).toFixed(2);
+      rotRollVal.textContent = Number(rotRollSlider.value).toFixed(2);
+    };
+    [smoothSlider, posXYSlider, posZSlider, rotYPSlider, rotRollSlider].forEach(el => el.addEventListener("input", syncLabel));
+    syncLabel();
+
+    const rad2deg = (r) => r * 180 / Math.PI;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const ema = (prev, next, a) => prev * a + next * (1 - a);
+
+    // --- FaceLandmarker state ---
+    let faceLandmarker = null;
+    let stream = null;
+    let lastVideoTime = -1;
+
+    const smoothed = {
+      yaw: 0, pitch: 0, roll: 0,
+      px: 0, py: 0, pz: 0,
+      eyeDist: 0,
+      has: false
+    };
+
+    // ★追加：位置キャリブレーション（センタリング）用
+    const posZero = {
+      px: 0, py: 0, pz: 0,
+      has: false
+    };
+
+    function setCanvasSize() {
+      const w = video.videoWidth || 500;
+      const h = video.videoHeight || 375;
+      canvas.width = w;
+      canvas.height = h;
+      canvas.style.width = video.style.width;
+      canvas.style.height = video.style.height;
+    }
+
+    function drawFaceLandmarks(landmarks) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.fillStyle = "rgba(0,255,0,0.85)";
+      for (const p of landmarks) {
+        const x = p.x * canvas.width;
+        const y = p.y * canvas.height;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function poseFromMatrix4(m) {
+      const r00 = m[0],  r01 = m[1],  r02 = m[2];
+      const r10 = m[4],  r11 = m[5],  r12 = m[6];
+      const r20 = m[8],  r21 = m[9],  r22 = m[10];
+
+      const pitch = Math.asin(clamp(-r20, -1, 1));
+      const yaw   = Math.atan2(r10, r00);
+      const roll  = Math.atan2(r21, r22);
+
+      return { yaw, pitch, roll };
+    }
+
+    function pseudoPositionFromLandmarks(landmarks) {
+      const NOSE = 1;
+      const LEFT_EYE_OUT = 33;
+      const RIGHT_EYE_OUT = 263;
+
+      const nose = landmarks[NOSE];
+      const le = landmarks[LEFT_EYE_OUT];
+      const re = landmarks[RIGHT_EYE_OUT];
+
+      const x2d = (nose.x - 0.5);
+      const y2d = (0.5 - nose.y);
+
+      const dx = le.x - re.x;
+      const dy = le.y - re.y;
+      const eyeDist = Math.sqrt(dx*dx + dy*dy);
+      const zPseudoRaw = eyeDist > 1e-6 ? (1.0 / eyeDist) : 0;
+
+      const sXY = parseFloat(posXYSlider.value);
+      const sZ  = parseFloat(posZSlider.value);
+
+      const zBaseline = 6.0;
+
+      const px = x2d * 2.0 * sXY;
+      const py = y2d * 2.0 * sXY;
+      const pz = (zPseudoRaw - zBaseline) * 0.2 * sZ;
+
+      return { px, py, pz, eyeDist, zPseudoRaw };
+    }
+
+    async function createFaceLandmarker() {
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+      );
+
+      faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
+        },
+        runningMode: "VIDEO",
+        numFaces: 1,
+        outputFaceBlendshapes: false,
+        outputFacialTransformationMatrixes: true
+      });
+    }
+
+    // ---------- Three.js scene ----------
+    const wrap = document.getElementById("threeWrap");
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    wrap.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x101010);
+
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 5000);
+    const baseCamPos = new THREE.Vector3(0, 150, 350);
+    camera.position.copy(baseCamPos);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(0, 120, 0);
+
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
+    scene.add(hemi);
+    const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+    dir.position.set(300, 600, 300);
+    scene.add(dir);
+
+    const grid = new THREE.GridHelper(2000, 40);
+    scene.add(grid);
+
+    // ---- Reset用に「基準」保存 ----
+    const refCamPos = new THREE.Vector3().copy(baseCamPos);
+    const refTarget = new THREE.Vector3().copy(controls.target);
+    let hasReference = false;
+
+    function saveReferenceFromCurrent() {
+      refCamPos.copy(baseCamPos);
+      refTarget.copy(controls.target);
+      hasReference = true;
+      btnResetCam.disabled = false;
+    }
+
+    function resetCamera() {
+      if (!hasReference) return;
+
+      baseCamPos.copy(refCamPos);
+      camera.position.copy(refCamPos);
+      controls.target.copy(refTarget);
+
+      // 回転基準も戻す（角度は今0運用なので実質影響なし）
+      baseCamRot.set(0, 0, 0, "YXZ");
+      camera.rotation.set(0, 0, 0, "YXZ");
+
+      // トラッキング平滑化もリセット（暴れ防止）
+      smoothed.has = false;
+
+      // ★追加：位置センタリングも解除（基準に戻したいならここで切る）
+      posZero.has = false;
+    }
+
+    btnResetCam.addEventListener("click", resetCamera);
+
+    // ★追加：位置キャリブレーション（いまの顔位置を0扱い）
+    function calibratePosition() {
+      if (!smoothed.has) return;
+      posZero.px = smoothed.px;
+      posZero.py = smoothed.py;
+      posZero.pz = smoothed.pz;
+      posZero.has = true;
+    }
+    btnCalibPos.addEventListener("click", calibratePosition);
+
+    // load FBX
+    let fbxRoot = null;
+    const loader = new FBXLoader();
+    loader.load(
+      "./sample.fbx",
+      (obj) => {
+        fbxRoot = obj;
+        scene.add(obj);
+
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+
+        controls.target.copy(center);
+
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const dist = maxDim * 1.5 + 200;
+        baseCamPos.set(center.x, center.y + maxDim * 0.4, center.z + dist);
+        camera.position.copy(baseCamPos);
+
+        saveReferenceFromCurrent();
+
+        out.textContent = (out.textContent || "") + "\n\nFBX loaded: sample.fbx (reference saved)";
+      },
+      undefined,
+      (err) => {
+        console.error(err);
+        out.textContent = "FBX読み込みに失敗: sample.fbx が見つからない/形式NGの可能性\n" + (err?.message ?? String(err));
+      }
+    );
+
+    function resizeThree() {
+      const w = wrap.clientWidth;
+      const h = wrap.clientHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener("resize", resizeThree);
+    resizeThree();
+
+    // --- Apply face pose to camera ---
+    const baseCamRot = new THREE.Euler(0, 0, 0, "YXZ");
+    const tmpEuler = new THREE.Euler(0, 0, 0, "YXZ");
+
+    function applyFaceToCamera() {
+      const sRot = parseFloat(rotYPSlider.value);
+      const sRoll = parseFloat(rotRollSlider.value);
+
+      const yaw   = smoothed.yaw * sRot;
+      const pitch = smoothed.pitch * sRot;
+      const roll  = smoothed.roll * sRoll;
+
+      tmpEuler.set(pitch, yaw, roll, "YXZ");
+      camera.rotation.set(
+        baseCamRot.x + tmpEuler.x,
+        baseCamRot.y + tmpEuler.y,
+        baseCamRot.z + tmpEuler.z,
+        "YXZ"
+      );
+
+      // ★ここが本題：位置だけセンタリング（smoothed - posZero）
+      const px = posZero.has ? (smoothed.px - posZero.px) : smoothed.px;
+      const py = posZero.has ? (smoothed.py - posZero.py) : smoothed.py;
+      const pz = posZero.has ? (smoothed.pz - posZero.pz) : smoothed.pz;
+
+      camera.position.set(
+        baseCamPos.x - px * 80,
+        baseCamPos.y + py * 80,
+        baseCamPos.z + (pz) * 200
+      );
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      applyFaceToCamera();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // ---------- Face tracking loop ----------
+    let rafFace = null;
+    function faceLoop() {
+      const nowMs = performance.now();
+      const a = parseFloat(smoothSlider.value);
+
+      if (video.currentTime !== lastVideoTime) {
+        const result = faceLandmarker.detectForVideo(video, nowMs);
+        lastVideoTime = video.currentTime;
+
+        if (result?.faceLandmarks?.length) {
+          const landmarks = result.faceLandmarks[0];
+          drawFaceLandmarks(landmarks);
+
+          const pp = pseudoPositionFromLandmarks(landmarks);
+
+          const matObj = result.facialTransformationMatrixes?.[0];
+          if (matObj?.data) {
+            const pose = poseFromMatrix4(matObj.data);
+
+            if (!smoothed.has) {
+              smoothed.yaw = pose.yaw;
+              smoothed.pitch = pose.pitch;
+              smoothed.roll = pose.roll;
+
+              smoothed.px = pp.px;
+              smoothed.py = pp.py;
+              smoothed.pz = pp.pz;
+
+              smoothed.eyeDist = pp.eyeDist;
+              smoothed.has = true;
+            } else {
+              smoothed.yaw   = ema(smoothed.yaw,   pose.yaw,   a);
+              smoothed.pitch = ema(smoothed.pitch, pose.pitch, a);
+              smoothed.roll  = ema(smoothed.roll,  pose.roll,  a);
+
+              smoothed.px = ema(smoothed.px, pp.px, a);
+              smoothed.py = ema(smoothed.py, pp.py, a);
+              smoothed.pz = ema(smoothed.pz, pp.pz, a);
+
+              smoothed.eyeDist = ema(smoothed.eyeDist, pp.eyeDist, a);
+            }
+
+            out.textContent =
+`Face pose (smoothed):  ※角度は現在ほぼ無効（rotYP/rotRoll=0）
+  yaw   : ${rad2deg(smoothed.yaw).toFixed(2)} deg
+  pitch : ${rad2deg(smoothed.pitch).toFixed(2)} deg
+  roll  : ${rad2deg(smoothed.roll).toFixed(2)} deg
+
+Pseudo position (raw):
+  x:${smoothed.px.toFixed(4)} y:${smoothed.py.toFixed(4)} z:${smoothed.pz.toFixed(4)}
+
+Calibrated position (used):
+  x:${(posZero.has ? (smoothed.px - posZero.px) : smoothed.px).toFixed(4)}
+  y:${(posZero.has ? (smoothed.py - posZero.py) : smoothed.py).toFixed(4)}
+  z:${(posZero.has ? (smoothed.pz - posZero.pz) : smoothed.pz).toFixed(4)}
+  (calib: ${posZero.has ? "ON" : "OFF"})
+
+Debug:
+  eyeDist: ${smoothed.eyeDist.toFixed(4)}`;
+          } else {
+            out.textContent = "姿勢行列が取れませんでした（outputFacialTransformationMatrixes を確認）";
+          }
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          out.textContent = "顔が見つかりません（正面向き＋明るさ）";
+        }
+      }
+
+      rafFace = requestAnimationFrame(faceLoop);
+    }
+
+    async function start() {
+      btnStart.disabled = true;
+      out.textContent = "初期化中…（モデルDLが入るので少し待つことがあります）";
+      try {
+        if (!faceLandmarker) await createFaceLandmarker();
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+
+        video.srcObject = stream;
+        await video.play();
+        setCanvasSize();
+        window.addEventListener("resize", setCanvasSize);
+
+        btnStop.disabled = false;
+        lastVideoTime = -1;
+        smoothed.has = false;
+
+        // トラッキング開始後、Resetボタンは使える（FBX基準があれば）
+        btnResetCam.disabled = !hasReference;
+
+        // ★Calib Pos は「顔が取れてから」使うのが安全なので一旦有効にしておく
+        btnCalibPos.disabled = false;
+
+        faceLoop();
+      } catch (e) {
+        console.error(e);
+        out.textContent = "初期化に失敗:\n" + (e?.message ?? String(e));
+        btnStart.disabled = false;
+      }
+    }
+
+    function stop() {
+      btnStop.disabled = true;
+      btnStart.disabled = false;
+
+      if (rafFace) cancelAnimationFrame(rafFace);
+      rafFace = null;
+
+      if (stream) {
+        for (const t of stream.getTracks()) t.stop();
+        stream = null;
+      }
+      video.srcObject = null;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      out.textContent = "停止しました";
+    }
+
+    btnStart.addEventListener("click", start);
+    btnStop.addEventListener("click", stop);
+  </script>
+</body>
+</html>
