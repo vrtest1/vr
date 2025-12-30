@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idiom Master - 英語成句クイズ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Start Screen -->
+        <div id="start-screen">
+            <h1>Idiom Master</h1>
+            <p class="description">
+                英語の表現力を磨こう！<br>
+                レベルを選んでクイズに挑戦。
+            </p>
+            <div id="level-selection">
+                <button class="btn level-btn" onclick="startQuiz('beginner')">🔰 初級 (Beginner)</button>
+                <button class="btn level-btn" onclick="startQuiz('intermediate')">🔥 中級 (Intermediate)</button>
+                <button class="btn level-btn" onclick="startQuiz('advanced')">👑 上級 (Advanced)</button>
+            </div>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div id="quiz-screen" class="hidden">
+            <div class="quiz-header">
+                <span>Question <span id="current-question-num">1</span> / <span id="total-questions">10</span></span>
+                <span>Score: <span id="current-score">0</span></span>
+            </div>
+
+            <div class="idiom-display" id="idiom-text">
+                <!-- Idiom goes here -->
+            </div>
+
+            <div class="options-grid" id="options-container">
+                <!-- Options go here -->
+            </div>
+
+            <!-- Feedback Section (Hidden initially) -->
+            <div id="feedback-section" class="feedback-section hidden">
+                <div id="feedback-title" class="feedback-title"></div>
+                <p id="feedback-explanation" class="explanation"></p>
+                <button class="btn" id="next-btn" onclick="nextQuestion()">次へ進む</button>
+            </div>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result-screen" class="hidden">
+            <h2>クイズ終了！</h2>
+            <p>あなたのスコアは...</p>
+            <div class="score-display">
+                <span id="final-score">0</span> / <span id="final-total">10</span>
+            </div>
+            <p class="description" id="result-message"></p>
+            <button class="btn" onclick="showStartScreen()">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

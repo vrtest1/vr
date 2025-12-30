@@ -1,0 +1,269 @@
+/* Global Styles */
+:root {
+    --primary-color: #6366f1;
+    /* Indigo 500 */
+    --primary-hover: #4f46e5;
+    /* Indigo 600 */
+    --background-gradient-start: #0f172a;
+    /* Slate 900 */
+    --background-gradient-end: #1e293b;
+    /* Slate 800 */
+    --card-bg: rgba(255, 255, 255, 0.05);
+    --text-main: #f8fafc;
+    /* Slate 50 */
+    --text-secondary: #94a3b8;
+    /* Slate 400 */
+    --correct-color: #22c55e;
+    /* Green 500 */
+    --incorrect-color: #ef4444;
+    /* Red 500 */
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-family);
+    background: linear-gradient(135deg, var(--background-gradient-start), var(--background-gradient-end));
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow-x: hidden;
+    /* Added for mobile scroll */
+    padding: 20px 0;
+    box-sizing: border-box;
+}
+
+/* Glassmorphism Container */
+.container {
+    width: 90%;
+    max-width: 600px;
+    background: var(--card-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 30px;
+    /* SLightly reduced for mobile */
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    position: relative;
+    /* Ensure container doesn't overflow screen vertically on small phones */
+    max-height: 95vh;
+    overflow-y: auto;
+}
+
+h1 {
+    font-size: 2rem;
+    /* Adjusted for mobile */
+    font-weight: 800;
+    margin-bottom: 1rem;
+    background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 10px rgba(79, 172, 254, 0.3);
+}
+
+h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+}
+
+p.description {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+/* Button Styles */
+.btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 14px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.39);
+    width: 100%;
+    /* Full width on mobile/start */
+    max-width: 300px;
+    margin: 10px auto;
+    display: block;
+    /* Stack buttons */
+}
+
+.btn:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.23);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+/* Level Selection Buttons */
+.level-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--glass-border);
+    margin-bottom: 12px;
+}
+
+.level-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Quiz Screen */
+.quiz-header {
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.idiom-display {
+    font-size: 1.5rem;
+    /* Smaller on mobile */
+    font-weight: 700;
+    margin-bottom: 2rem;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    border: 1px solid var(--glass-border);
+    word-wrap: break-word;
+    /* Prevent overflow */
+}
+
+.options-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.option-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
+    padding: 16px;
+    font-size: 1rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    min-height: 50px;
+    /* Touch target size */
+}
+
+.option-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(4px);
+}
+
+.option-btn.correct {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: var(--correct-color);
+    color: #86efac;
+}
+
+.option-btn.incorrect {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--incorrect-color);
+    color: #fca5a5;
+    opacity: 0.7;
+}
+
+/* Feedback Section */
+.feedback-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--glass-border);
+    animation: fadeIn 0.5s ease;
+}
+
+.feedback-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.feedback-title.correct {
+    color: var(--correct-color);
+}
+
+.feedback-title.incorrect {
+    color: var(--incorrect-color);
+}
+
+.explanation {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+/* Result Screen */
+.score-display {
+    font-size: 3rem;
+    font-weight: 800;
+    margin: 1.5rem 0;
+    background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Utilities */
+.hidden {
+    display: none !important;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive - Desktop adjustments */
+@media (min-width: 640px) {
+    .container {
+        padding: 40px;
+    }
+
+    h1 {
+        font-size: 2.5rem;
+    }
+
+    .idiom-display {
+        font-size: 2rem;
+    }
+
+    .options-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .option-btn {
+        text-align: center;
+        justify-content: center;
+        padding: 24px 16px;
+    }
+}

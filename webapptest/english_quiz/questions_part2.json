@@ -1,0 +1,830 @@
+[
+    {
+        "idiom": "A bad workman always blames his tools",
+        "options": [
+            "弘法筆を選ばずの逆（下手な職人は道具のせいにする）",
+            "良い職人は道具を大切にする",
+            "道具がないと仕事ができない",
+            "職人は道具を作る"
+        ],
+        "correct": 0,
+        "explanation": "自分の未熟さを棚に上げて、道具などのせいにする人を批判する言葉です。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "A bird in the hand is worth two in the bush",
+        "options": [
+            "明日の百より今日の五十（手の中の一羽は藪の中の二羽の価値がある）",
+            "鳥は二羽飼うべきだ",
+            "藪の中の鳥は捕まえにくい",
+            "手の中の鳥は逃がそう"
+        ],
+        "correct": 0,
+        "explanation": "不確かな大きな利益よりも、手堅い小さな利益の方が価値があるという意味です。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Ace in the hole",
+        "options": [
+            "穴の中のエース",
+            "とっておきの切り札 / 秘策",
+            "ゴルフのホールインワン",
+            "穴を掘る名人"
+        ],
+        "correct": 1,
+        "explanation": "ポーカーで隠し持っているエースのカードから、イザという時の「切り札」「秘策」を意味します。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Achilles' heel",
+        "options": [
+            "アキレス腱",
+            "唯一の弱点 / 急所",
+            "足の怪我",
+            "英雄の証"
+        ],
+        "correct": 1,
+        "explanation": "ギリシャ神話の英雄アキレウスの唯一の弱点であった踵（かかと）から、「致命的な弱点」を意味します。",
+        "difficulty": "common"
+    },
+    {
+        "idiom": "Actions speak louder than words",
+        "options": [
+            "口より行動",
+            "声が大きい方が勝つ",
+            "演説は素晴らしい",
+            "言葉は無力だ"
+        ],
+        "correct": 0,
+        "explanation": "口先で言うことよりも、実際の行動の方が説得力がある（不言実行）という意味です。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Add fuel to the fire",
+        "options": [
+            "火に油を注ぐ",
+            "燃料を補給する",
+            "暖炉を焚く",
+            "キャンプファイヤーをする"
+        ],
+        "correct": 0,
+        "explanation": "悪い状況をさらに悪化させること、怒っている人をさらに怒らせることを意味します。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Against the clock",
+        "options": [
+            "時計の反対回りに",
+            "時間を争って / 大急ぎで",
+            "時計を壊して",
+            "時間にルーズに"
+        ],
+        "correct": 1,
+        "explanation": "締め切りに間に合わせるために「時間を争って」「大急ぎで」作業することを意味します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "All ears",
+        "options": [
+            "耳が大きい",
+            "全身耳である（熱心に聞く）",
+            "耳が遠い",
+            "聞き耳を立てる"
+        ],
+        "correct": 1,
+        "explanation": "相手の話に興味津々で、「しっかり聞いているよ」「何でも話して」という態度のことです。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "All in the same boat",
+        "options": [
+            "同じ船に乗っている（運命共同体）",
+            "船旅を楽しむ",
+            "全員船酔いしている",
+            "別の船に移る"
+        ],
+        "correct": 0,
+        "explanation": "直面している困難な状況が同じである、つまり「一蓮托生」「運命共同体」であることを意味します。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "An apple a day keeps the doctor away",
+        "options": [
+            "1日1個のリンゴで医者いらず",
+            "リンゴは医者嫌いだ",
+            "医者にリンゴをあげる",
+            "リンゴ農家は健康だ"
+        ],
+        "correct": 0,
+        "explanation": "健康的な食生活（リンゴ）を続ければ病気にならないという意味のことわざです。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Apple of one's eye",
+        "options": [
+            "目の中のリンゴ",
+            "非常に愛しい存在 / 目に入れても痛くない",
+            "目の病気",
+            "視力が良い"
+        ],
+        "correct": 1,
+        "explanation": "非常に大切に思っている人、特に愛する子供や孫などを指して「目に入れても痛くない」存在と言います。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "As blind as a bat",
+        "options": [
+            "コウモリのように目が見えない（視力が悪い）",
+            "コウモリが好き",
+            "暗闇が得意",
+            "昼間は眠い"
+        ],
+        "correct": 0,
+        "explanation": "視力が非常に悪いこと、あるいは周りの状況が全く見えていないことを表す比喩表現です。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "As cool as a cucumber",
+        "options": [
+            "キュウリのように冷たい",
+            "非常に冷静沈着である",
+            "野菜が好き",
+            "体が冷えている"
+        ],
+        "correct": 1,
+        "explanation": "どんな時でも動じず、「非常に冷静である」「落ち着き払っている」様子を表します。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "As easy as pie",
+        "options": [
+            "パイのように簡単",
+            "パイを焼くのは簡単",
+            "パイは美味しい",
+            "パイを食べるのは難しい"
+        ],
+        "correct": 0,
+        "explanation": "「Piece of cake」と同様に、「とても簡単だ」「朝飯前だ」という意味です。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "At the eleventh hour",
+        "options": [
+            "11時に",
+            "土壇場で / ギリギリのところで",
+            "まだ早い時間に",
+            "11時間かけて"
+        ],
+        "correct": 1,
+        "explanation": "最後の最後、締め切り直前の「ドタン場」や「ギリギリのタイミング」を指します。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Back to square one",
+        "options": [
+            "一番最初のマスに戻る（振り出しに戻る）",
+            "四角い部屋に戻る",
+            "1から数える",
+            "正方形を描く"
+        ],
+        "correct": 0,
+        "explanation": "進展がなく最初からやり直さなければならない状態、「振り出しに戻る」ことを意味します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Back to the drawing board",
+        "options": [
+            "製図板に戻る（計画の練り直し）",
+            "絵を描く",
+            "黒板を消す",
+            "学校に戻る"
+        ],
+        "correct": 0,
+        "explanation": "計画が失敗したので、最初から考え直す（計画を練り直す）必要がある時に使います。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Bark is worse than one's bite",
+        "options": [
+            "噛むより吠える方がひどい（口ほど怖くない）",
+            "よく吠える犬は噛む",
+            "犬のしつけが悪い",
+            "口喧嘩に強い"
+        ],
+        "correct": 0,
+        "explanation": "見た目や言葉は怖そうだが、実際はそうでもない（口先だけで危害は加えない）性格を表します。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Be in hot water",
+        "options": [
+            "お湯に浸かる",
+            "苦境に立たされる / 困ったことになる",
+            "温泉に入る",
+            "お茶を入れる"
+        ],
+        "correct": 1,
+        "explanation": "面倒なことになり、批判されたり罰せられそうな「苦境にある」状態を指します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Be on the same page",
+        "options": [
+            "同じページを見ている（意見が一致している）",
+            "同じ本を読んでいる",
+            "読書会をする",
+            "ページを破る"
+        ],
+        "correct": 0,
+        "explanation": "複数の人の理解や認識が一致している、「話が通じている」状態を意味します。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Beat the clock",
+        "options": [
+            "時計を叩く",
+            "締め切り前に終える",
+            "時間を止める",
+            "時計を直す"
+        ],
+        "correct": 1,
+        "explanation": "時間切れになる前に急いでタスクを完了させることを意味します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Beauty is in the eye of the beholder",
+        "options": [
+            "美は見る人の目の中にある（蓼食う虫も好き好き）",
+            "美しい人は目が良い",
+            "美人は得をする",
+            "見た目が全てだ"
+        ],
+        "correct": 0,
+        "explanation": "何が美しいかは見る人の主観による、「美的感覚は人それぞれ」という意味です。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Behind the scenes",
+        "options": [
+            "舞台裏で / 秘密裏に",
+            "背景を描く",
+            "景色が良い",
+            "映画を見る"
+        ],
+        "correct": 0,
+        "explanation": "表には出ないところ（舞台裏）で、物事が進められている様子を表します。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Bend over backwards",
+        "options": [
+            "後ろに反る",
+            "懸命に努力する / 全力を尽くす",
+            "背伸びをする",
+            "ヨガをする"
+        ],
+        "correct": 1,
+        "explanation": "誰かを喜ばせたり助けたりするために、無理をしてでも「全力を尽くす」「最大限の努力をする」ことです。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Best of both worlds",
+        "options": [
+            "両方の世界のいいとこ取り",
+            "世界で一番",
+            "二つの国を行き来する",
+            "世界旅行をする"
+        ],
+        "correct": 0,
+        "explanation": "相反する2つの状況のメリットを両方とも享受できる、理想的な状況を指します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Better safe than sorry",
+        "options": [
+            "後悔するより安全が良い（転ばぬ先の杖）",
+            "安全第一",
+            "謝るなら安全に",
+            "冒険しないと損だ"
+        ],
+        "correct": 0,
+        "explanation": "後で何かあって後悔するよりも、今のうちに用心しておいた方が良いという意味です。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Big picture",
+        "options": [
+            "大きな絵",
+            "全体像 / 大局",
+            "映画館のスクリーン",
+            "高解像度の写真"
+        ],
+        "correct": 1,
+        "explanation": "細かい詳細にとらわれず、物事の「全体像」や「長期的な視点」を見ることを意味します。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Birds of a feather flock together",
+        "options": [
+            "同じ羽の鳥は集まる（類は友を呼ぶ）",
+            "鳥は羽が好き",
+            "鳥は群れで飛ぶ",
+            "羽毛布団は温かい"
+        ],
+        "correct": 0,
+        "explanation": "似た者同士は自然と集まる、「類は友を呼ぶ」という意味です。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Bite off more than one can chew",
+        "options": [
+            "噛める以上に噛み取る（手に余ることをする）",
+            "大食いをする",
+            "よく噛んで食べる",
+            "欲張って失敗する"
+        ],
+        "correct": 0,
+        "explanation": "自分の能力以上のことを引き受けてしまう、「背伸びをしすぎる」「無理をする」ことへの警告です。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Bite the dust",
+        "options": [
+            "埃を噛む（死ぬ / 失敗する）",
+            "掃除をする",
+            "転ぶ",
+            "砂漠に行く"
+        ],
+        "correct": 0,
+        "explanation": "戦いに敗れて地面に倒れる描写から、「死ぬ」「敗北する」「機能停止する（機械など）」という意味で使われます。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Bite your tongue",
+        "options": [
+            "舌を噛む",
+            "言いたいことを我慢する",
+            "滑舌が悪い",
+            "味見をする"
+        ],
+        "correct": 1,
+        "explanation": "言いたいことがあっても、ぐっと堪えて「口をつぐむ」「沈黙を守る」という意味です。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Black sheep",
+        "options": [
+            "黒い羊",
+            "厄介者 / 面汚し",
+            "希少価値がある",
+            "夜行性の動物"
+        ],
+        "correct": 1,
+        "explanation": "家族やグループの中で一人だけ変わり者だったり、評判を落とす「厄介者」を指します。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Blessing in disguise",
+        "options": [
+            "変装した祝福（災い転じて福となす）",
+            "隠れた才能",
+            "仮装パーティー",
+            "神の恵み"
+        ],
+        "correct": 0,
+        "explanation": "一見不幸に見えるが、実は良い結果をもたらすこと。「人間万事塞翁が馬」に近い意味です。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Blind date",
+        "options": [
+            "盲目のデート",
+            "初対面の相手とのデート（お見合いデート）",
+            "暗闇でのデート",
+            "知らない場所に行く"
+        ],
+        "correct": 1,
+        "explanation": "友人などの紹介で、会ったことのない相手とデートすることです。",
+        "difficulty": "common"
+    },
+    {
+        "idiom": "Blood is thicker than water",
+        "options": [
+            "血は水よりも濃い（血縁の絆は強い）",
+            "血液検査をする",
+            "濃い味が好き",
+            "水不足だ"
+        ],
+        "correct": 0,
+        "explanation": "他人の関係よりも血縁関係の方が強く、重要であるという意味です。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Blow off steam",
+        "options": [
+            "蒸気を吹き飛ばす",
+            "鬱憤（うっぷん）を晴らす",
+            "蒸気機関車に乗る",
+            "お風呂に入る"
+        ],
+        "correct": 1,
+        "explanation": "溜まったストレスや怒りを発散する、「ガス抜きをする」ことを意味します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Blow one's own trumpet",
+        "options": [
+            "自分のラッパを吹く",
+            "自画自賛する",
+            "楽器を演奏する",
+            "うるさくする"
+        ],
+        "correct": 1,
+        "explanation": "自分の手柄や能力を自分で吹聴する、「自慢する」という意味です。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Blue blood",
+        "options": [
+            "青い血",
+            "貴族の家柄",
+            "冷血漢",
+            "宇宙人"
+        ],
+        "correct": 1,
+        "explanation": "貴族や名門の出身であること。肌が白すぎて静脈が青く透けて見えたことに由来するという説があります。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Born with a silver spoon in one's mouth",
+        "options": [
+            "銀のスプーンをくわえて生まれる",
+            "裕福な家に生まれる",
+            "料理の才能がある",
+            "金属アレルギーだ"
+        ],
+        "correct": 1,
+        "explanation": "非常に裕福な家庭に生まれ育つことを意味します。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Brainstorm",
+        "options": [
+            "脳の嵐",
+            "アイデアを出し合う",
+            "頭痛がする",
+            "混乱する"
+        ],
+        "correct": 1,
+        "explanation": "集団で自由に意見を出し合い、新しいアイデアを生み出す会議手法のことです。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Break the ice",
+        "options": [
+            "氷を割る",
+            "緊張をほぐす / 口火を切る",
+            "カクテルを作る",
+            "冬の海に入る"
+        ],
+        "correct": 1,
+        "explanation": "初対面の人や緊張した場の空気を和ませる、「打ち解けさせる」という意味です。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Break the news",
+        "options": [
+            "ニュースを壊す",
+            "（悪い）知らせを伝える",
+            "新聞を破る",
+            "テレビを消す"
+        ],
+        "correct": 1,
+        "explanation": "特に重要な、あるいは不快なニュースを初めて相手に伝えることを指します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Bring home the bacon",
+        "options": [
+            "ベーコンを持ち帰る",
+            "生活費を稼ぐ",
+            "買い物に行く",
+            "料理が得意だ"
+        ],
+        "correct": 1,
+        "explanation": "「生活費を稼ぐ」「一家を養う」という意味です。昔、成功の証としてベーコンを得たことに由来する説があります。",
+        "difficulty": "common"
+    },
+    {
+        "idiom": "Burn the candle at both ends",
+        "options": [
+            "ロウソクの両端を燃やす",
+            "精根尽き果てるまで働く / 無理をする",
+            "無駄遣いをする",
+            "停電に備える"
+        ],
+        "correct": 1,
+        "explanation": "朝早くから夜遅くまで働きすぎて、「無理を重ねて体力を消耗する」ことへの警告として使われます。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Bury the hatchet",
+        "options": [
+            "斧（おの）を埋める",
+            "和解する / 争いをやめる",
+            "武器を隠す",
+            "宝探しをする"
+        ],
+        "correct": 1,
+        "explanation": "ネイティブアメリカンが和睦の際に武器を埋めた儀式に由来し、「仲直りする」「停戦する」という意味です。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Butterflies in one's stomach",
+        "options": [
+            "胃の中に蝶がいる",
+            "ドキドキして落ち着かない",
+            "お腹が痛い",
+            "食欲がない"
+        ],
+        "correct": 1,
+        "explanation": "緊張や不安（あるいは恋のときめき）で、お腹のあたりがソワソワする感覚を表します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "By the book",
+        "options": [
+            "本によって",
+            "規則通りに / マニュアル通りに",
+            "本を読みながら",
+            "本棚の横にある"
+        ],
+        "correct": 1,
+        "explanation": "ルールや規則を厳格に守って、「杓子定規に」「型通りに」物事を行うことです。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "By the skin of one's teeth",
+        "options": [
+            "歯の皮一枚で",
+            "かろうじて / 間一髪で",
+            "歯茎を見せて",
+            "笑顔で"
+        ],
+        "correct": 1,
+        "explanation": "「首の皮一枚で」と同様に、ごく僅かな差で危険を回避したり成功したりする、「間一髪」の状況です。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Call the shots",
+        "options": [
+            "発砲を命じる",
+            "指揮を執る / 決定権を持つ",
+            "注射をする",
+            "写真を撮る"
+        ],
+        "correct": 1,
+        "explanation": "その場の支配権を持ち、あれこれと指示を出したり決定を下したりする人のことです。",
+        "difficulty": "common"
+    },
+    {
+        "idiom": "Can't judge a book by its cover",
+        "options": [
+            "表紙で本を判断できない（見かけによらない）",
+            "本は中身が大事",
+            "装丁家になる",
+            "本屋に行く"
+        ],
+        "correct": 0,
+        "explanation": "外見だけでその人の本質や価値を判断してはいけないという教訓です。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Carrot and stick",
+        "options": [
+            "アメとムチ",
+            "野菜と木切れ",
+            "ウサギのエサ",
+            "報酬と罰"
+        ],
+        "correct": 0,
+        "explanation": "馬を走らせるために目の前にニンジンをぶら下げ、後ろから鞭打つことから、褒美と罰を使い分ける手法のことです。",
+        "difficulty": "beginner"
+    },
+    {
+        "idiom": "Cash cow",
+        "options": [
+            "現金の牛",
+            "ドル箱 / 稼ぎ頭",
+            "高い牛肉",
+            "牧場経営"
+        ],
+        "correct": 1,
+        "explanation": "継続的に大きな利益を生み出してくれる商品や事業のことで、ビジネス用語としても使われます。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Cast pearls before swine",
+        "options": [
+            "豚に真珠",
+            "真珠を海に投げる",
+            "宝石店を開く",
+            "動物園に行く"
+        ],
+        "correct": 0,
+        "explanation": "価値のわからない者に貴重なものを与えても無駄であるという意味の、聖書由来の言葉です。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Catch red-handed",
+        "options": [
+            "赤い手で捕まえる",
+            "現行犯で捕まえる",
+            "握手をする",
+            "ペンキ塗りをする"
+        ],
+        "correct": 1,
+        "explanation": "悪事を働いているまさにその現場を押さえる、「現行犯逮捕する」という意味です。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Change of heart",
+        "options": [
+            "心臓移植",
+            "心変わり / 気持ちの変化",
+            "性格が変わる",
+            "改心する"
+        ],
+        "correct": 1,
+        "explanation": "特に良い方向へ、考えや態度が変わることを指します。",
+        "difficulty": "common"
+    },
+    {
+        "idiom": "Chew the fat",
+        "options": [
+            "脂肪を噛む",
+            "おしゃべりする / 雑談する",
+            "ダイエットする",
+            "脂っこいものを食べる"
+        ],
+        "correct": 1,
+        "explanation": "気楽に長い時間「おしゃべりする」「世間話をする」という意味のスラングです。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Chip on one's shoulder",
+        "options": [
+            "肩に乗った木片",
+            "喧嘩腰の態度 / 恨み",
+            "肩こり",
+            "重い荷物"
+        ],
+        "correct": 1,
+        "explanation": "過去の出来事から、怒りや恨みを抱えていて、「いつでも喧嘩を買うぞ」という挑戦的な態度のことです。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Close call",
+        "options": [
+            "近い呼び出し",
+            "危機一髪 / 際どいところ",
+            "電話が鳴る",
+            "訪問者"
+        ],
+        "correct": 1,
+        "explanation": "もう少しで事故や失敗になるところだった、「ヒヤリとする場面」「危機一髪」のことです。",
+        "difficulty": "common"
+    },
+    {
+        "idiom": "Cold feet",
+        "options": [
+            "冷たい足",
+            "怖気づく / 逃げ腰になる",
+            "しもやけ",
+            "足湯に入る"
+        ],
+        "correct": 1,
+        "explanation": "結婚式などの重要なイベントの直前に、急に恐ろしくなって「怖気づく」ことを指します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Cold shoulder",
+        "options": [
+            "冷たい肩",
+            "よそよそしい態度 / 無視",
+            "肩出しドレス",
+            "五十肩"
+        ],
+        "correct": 1,
+        "explanation": "人を意図的に無視したり、冷たくあしらうこと。「Give someone the cold shoulder」と言います。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Come rain or shine",
+        "options": [
+            "雨でも晴れでも",
+            "どんなことがあっても必ず",
+            "天気が変わりやすい",
+            "傘を持っていく"
+        ],
+        "correct": 1,
+        "explanation": "天候に関わらず、転じて「何があっても必ず（実行する）」という決意を表します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Cost a pretty penny",
+        "options": [
+            "きれいなペニー硬貨",
+            "かなりの金額がかかる",
+            "小銭を集める",
+            "お金を拾う"
+        ],
+        "correct": 1,
+        "explanation": "「Cost an arm and a leg」と同様に、物が非常に高価であることを表す少し古い表現です。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Couch potato",
+        "options": [
+            "カウチの上のジャガイモ",
+            "テレビばかり見ている怠け者",
+            "ポテトチップス",
+            "野菜嫌い"
+        ],
+        "correct": 1,
+        "explanation": "一日中ソファーに座ってテレビを見たり、ジャンクフードを食べたりしている怠惰な生活を送る人のことです。",
+        "difficulty": "common"
+    },
+    {
+        "idiom": "Crack a book",
+        "options": [
+            "本を割る",
+            "勉強を始める（本を開く）",
+            "本を破る",
+            "読書感想文を書く"
+        ],
+        "correct": 1,
+        "explanation": "主に否定文で使われ、「本を開く（勉強する）」という意味です。「He never cracks a book.（彼は全く勉強しない）」",
+        "difficulty": "common"
+    },
+    {
+        "idiom": "Cross that bridge when you come to it",
+        "options": [
+            "橋に来たら渡る（取り越し苦労はしない）",
+            "橋を建設する",
+            "川を泳いで渡る",
+            "橋が壊れている"
+        ],
+        "correct": 0,
+        "explanation": "まだ起こってもいない問題を心配せず、実際にその事態になったら対処すればいいという意味です。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Cry wolf",
+        "options": [
+            "狼だと叫ぶ",
+            "嘘をついて人を騒がせる",
+            "狼男に変身する",
+            "動物園に行く"
+        ],
+        "correct": 1,
+        "explanation": "イソップ寓話「オオカミ少年」に由来し、嘘の助けを求めて騒ぎ立てることを指します。",
+        "difficulty": "intermediate"
+    },
+    {
+        "idiom": "Cup of tea",
+        "options": [
+            "紅茶一杯",
+            "好みのもの / 得意なもの",
+            "ティータイム",
+            "苦手なもの"
+        ],
+        "correct": 1,
+        "explanation": "「My cup of tea」で「私の好み」「私の得意分野」という意味になります。否定文でよく使われます（好みじゃない）。",
+        "difficulty": "common"
+    },
+    {
+        "idiom": "Cut to the quick",
+        "options": [
+            "急所を切る",
+            "深く傷つく（心情的に）",
+            "素早くカットする",
+            "爪を切る"
+        ],
+        "correct": 1,
+        "explanation": "批判や言葉が人の心の痛いところを突き、「深く傷つける」ことを意味します。",
+        "difficulty": "advanced"
+    },
+    {
+        "idiom": "Dark horse",
+        "options": [
+            "黒い馬",
+            "ダークホース / 予想外の実力者",
+            "競馬場に行く",
+            "夜に走る馬"
+        ],
+        "correct": 1,
+        "explanation": "実力が未知数で、番狂わせを起こして勝利する可能性のある人（穴馬）のことです。",
+        "difficulty": "intermediate"
+    }
+]

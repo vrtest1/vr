@@ -1,0 +1,662 @@
+[
+  {
+    "idiom": "Piece of cake",
+    "options": [
+      "ケーキ一切れ",
+      "とても簡単なこと",
+      "特別なご褒美",
+      "誕生日パーティー"
+    ],
+    "correct": 1,
+    "explanation": "「A piece of cake」は「とても簡単なこと」「朝飯前」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Break a leg",
+    "options": [
+      "足を骨折する",
+      "舞台を中止する",
+      "幸運を祈る",
+      "大失敗する"
+    ],
+    "correct": 2,
+    "explanation": "「Break a leg」は「幸運を祈る」という意味です。演劇界で使われます。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Once in a blue moon",
+    "options": [
+      "青い月が出るとき",
+      "毎晩のこと",
+      "ごく稀に",
+      "不可能なこと"
+    ],
+    "correct": 2,
+    "explanation": "「Once in a blue moon」は「ごく稀に」「滅多にない」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Spill the beans",
+    "options": [
+      "豆をこぼす",
+      "料理に失敗する",
+      "秘密を漏らす",
+      "嘘をつく"
+    ],
+    "correct": 2,
+    "explanation": "「Spill the beans」は「秘密を漏らす」「うっかり喋ってしまう」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Under the weather",
+    "options": [
+      "天気が悪い",
+      "具合が悪い",
+      "雨宿りをする",
+      "気分が良い"
+    ],
+    "correct": 1,
+    "explanation": "「Under the weather」は「体の具合が悪い」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Cost an arm and a leg",
+    "options": [
+      "手足が痛む",
+      "非常に高価だ",
+      "怪我をする",
+      "安く手に入る"
+    ],
+    "correct": 1,
+    "explanation": "「Cost an arm and a leg」は「非常に高価だ」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Hit the sack",
+    "options": [
+      "サンドバッグを叩く",
+      "仕事に行く",
+      "寝る",
+      "買い物に行く"
+    ],
+    "correct": 2,
+    "explanation": "「Hit the sack」は「寝る」「ベッドに入る」という意味のスラングです。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Bite the bullet",
+    "options": [
+      "弾丸を噛む",
+      "危険を冒す",
+      "我慢してやる",
+      "急いで逃げる"
+    ],
+    "correct": 2,
+    "explanation": "「Bite the bullet」は「嫌なことを我慢してやる」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Let the cat out of the bag",
+    "options": [
+      "猫を袋から出す",
+      "秘密を暴露する",
+      "猫を飼い始める",
+      "旅行に行く"
+    ],
+    "correct": 1,
+    "explanation": "「Let the cat out of the bag」は「（うっかり）秘密を暴露する」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "The early bird catches the worm",
+    "options": [
+      "早起きは三文の徳",
+      "鳥は虫が好き",
+      "急がば回れ",
+      "二兎を追う者は一兎をも得ず"
+    ],
+    "correct": 0,
+    "explanation": "「The early bird catches the worm」は「早起きは三文の徳」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Barking up the wrong tree",
+    "options": [
+      "木に登る",
+      "間違った人を非難する / お門違い",
+      "犬の散歩をする",
+      "森林浴をする"
+    ],
+    "correct": 1,
+    "explanation": "「Barking up the wrong tree」は「見当違いをする」「お門違いなことをする」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Beat around the bush",
+    "options": [
+      "草むらを叩く",
+      "遠回しに言う",
+      "庭の手入れをする",
+      "正直に話す"
+    ],
+    "correct": 1,
+    "explanation": "「Beat around the bush」は「遠回しに言う」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Better late than never",
+    "options": [
+      "遅れるならしない方がいい",
+      "遅れてもやらないよりマシ",
+      "時間は守るべき",
+      "決して遅れるな"
+    ],
+    "correct": 1,
+    "explanation": "「Better late than never」は「遅れても、全くやらないよりはマシだ」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Call it a day",
+    "options": [
+      "日付を決める",
+      "電話をかける",
+      "今日の仕事を切り上げる",
+      "天気を予測する"
+    ],
+    "correct": 2,
+    "explanation": "「Call it a day」は「今日の仕事を切り上げる」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Cut corners",
+    "options": [
+      "角を切る",
+      "近道をする",
+      "手抜きをする",
+      "鋭利な刃物を使う"
+    ],
+    "correct": 2,
+    "explanation": "「Cut corners」は「手抜きをする」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Get out of hand",
+    "options": [
+      "手が離せない",
+      "手に負えなくなる",
+      "手ぶらで帰る",
+      "手助けをする"
+    ],
+    "correct": 1,
+    "explanation": "「Get out of hand」は「手に負えなくなる」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Hit the nail on the head",
+    "options": [
+      "頭を打つ",
+      "釘を打つ",
+      "図星を指す / 的を射る",
+      "大工仕事をする"
+    ],
+    "correct": 2,
+    "explanation": "「Hit the nail on the head」は「的確なことを言う」「図星を指す」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "It's not rocket science",
+    "options": [
+      "ロケット科学ではない",
+      "そんなに難しくない",
+      "宇宙に行けない",
+      "科学的根拠がない"
+    ],
+    "correct": 1,
+    "explanation": "「It's not rocket science」は「そんなに難しいことではない」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Miss the boat",
+    "options": [
+      "船に乗り遅れる",
+      "好機を逃す",
+      "ボートを漕ぐ",
+      "旅行をキャンセルする"
+    ],
+    "correct": 1,
+    "explanation": "「Miss the boat」は「チャンスを逃す」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "No pain, no gain",
+    "options": [
+      "痛み止めがない",
+      "苦労なくして得られるものはない",
+      "痛みがなければ成長しない",
+      "怪我の功名"
+    ],
+    "correct": 1,
+    "explanation": "「No pain, no gain」は「苦労なくして得られるものはない」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "On the ball",
+    "options": [
+      "ボールの上に乗る",
+      "準備万端で / 有能で",
+      "球技が得意",
+      "バランスを保つ"
+    ],
+    "correct": 1,
+    "explanation": "「On the ball」は「注意が行き届いている」「機敏だ」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Pull someone's leg",
+    "options": [
+      "足を引っ張る（邪魔する）",
+      "足をマッサージする",
+      "からかう / 担ぐ",
+      "助けを求める"
+    ],
+    "correct": 2,
+    "explanation": "「Pull someone's leg」は「からかう」という意味です。",
+    "difficulty": "common"
+  },
+  {
+    "idiom": "Speak of the devil",
+    "options": [
+      "悪魔の話をする",
+      "噂をすれば影",
+      "罵倒する",
+      "怖い話をする"
+    ],
+    "correct": 1,
+    "explanation": "「Speak of the devil」は「噂をすれば影がさす」という意味です。",
+    "difficulty": "common"
+  },
+  {
+    "idiom": "That's the last straw",
+    "options": [
+      "最後のストロー",
+      "もう我慢の限界だ",
+      "残り物には福がある",
+      "諦めるにはまだ早い"
+    ],
+    "correct": 1,
+    "explanation": "「That's the last straw」は「我慢の限界を超える最後の一撃」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Time flies",
+    "options": [
+      "ハエが飛ぶ",
+      "飛行機の時間",
+      "光陰矢の如し（時間が経つのは早い）",
+      "時間を無駄にする"
+    ],
+    "correct": 2,
+    "explanation": "「Time flies」は「時間が経つのは早い」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Twist someone's arm",
+    "options": [
+      "腕をひねる",
+      "無理やり説得する",
+      "腕相撲をする",
+      "握手をする"
+    ],
+    "correct": 1,
+    "explanation": "「Twist someone's arm」は「（強引に）説得する」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Under the table",
+    "options": [
+      "テーブルの下に隠れる",
+      "酔っ払って",
+      "不正に / 秘密裏に",
+      "掃除をする"
+    ],
+    "correct": 2,
+    "explanation": "「Under the table」は「不正に」「秘密裏に」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Wrap your head around something",
+    "options": [
+      "頭に包帯を巻く",
+      "マフラーを巻く",
+      "（難しいことを）理解する",
+      "頭を抱える"
+    ],
+    "correct": 2,
+    "explanation": "「Wrap your head around something」は「（難しい概念を）理解する」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "You can say that again",
+    "options": [
+      "もう一度言ってください",
+      "その通りだ（全く同感だ）",
+      "聞こえませんでした",
+      "二度と言うな"
+    ],
+    "correct": 1,
+    "explanation": "「You can say that again」は「全くその通りだ」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "A penny for your thoughts",
+    "options": [
+      "1ペニーあげる",
+      "何を考えているの？",
+      "安っぽい考え",
+      "お金を払う価値がある"
+    ],
+    "correct": 1,
+    "explanation": "「A penny for your thoughts」は「何を考えているの？」と尋ねる決まり文句です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Action speaks louder than words",
+    "options": [
+      "声が大きい人は勝つ",
+      "言葉より行動が大事",
+      "行動する前に考える",
+      "演説は素晴らしい"
+    ],
+    "correct": 1,
+    "explanation": "「Action speaks louder than words」は「不言実行」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Add insult to injury",
+    "options": [
+      "怪我に侮辱を加える",
+      "踏んだり蹴ったり",
+      "傷口に塩を塗る",
+      "BとCの両方"
+    ],
+    "correct": 3,
+    "explanation": "「Add insult to injury」は「踏んだり蹴ったり」「泣きっ面に蜂」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "At the drop of a hat",
+    "options": [
+      "帽子を落とす",
+      "すぐに / 何の迷いもなく",
+      "帽子を拾う",
+      "おしゃれをする"
+    ],
+    "correct": 1,
+    "explanation": "「At the drop of a hat」は「即座に」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Ball is in your court",
+    "options": [
+      "ボール遊びをする",
+      "テニスの試合中",
+      "次はあなたの番だ",
+      "裁判所にいる"
+    ],
+    "correct": 2,
+    "explanation": "「Ball is in your court」は「次はあなたの番だ（決定権は君にある）」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Burn the midnight oil",
+    "options": [
+      "油を燃やす",
+      "夜遅くまで勉強や仕事をする",
+      "料理をする",
+      "キャンプファイヤーをする"
+    ],
+    "correct": 1,
+    "explanation": "「Burn the midnight oil」は「夜遅くまで作業する」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Caught between a rock and a hard place",
+    "options": [
+      "岩に挟まる",
+      "板挟みになる / 進退窮まる",
+      "ロッククライミングをする",
+      "硬い場所に座る"
+    ],
+    "correct": 1,
+    "explanation": "「Caught between a rock and a hard place」は「板挟みになる」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Cry over spilt milk",
+    "options": [
+      "こぼれたミルクを見て泣く",
+      "覆水盆に返らず",
+      "牛乳を買う",
+      "子供をあやす"
+    ],
+    "correct": 1,
+    "explanation": "「Cry over spilt milk」は「済んだことを後悔する」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Curiosity killed the cat",
+    "options": [
+      "好奇心は猫を殺す",
+      "猫は好奇心が強い",
+      "猫を助ける",
+      "動物愛護の精神"
+    ],
+    "correct": 0,
+    "explanation": "「Curiosity killed the cat」は「過度な好奇心は身を滅ぼす」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Cut to the chase",
+    "options": [
+      "映画の編集をする",
+      "追跡シーンをカットする",
+      "要点を言う",
+      "逃げる"
+    ],
+    "correct": 2,
+    "explanation": "「Cut to the chase」は「単刀直入に言う」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Don't count your chickens before they hatch",
+    "options": [
+      "卵を数えるな",
+      "取らぬ狸の皮算用",
+      "鶏を育てる",
+      "養鶏場を経営する"
+    ],
+    "correct": 1,
+    "explanation": "「Don't count your chickens before they hatch」は「不確実な利益をあてにするな」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Every cloud has a silver lining",
+    "options": [
+      "雲は銀色だ",
+      "どんな悪いことにも良い側面がある",
+      "雨のち晴れ",
+      "銀の裏地を探す"
+    ],
+    "correct": 1,
+    "explanation": "「Every cloud has a silver lining」は「希望はある」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Hear it through the grapevine",
+    "options": [
+      "ブドウ畑で聞く",
+      "人づてに聞く",
+      "ワインを飲みながら話す",
+      "果物を収穫する"
+    ],
+    "correct": 1,
+    "explanation": "「Hear it through the grapevine」は「噂で聞く」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "In the heat of the moment",
+    "options": [
+      "暑い瞬間に",
+      "カッとなって",
+      "暖房の中で",
+      "情熱的に"
+    ],
+    "correct": 1,
+    "explanation": "「In the heat of the moment」は「興奮して」「カッとなって」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Jump on the bandwagon",
+    "options": [
+      "楽隊車に乗る",
+      "時流に乗る / 勝ち馬に乗る",
+      "バンドを始める",
+      "パレードに参加する"
+    ],
+    "correct": 1,
+    "explanation": "「Jump on the bandwagon」は「流行に乗る」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Keep something at bay",
+    "options": [
+      "湾に留めておく",
+      "食い止める / 寄せ付けない",
+      "ボートを停泊させる",
+      "犬に吠えさせる"
+    ],
+    "correct": 1,
+    "explanation": "「Keep something at bay」は「（悪いものを）寄せ付けない」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Kill two birds with one stone",
+    "options": [
+      "一石二鳥",
+      "鳥を石で捕る",
+      "残酷なこと",
+      "効率が悪い"
+    ],
+    "correct": 0,
+    "explanation": "「Kill two birds with one stone」は「一石二鳥」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Leave no stone unturned",
+    "options": [
+      "石をひっくり返さない",
+      "あらゆる手段を尽くす",
+      "石を集める",
+      "自然を大切にする"
+    ],
+    "correct": 1,
+    "explanation": "「Leave no stone unturned」は、すべての石をひっくり返して探すように、「あらゆる手段を尽くして探す・調べる」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "On thin ice",
+    "options": [
+      "薄氷の上",
+      "危険な状況で",
+      "スケートをする",
+      "冷たい態度で"
+    ],
+    "correct": 1,
+    "explanation": "「On thin ice」は、割れそうな薄い氷の上にいることから、「危険な状況にある」、「危うい立場にいる」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Play devil's advocate",
+    "options": [
+      "悪魔の弁護をする",
+      "あえて反対意見を言う",
+      "法律家になる",
+      "悪魔を崇拝する"
+    ],
+    "correct": 1,
+    "explanation": "「Play devil's advocate」は、議論を深めるために「あえて反対の立場をとる」、「異論を唱える」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Rain on someone's parade",
+    "options": [
+      "パレードで雨が降る",
+      "楽しみを台無しにする",
+      "雨宿りをする",
+      "パレードに参加する"
+    ],
+    "correct": 1,
+    "explanation": "「Rain on someone's parade」は、せっかくのパレードに雨を降らせるように、「（人の）楽しみを台無しにする」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Saving for a rainy day",
+    "options": [
+      "雨の日のために貯金する",
+      "万が一に備える",
+      "雨具を買う",
+      "天気予報を見る"
+    ],
+    "correct": 1,
+    "explanation": "「Saving for a rainy day」は、困った時（雨の日）のために「万が一に備えて貯金する」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Steal someone's thunder",
+    "options": [
+      "雷を盗む",
+      "手柄を横取りする",
+      "大きな音を出す",
+      "天気を操る"
+    ],
+    "correct": 1,
+    "explanation": "「Steal someone's thunder」は、人がやろうとしていたことを先取りしたり、「手柄を横取りする」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Take it with a grain of salt",
+    "options": [
+      "塩をかけて食べる",
+      "話半分に聞く",
+      "塩対応する",
+      "味付けをする"
+    ],
+    "correct": 1,
+    "explanation": "「Take it with a grain of salt」は、そのまま鵜呑みにせず、「話半分に聞く」、「疑ってかかる」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Through thick and thin",
+    "options": [
+      "厚くても薄くても",
+      "どんな時も / 良い時も悪い時も",
+      "ダイエットをする",
+      "料理をする"
+    ],
+    "correct": 1,
+    "explanation": "「Through thick and thin」は、どんな困難な状況下でも、「良い時も悪い時もずっと」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Throw in the towel",
+    "options": [
+      "タオルを投げる",
+      "降参する / 諦める",
+      "タオルを洗濯する",
+      "お風呂に入る"
+    ],
+    "correct": 1,
+    "explanation": "「Throw in the towel」は、ボクシングでセコンドがタオルを投げ入れることから、「降参する」、「諦める」という意味です。",
+    "difficulty": "common"
+  }
+]
