@@ -261,7 +261,7 @@
     ],
     "correct": 2,
     "explanation": "「Pull someone's leg」は「からかう」という意味です。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "Speak of the devil",
@@ -273,7 +273,7 @@
     ],
     "correct": 1,
     "explanation": "「Speak of the devil」は「噂をすれば影がさす」という意味です。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "That's the last straw",
@@ -375,11 +375,11 @@
     "idiom": "Add insult to injury",
     "options": [
       "怪我に侮辱を加える",
-      "踏んだり蹴ったり",
-      "傷口に塩を塗る",
-      "BとCの両方"
+      "踏んだり蹴ったり（泣きっ面に蜂）",
+      "傷口を治療する",
+      "侮辱を許す"
     ],
-    "correct": 3,
+    "correct": 1,
     "explanation": "「Add insult to injury」は「踏んだり蹴ったり」「泣きっ面に蜂」という意味です。",
     "difficulty": "advanced"
   },
@@ -657,7 +657,7 @@
     ],
     "correct": 1,
     "explanation": "「Throw in the towel」は、ボクシングでセコンドがタオルを投げ入れることから、「降参する」、「諦める」という意味です。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "A bad workman always blames his tools",
@@ -705,7 +705,7 @@
     ],
     "correct": 1,
     "explanation": "ギリシャ神話の英雄アキレウスの唯一の弱点であった踵（かかと）から、「致命的な弱点」を意味します。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "Actions speak louder than words",
@@ -1065,7 +1065,7 @@
     ],
     "correct": 1,
     "explanation": "友人などの紹介で、会ったことのない相手とデートすることです。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "Blood is thicker than water",
@@ -1173,7 +1173,7 @@
     ],
     "correct": 1,
     "explanation": "「生活費を稼ぐ」「一家を養う」という意味です。昔、成功の証としてベーコンを得たことに由来する説があります。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "Burn the candle at both ends",
@@ -1245,7 +1245,7 @@
     ],
     "correct": 1,
     "explanation": "その場の支配権を持ち、あれこれと指示を出したり決定を下したりする人のことです。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "Can't judge a book by its cover",
@@ -1265,7 +1265,7 @@
       "アメとムチ",
       "野菜と木切れ",
       "ウサギのエサ",
-      "報酬と罰"
+      "家庭菜園"
     ],
     "correct": 0,
     "explanation": "馬を走らせるために目の前にニンジンをぶら下げ、後ろから鞭打つことから、褒美と罰を使い分ける手法のことです。",
@@ -1317,7 +1317,7 @@
     ],
     "correct": 1,
     "explanation": "特に良い方向へ、考えや態度が変わることを指します。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "Chew the fat",
@@ -1353,7 +1353,7 @@
     ],
     "correct": 1,
     "explanation": "もう少しで事故や失敗になるところだった、「ヒヤリとする場面」「危機一髪」のことです。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "Cold feet",
@@ -1413,7 +1413,7 @@
     ],
     "correct": 1,
     "explanation": "一日中ソファーに座ってテレビを見たり、ジャンクフードを食べたりしている怠惰な生活を送る人のことです。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "Crack a book",
@@ -1425,7 +1425,7 @@
     ],
     "correct": 1,
     "explanation": "主に否定文で使われ、「本を開く（勉強する）」という意味です。「He never cracks a book.（彼は全く勉強しない）」",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "Cross that bridge when you come to it",
@@ -1461,7 +1461,7 @@
     ],
     "correct": 1,
     "explanation": "「My cup of tea」で「私の好み」「私の得意分野」という意味になります。否定文でよく使われます（好みじゃない）。",
-    "difficulty": "common"
+    "difficulty": "beginner"
   },
   {
     "idiom": "Cut to the quick",
@@ -1485,6 +1485,882 @@
     ],
     "correct": 1,
     "explanation": "実力が未知数で、番狂わせを起こして勝利する可能性のある人（穴馬）のことです。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "A dime a dozen",
+    "options": [
+      "1ダース10セント",
+      "ありふれている / ごく普通のもの",
+      "非常に高価なもの",
+      "珍しい硬貨"
+    ],
+    "correct": 1,
+    "explanation": "「A dime a dozen」は、どこにでもある、ありふれたものという意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Bite off more than you can chew",
+    "options": [
+      "噛める以上に噛み切る",
+      "自分の能力以上のことを引き受ける",
+      "大食い競争をする",
+      "早食いをする"
+    ],
+    "correct": 1,
+    "explanation": "「Bite off more than you can chew」は、自分の能力を超えた無理なことをしようとするという意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "By the skin of your teeth",
+    "options": [
+      "歯の皮で",
+      "間一髪で / ギリギリで",
+      "歯を食いしばって",
+      "笑顔で"
+    ],
+    "correct": 1,
+    "explanation": "「By the skin of your teeth」は、ほんのわずかな差で、間一髪で難を逃れる時に使います。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Don't judge a book by its cover",
+    "options": [
+      "本の表紙で判断するな（見かけで判断するな）",
+      "本はカバーをつけて読むべき",
+      "立ち読みをしてはいけない",
+      "本の内容は表紙と関係ない"
+    ],
+    "correct": 0,
+    "explanation": "「Don't judge a book by its cover」は、外見だけで中身や価値を判断してはいけないという意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Drawing a blank",
+    "options": [
+      "空白を描く",
+      "何も思い出せない / 頭が真っ白になる",
+      "絵を描くのをやめる",
+      "白紙に戻す"
+    ],
+    "correct": 1,
+    "explanation": "「Drawing a blank」は、答えや記憶を呼び出そうとしても何も出てこない（思い出せない）状態のことです。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Elephant in the room",
+    "options": [
+      "部屋に象がいる（物理的）",
+      "見て見ぬふりをされている大きな問題",
+      "動物園の飼育員",
+      "部屋が狭すぎる"
+    ],
+    "correct": 1,
+    "explanation": "「Elephant in the room」は、誰もが気付いているが、あえて触れようとしない明らかな問題のことです。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Fit as a fiddle",
+    "options": [
+      "バイオリンのように合う",
+      "とても健康で / ピンピンして",
+      "楽器の演奏が得意",
+      "体調が悪い"
+    ],
+    "correct": 1,
+    "explanation": "「Fit as a fiddle」は、体調が万全で、とても健康的であるという意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Get a taste of your own medicine",
+    "options": [
+      "自分の薬を味見する",
+      "しっぺ返しを食らう",
+      "病気が治る",
+      "医者になる"
+    ],
+    "correct": 1,
+    "explanation": "「Get a taste of your own medicine」は、自分が他人にやった悪いことを、自分もやり返される（自業自得）という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Giving someone the cold shoulder",
+    "options": [
+      "冷たい肩を与える",
+      "よそよそしい態度をとる / 無視する",
+      "肩をマッサージする",
+      "風邪をうつす"
+    ],
+    "correct": 1,
+    "explanation": "「Give someone the cold shoulder」は、意図的に冷たくあしらったり、無視したりすることです。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Go the extra mile",
+    "options": [
+      "余分に1マイル走る",
+      "期待以上の努力をする",
+      "長距離走をする",
+      "遠回りをする"
+    ],
+    "correct": 1,
+    "explanation": "「Go the extra mile」は、求められている以上のことをする、一層の努力をするという意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Hang in there",
+    "options": [
+      "そこにぶら下がる",
+      "諦めずに頑張る",
+      "電話を切らずに待つ",
+      "高いところに登る"
+    ],
+    "correct": 1,
+    "explanation": "「Hang in there」は、困難な状況でも「諦めずに耐える」「頑張り続ける」という励ましの言葉です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Hit the hay",
+    "options": [
+      "干し草を叩く",
+      "寝る",
+      "畑仕事をする",
+      "牛に餌をやる"
+    ],
+    "correct": 1,
+    "explanation": "「Hit the hay」は「寝る」「ベッドに入る」という意味のスラングです（Hit the sackと同じ）。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "In the same boat",
+    "options": [
+      "同じ船に乗っている",
+      "同じ境遇にある（運命共同体）",
+      "船酔いしている",
+      "釣り仲間"
+    ],
+    "correct": 1,
+    "explanation": "「In the same boat」は、他人と同じ困難な状況や立場にあることを意味します。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "It takes two to tango",
+    "options": [
+      "タンゴを踊るには2人必要",
+      "喧嘩両成敗（責任は双方にある）",
+      "ダンスパーティーに行く",
+      "協力して何かする"
+    ],
+    "correct": 1,
+    "explanation": "「It takes two to tango」は、揉め事などは片方だけの責任ではなく、双方に原因があるという意味でよく使われます。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Kill time",
+    "options": [
+      "時間を殺す",
+      "暇つぶしをする",
+      "時計を止める",
+      "時間を無駄にしない"
+    ],
+    "correct": 1,
+    "explanation": "「Kill time」は、待ち時間など何もしない時間を埋めるために「暇つぶしをする」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Let sleeping dogs lie",
+    "options": [
+      "寝ている犬を嘘つかせる",
+      "寝た子を起こすな（そっとしておく）",
+      "犬と一緒に寝る",
+      "犬を起こして遊ぶ"
+    ],
+    "correct": 1,
+    "explanation": "「Let sleeping dogs lie」は、問題を蒸し返さないように「そっとしておく」「波風を立てない」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Light at the end of the tunnel",
+    "options": [
+      "トンネルの終わりの明かり",
+      "苦難の後の希望",
+      "トンネル工事の完了",
+      "懐中電灯"
+    ],
+    "correct": 1,
+    "explanation": "「Light at the end of the tunnel」は、長い困難な時期の終わりに見える希望の兆しのことです。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Look before you leap",
+    "options": [
+      "跳ぶ前に見ろ",
+      "転ばぬ先の杖（行動する前によく考えろ）",
+      "高飛びの練習をする",
+      "景色を楽しむ"
+    ],
+    "correct": 1,
+    "explanation": "「Look before you leap」は、思い切った行動をとる前に、結果や危険性についてよく考えるべきだという意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Make a long story short",
+    "options": [
+      "長い話を短くする",
+      "要するに / 手短に言うと",
+      "小説を書く",
+      "嘘をつく"
+    ],
+    "correct": 1,
+    "explanation": "「Make a long story short」は、詳細を省いて「手短に話す」「要点を言う」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Method to my madness",
+    "options": [
+      "狂気への方法",
+      "一見デタラメに見えても筋が通っている",
+      "精神的な修行",
+      "奇妙な実験"
+    ],
+    "correct": 1,
+    "explanation": "「Method to my madness」は、奇妙に見える行動にも、実はちゃんとした理由や計画があるという意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Not my cup of tea",
+    "options": [
+      "私のお茶ではない",
+      "私の好みではない",
+      "お茶を飲まない",
+      "紅茶派ではない"
+    ],
+    "correct": 1,
+    "explanation": "「Not my cup of tea」は、物や人が「自分の好みではない」「趣味に合わない」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Off the hook",
+    "options": [
+      "フックから外れて",
+      "責任を免れて / 窮地を脱して",
+      "電話が鳴り止まない",
+      "魚釣りに行く"
+    ],
+    "correct": 1,
+    "explanation": "「Off the hook」は、義務や困難な状況、責任などから解放されることを意味します。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "On the fence",
+    "options": [
+      "フェンスの上に座る",
+      "どっちつかずで / 迷って",
+      "庭仕事をする",
+      "危険な真似をする"
+    ],
+    "correct": 1,
+    "explanation": "「On the fence」は、二つの選択肢の間で迷っていて、態度を決めかねている状態です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Out of the blue",
+    "options": [
+      "青空から",
+      "出し抜けに / 突然",
+      "憂鬱から抜け出す",
+      "海へ行く"
+    ],
+    "correct": 1,
+    "explanation": "「Out of the blue」は、全く予期せずに「突然」「いきなり」何かが起こることです。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Picture is worth a thousand words",
+    "options": [
+      "絵は千の言葉に値する",
+      "百聞は一見に如かず",
+      "絵画は高価だ",
+      "言葉より文字が良い"
+    ],
+    "correct": 1,
+    "explanation": "「A picture is worth a thousand words」は、長々と説明するより一枚の絵を見せる方が伝わる（百聞は一見に如かず）という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Pull yourself together",
+    "options": [
+      "自分を引っ張る",
+      "落ち着く / 気を取り直す",
+      "服を着替える",
+      "仲間を集める"
+    ],
+    "correct": 1,
+    "explanation": "「Pull yourself together」は、取り乱している人に対して「しっかりしろ」「落ち着け」と声をかける表現です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Ring a bell",
+    "options": [
+      "ベルを鳴らす",
+      "聞き覚えがある / ピンとくる",
+      "電話をかける",
+      "チャイムを修理する"
+    ],
+    "correct": 1,
+    "explanation": "「Ring a bell」は、以前に聞いたり見たりしたことがあり「なんとなく記憶にある」「ピンとくる」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Rule of thumb",
+    "options": [
+      "親指のルール",
+      "経験則 / おおよその目安",
+      "指相撲のルール",
+      "厳しい規則"
+    ],
+    "correct": 1,
+    "explanation": "「Rule of thumb」は、厳密な測定ではなく、経験に基づいた「大まかな目安」や「経験則」のことです。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Sit tight",
+    "options": [
+      "きつく座る",
+      "じっと待つ / 動かずにいる",
+      "狭い席に座る",
+      "ベルトを締める"
+    ],
+    "correct": 1,
+    "explanation": "「Sit tight」は、状況が変わるまで、あるいは指示があるまで「じっとして待つ」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Sleep on it",
+    "options": [
+      "その上で寝る",
+      "一晩考える（即決を避ける）",
+      "寝坊する",
+      "夢を見る"
+    ],
+    "correct": 1,
+    "explanation": "「Sleep on it」は、重大な決定などをすぐに下さず、「一晩寝てよく考える」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Spill the tea",
+    "options": [
+      "お茶をこぼす",
+      "ゴシップを話す / 噂話をする",
+      "お茶会を開く",
+      "失敗をする"
+    ],
+    "correct": 1,
+    "explanation": "「Spill the tea」は最近のスラングで、「噂話（特にスキャンダルなこと）をぶちまける」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Take a rain check",
+    "options": [
+      "雨を確認する",
+      "またの機会にする（誘いを断る）",
+      "雨宿りをする",
+      "天気予報を見る"
+    ],
+    "correct": 1,
+    "explanation": "「Take a rain check」は、招待などを今は受けられないが「またの機会にお願いする」と丁寧に断る表現です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "The best of both worlds",
+    "options": [
+      "両方の世界のいいとこ取り",
+      "世界選抜",
+      "天国と地獄",
+      "矛盾している"
+    ],
+    "correct": 0,
+    "explanation": "「The best of both worlds」は、異なる二つの状況のそれぞれの利点を同時に享受できる状況（いいとこ取り）のことです。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Throw caution to the wind",
+    "options": [
+      "注意を風に投げる",
+      "思い切ったことをする / リスクを冒す",
+      "風向きを見る",
+      "慎重になる"
+    ],
+    "correct": 1,
+    "explanation": "「Throw caution to the wind」は、心配や用心を捨てて「大胆に行動する」「思い切ってリスクを冒す」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "To make matters worse",
+    "options": [
+      "さらに悪いことに",
+      "問題を解決するために",
+      "良くも悪くも",
+      "結局のところ"
+    ],
+    "correct": 0,
+    "explanation": "「To make matters worse」は、悪い状況において「さらに困ったことには」「なお悪いことに」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Under the radar",
+    "options": [
+      "レーダーの下で",
+      "目立たないように / 隠れて",
+      "スピード違反をする",
+      "飛行機に乗る"
+    ],
+    "correct": 1,
+    "explanation": "「Under the radar」は、誰にも気づかれないように「こっそりと」「目立たないように」行動することです。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Up in the air",
+    "options": [
+      "空中にある",
+      "未定である / 決まっていない",
+      "飛行機の中",
+      "大気汚染"
+    ],
+    "correct": 1,
+    "explanation": "「Up in the air」は、計画などがまだ「未定である」「はっきりしていない」状態を指します。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "When pigs fly",
+    "options": [
+      "豚が空を飛ぶ時",
+      "あり得ない話（絶対に起こらない）",
+      "未来の話",
+      "夢のある話"
+    ],
+    "correct": 1,
+    "explanation": "「When pigs fly」は、豚が空を飛ぶなんてあり得ないことから、「絶対に起こらないこと」の例えとして使われます。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Whole nine yards",
+    "options": [
+      "9ヤード全部",
+      "何もかも全て / 一切合切",
+      "アメリカンフットボール",
+      "長い布"
+    ],
+    "correct": 1,
+    "explanation": "「The whole nine yards」は、「徹底的に」「何もかも全て」という意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Your guess is as good as mine",
+    "options": [
+      "あなたの推測は私と同じくらい良い",
+      "私にもさっぱりわからない",
+      "いい勘してますね",
+      "賭けをしましょう"
+    ],
+    "correct": 1,
+    "explanation": "「Your guess is as good as mine」は、「私にもあなたと同じくらい情報がない」＝「私にも全くわからない」という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Zip your lip",
+    "options": [
+      "唇にジッパーをする",
+      "黙る / 口を慎む",
+      "口紅を塗る",
+      "早口で喋る"
+    ],
+    "correct": 1,
+    "explanation": "「Zip your lip」は、「口をチャックする」「黙る」という意味のカジュアルな命令形です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Break the bank",
+    "options": [
+      "銀行を壊す",
+      "大金を使う / 破産させるほどの出費",
+      "銀行強盗をする",
+      "貯金をする"
+    ],
+    "correct": 1,
+    "explanation": "「Break the bank」は、非常に高価であること、または手持ちのお金を使い果たすことを意味します。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Calm before the storm",
+    "options": [
+      "嵐の前の静けさ",
+      "嵐が過ぎ去った後",
+      "天気が回復する",
+      "大騒ぎ"
+    ],
+    "correct": 0,
+    "explanation": "「Calm before the storm」は、何か大変なことが起こる前の不気味なほどの静けさや平穏な時期のことです。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Cut the mustard",
+    "options": [
+      "マスタードを切る",
+      "期待に応える / 基準に達する",
+      "料理を作る",
+      "辛いものを食べる"
+    ],
+    "correct": 1,
+    "explanation": "「Cut the mustard」は、必要な基準を満たす、期待通りの成果を上げるという意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Go down in flames",
+    "options": [
+      "炎の中で降りていく",
+      "派手に失敗する / 大惨事になる",
+      "消防士になる",
+      "火事になる"
+    ],
+    "correct": 1,
+    "explanation": "「Go down in flames」は、プロジェクトや計画などが「惨めなほど完全に失敗する」ことです。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Head in the clouds",
+    "options": [
+      "雲の中に頭がある",
+      "上の空である / 非現実的",
+      "登山をする",
+      "背が高い"
+    ],
+    "correct": 1,
+    "explanation": "「Head in the clouds」は、現実を見ずに空想にふけっていたり、注意力散漫であることを意味します。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Hold your horses",
+    "options": [
+      "馬を捕まえる",
+      "落ち着いて / 待って",
+      "乗馬をする",
+      "馬屋に行く"
+    ],
+    "correct": 1,
+    "explanation": "「Hold your horses」は、焦っている人に対して「ちょっと待って」「落ち着いて」と制止する表現です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "A slap on the wrist",
+    "options": [
+      "手首を叩く",
+      "軽い処罰",
+      "握手をする",
+      "手錠をかける"
+    ],
+    "correct": 1,
+    "explanation": "「A slap on the wrist」は、犯した過ちに対して「非常に軽い罰」や「厳重注意」で済ませることを意味します。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "All bark and no bite",
+    "options": [
+      "吠えるだけで噛まない",
+      "口先だけで行動が伴わない",
+      "犬のしつけ",
+      "怖そうに見えない"
+    ],
+    "correct": 1,
+    "explanation": "「All bark and no bite」は、口では威勢の良いことを言うが、実際には何もしない（怖くない）人に対して使います。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Apple to oranges",
+    "options": [
+      "リンゴとオレンジ",
+      "比較できないもの（全くの別物）",
+      "フルーツサラダ",
+      "似たもの同士"
+    ],
+    "correct": 1,
+    "explanation": "「Apples to oranges」は、性質が全く異なるため「比較対象にならない」ことを意味します（月とスッポンに近い）。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Beat a dead horse",
+    "options": [
+      "死んだ馬を叩く",
+      "済んだことを蒸し返す / 無駄な努力をする",
+      "乗馬をやめる",
+      "動物虐待"
+    ],
+    "correct": 1,
+    "explanation": "「Beat a dead horse」は、既に決着がついた話題を何度も蒸し返したり、見込みのないことに力を注ぐ行為です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Between a rock and a hard place",
+    "options": [
+      "岩と硬い場所の間",
+      "板挟みになって / 進退窮まって",
+      "ロッククライミング",
+      "安全地帯"
+    ],
+    "correct": 1,
+    "explanation": "「Between a rock and a hard place」は、二つの困難な状況に挟まれて身動きが取れない状態です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Butter someone up",
+    "options": [
+      "誰かにバターを塗る",
+      "お世辞を言ってご機嫌をとる",
+      "料理を振る舞う",
+      "滑りやすくする"
+    ],
+    "correct": 1,
+    "explanation": "「Butter someone up」は、頼み事の前などに相手に対してごまをすったり、お世辞を言ったりすることです。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Cat got your tongue?",
+    "options": [
+      "猫が舌を取った？",
+      "なぜ黙っているの？",
+      "猫に餌をやる",
+      "舌を噛んだ"
+    ],
+    "correct": 1,
+    "explanation": "「Cat got your tongue?」は、急に黙り込んでしまった人に対して「どうしたの？何も言わないの？」と尋ねる決まり文句です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Caught red-handed",
+    "options": [
+      "手が赤くなっている",
+      "現行犯で捕まる",
+      "日焼けをする",
+      "ペンキを塗る"
+    ],
+    "correct": 1,
+    "explanation": "「Caught red-handed」は、悪事を働いているまさにその現場で捕まる（現行犯逮捕）という意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Chasing rainbows",
+    "options": [
+      "虹を追いかける",
+      "叶わぬ夢を追う",
+      "天気を予測する",
+      "色を塗る"
+    ],
+    "correct": 1,
+    "explanation": "「Chasing rainbows」は、実現不可能なことや幻のような目標を追いかけることを意味します。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Cold turkey",
+    "options": [
+      "冷たい七面鳥",
+      "（悪い習慣を）きっぱりやめる",
+      "クリスマスの残り物",
+      "鳥肌が立つ"
+    ],
+    "correct": 1,
+    "explanation": "「Go cold turkey」のように使い、喫煙や薬物などの依存を「徐々にではなく、完全に断ち切る」ことです。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Crying wolf",
+    "options": [
+      "狼が泣いている",
+      "嘘をついて人を騒がせる（狼少年）",
+      "動物園に行く",
+      "SOSを出す"
+    ],
+    "correct": 1,
+    "explanation": "イソップ童話から、「嘘の警報を出して人を騒がせる」「嘘をついて助けを求める」行為を指します。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Devil's advocate",
+    "options": [
+      "悪魔の弁護人",
+      "あえて反対意見を言う人",
+      "法律事務所",
+      "宗教的な議論"
+    ],
+    "correct": 1,
+    "explanation": "議論を深めるために、本心ではなくても「あえて反対の立場をとって意見する人」のことです。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Don't put all your eggs in one basket",
+    "options": [
+      "卵を一つのカゴに入れるな",
+      "リスクを分散させろ",
+      "買い物に行く",
+      "卵料理を作る"
+    ],
+    "correct": 1,
+    "explanation": "一つのことに全ての資源や希望を託すと、失敗した時のダメージが大きいので「リスクを分散せよ」という教訓です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Drastic times call for drastic measures",
+    "options": [
+      "劇的な時間は劇的な手段を呼ぶ",
+      "非常時には非常手段が必要だ",
+      "ドラマチックな展開",
+      "時間を計る"
+    ],
+    "correct": 1,
+    "explanation": "通常のやり方では対処できない深刻な状況では、極端な手段を取ることも正当化されるという意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Elvis has left the building",
+    "options": [
+      "エルヴィスは建物を出た",
+      "もうおしまいだ / 公演は終了した",
+      "コンサートに行く",
+      "有名人に会う"
+    ],
+    "correct": 1,
+    "explanation": "ショーが終わったことを告げるアナウンスから、イベントやパーティーが「完全に終わった」「お開きになった」ことを示します。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Far cry from",
+    "options": [
+      "遠くからの叫び声",
+      "〜とは程遠い / 全く違う",
+      "大声で呼ぶ",
+      "涙を流す"
+    ],
+    "correct": 1,
+    "explanation": "「A far cry from」は、二つのものが「かけ離れている」「全く別物である」ことを表します。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Feel a bit under the weather",
+    "options": [
+      "天気の下にいる気分",
+      "少し体調が悪い",
+      "雨が降りそうだ",
+      "天気を気にする"
+    ],
+    "correct": 1,
+    "explanation": "軽い病気や疲労で「体調が優れない」「気分が悪い」という意味です。",
+    "difficulty": "beginner"
+  },
+  {
+    "idiom": "Give the benefit of the doubt",
+    "options": [
+      "疑いの利益を与える",
+      "疑わしきは罰せず / 善意に解釈する",
+      "疑惑を追及する",
+      "裁判をする"
+    ],
+    "correct": 1,
+    "explanation": "証拠が不十分な場合などに、相手の言い分を信じてあげる、あるいは有利に解釈してあげることです。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Ignorance is bliss",
+    "options": [
+      "無知は至福",
+      "知らぬが仏",
+      "勉強不足",
+      "幸せな生活"
+    ],
+    "correct": 1,
+    "explanation": "知らない方が幸せなこともある、余計なことは知らない方が心穏やかでいられるという意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Last straw",
+    "options": [
+      "最後のわら",
+      "我慢の限界を超えさせる出来事",
+      "ストローを使う",
+      "農作業"
+    ],
+    "correct": 1,
+    "explanation": "「The straw that broke the camel's back（ラクダの背骨を折ったわら）」が短くなったもので、我慢の限界点のことです。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Make ends meet",
+    "options": [
+      "端と端を合わせる",
+      "収支を合わせる / 生計を立てる",
+      "ロープを結ぶ",
+      "会議を開く"
+    ],
+    "correct": 1,
+    "explanation": "収入の範囲内でやりくりする、なんとか生活していくという意味で使われます。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Put all your eggs in one basket",
+    "options": [
+      "卵を全部一つのカゴに入れる",
+      "一つのことに全てを賭ける（危険）",
+      "オムレツを作る",
+      "買い物上手"
+    ],
+    "correct": 1,
+    "explanation": "一箇所に全財産や全精力を集中させると、失敗した時に全てを失うリスクがあるという意味です。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Seeing eye to eye",
+    "options": [
+      "目と目を合わせる",
+      "意見が一致する",
+      "見つめ合う",
+      "視力検査"
+    ],
+    "correct": 1,
+    "explanation": "誰かと完全に意見が一致する、考えが同じである状態を指します。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Sit on the fence",
+    "options": [
+      "フェンスに座る",
+      "中立を保つ / どっちつかずでいる",
+      "休憩する",
+      "景色を眺める"
+    ],
+    "correct": 1,
+    "explanation": "どちらの側にもつかず、態度を決めかねている、あるいは日和見主義であることを意味します。",
+    "difficulty": "intermediate"
+  },
+  {
+    "idiom": "Take with a grain of salt",
+    "options": [
+      "塩を一粒添える",
+      "話半分に聞く / 鵜呑みにしない",
+      "味付けする",
+      "塩分を控える"
+    ],
+    "correct": 1,
+    "explanation": "相手の話を完全には信用せず、割り引いて聞くべきだという意味です。",
+    "difficulty": "advanced"
+  },
+  {
+    "idiom": "Taste of your own medicine",
+    "options": [
+      "自分の薬の味",
+      "しっぺ返し / 自業自得",
+      "苦い薬",
+      "病気が治る"
+    ],
+    "correct": 1,
+    "explanation": "自分が他人にやった不快なことを、自分も受けることになる状況です。",
     "difficulty": "intermediate"
   }
 ]

@@ -93,25 +93,38 @@ function loadQuestion() {
     optionsContainer.innerHTML = '';
     feedbackSection.classList.add('hidden');
 
+    // Prepare options with correctness info
+    const optionData = question.options.map((option, index) => ({
+        text: option,
+        isCorrect: index === question.correct
+    }));
+
+    // Shuffle options
+    const shuffledOptions = optionData.sort(() => 0.5 - Math.random());
+
     // Create options
-    question.options.forEach((option, index) => {
+    shuffledOptions.forEach((opt) => {
         const btn = document.createElement('div');
         btn.classList.add('option-btn');
-        btn.textContent = option;
-        btn.onclick = () => checkAnswer(index, btn);
+        btn.textContent = opt.text;
+        // Store correctness on the element for easy access
+        btn.dataset.isCorrect = opt.isCorrect;
+
+        btn.onclick = () => checkAnswer(btn);
         optionsContainer.appendChild(btn);
     });
 }
 
-function checkAnswer(selectedIndex, selectedBtn) {
+function checkAnswer(selectedBtn) {
     if (!isAnswering) return;
     isAnswering = false; // Prevent multiple clicks
 
     const question = currentQuestions[currentQuestionIndex];
+    const isCorrect = selectedBtn.dataset.isCorrect === 'true';
     const optionBtns = optionsContainer.children;
 
     // Show correct/incorrect styles
-    if (selectedIndex === question.correct) {
+    if (isCorrect) {
         selectedBtn.classList.add('correct');
         score++;
         updateScore();
@@ -119,14 +132,18 @@ function checkAnswer(selectedIndex, selectedBtn) {
     } else {
         selectedBtn.classList.add('incorrect');
         // Highlight correct answer
-        optionBtns[question.correct].classList.add('correct');
+        Array.from(optionBtns).forEach(btn => {
+            if (btn.dataset.isCorrect === 'true') {
+                btn.classList.add('correct');
+            }
+        });
         showFeedback(false, question.explanation);
     }
 
     // Disable all buttons
     Array.from(optionBtns).forEach(btn => {
         btn.style.pointerEvents = 'none';
-        if (btn !== selectedBtn && btn !== optionBtns[question.correct]) {
+        if (btn !== selectedBtn && btn.dataset.isCorrect !== 'true') {
             btn.style.opacity = '0.5';
         }
     });
