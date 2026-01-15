@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Physics Beyblade Battle</title>
+    <!-- Matter.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background-color: #111;
+            color: white;
+        }
+
+        #game-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlays */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            /* Let clicks pass through when hidden */
+        }
+
+        .overlay.active {
+            pointer-events: auto;
+            opacity: 1;
+        }
+
+        .overlay.hidden {
+            opacity: 0;
+            pointer-events: none !important;
+        }
+
+        h1 {
+            font-size: 4rem;
+            margin-bottom: 2rem;
+            color: #00d2ff;
+            text-shadow: 0 0 20px rgba(0, 210, 255, 0.6);
+            font-style: italic;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            padding: 20px 40px;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 180px;
+            text-align: center;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #fff;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-attack {
+            border-color: #ff4757;
+            color: #ff4757;
+        }
+
+        .btn-attack:hover {
+            background: #ff4757;
+            color: #fff;
+            box-shadow: 0 0 30px #ff4757;
+        }
+
+        .btn-defense {
+            border-color: #2ed573;
+            color: #2ed573;
+        }
+
+        .btn-defense:hover {
+            background: #2ed573;
+            color: #fff;
+            box-shadow: 0 0 30px #2ed573;
+        }
+
+        .btn-stamina {
+            border-color: #ffa502;
+            color: #ffa502;
+        }
+
+        .btn-stamina:hover {
+            background: #ffa502;
+            color: #fff;
+            box-shadow: 0 0 30px #ffa502;
+        }
+
+        .btn-balance {
+            border-color: #1e90ff;
+            color: #1e90ff;
+        }
+
+        .btn-balance:hover {
+            background: #1e90ff;
+            color: #fff;
+            box-shadow: 0 0 30px #1e90ff;
+        }
+
+        #hud {
+            display: none;
+            /* User requested removal */
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.5);
+            font-family: monospace;
+            z-index: 5;
+        }
+
+        #result-message {
+            font-size: 6rem;
+            font-weight: 900;
+            margin-bottom: 20px;
+            text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        #result-reason {
+            font-size: 2rem;
+            margin-bottom: 50px;
+            color: #ccc;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container"></div>
+    <div id="hud">CAMERA: ANGLED・FOLLOW</div>
+
+    <!-- Selection Screen -->
+    <div id="start-screen" class="overlay active">
+        <h1>BEYBLADE 3D</h1>
+        <p style="margin-bottom: 40px; font-size: 1.5rem; color: #aaa;">SELECT YOUR BLADE</p>
+        <div class="btn-group">
+            <button class="btn btn-attack" onclick="startGame('attack')">Attack</button>
+            <button class="btn btn-defense" onclick="startGame('defense')">Defense</button>
+            <button class="btn btn-stamina" onclick="startGame('stamina')">Stamina</button>
+            <button class="btn btn-balance" onclick="startGame('balance')">Balance</button>
+        </div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="overlay hidden">
+        <div id="result-message">WINNER</div>
+        <div id="result-reason">Reason</div>
+        <button class="btn" style="border-color: #fff;" onclick="resetGame()">REMATCH</button>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION ---
+        const STADIUM_RADIUS = 300;
+        const WIN_SPIN_THRESHOLD = 0.1;
+        const BOWL_HEIGHT = 40;
+
+        // --- 2. MATTER.JS SETUP (PHYSICS) ---
+        const Engine = Matter.Engine,
+            Runner = Matter.Runner,
+            Bodies = Matter.Bodies,
+            Composite = Matter.Composite,
+            Events = Matter.Events,
+            Body = Matter.Body;
+
+        const engine = Engine.create();
+        const world = engine.world;
+        engine.gravity.y = 0; // Top-down physics (x, y) mapped to (x, z) in 3D
+
+        // --- 3. THREE.JS SETUP (VISUALS) ---
+        const scene = new THREE.Scene();
+        // Fog for depth
+        scene.fog = new THREE.FogExp2(0x111111, 0.001);
+        scene.background = new THREE.Color(0x111111);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+        // Initial Camera Position (Angled)
+        camera.position.set(0, 450, 550);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('game-container').appendChild(renderer.domElement);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x404040, 1.5); // Soft white light
+        scene.add(ambientLight);
+
+        const spotLight = new THREE.SpotLight(0xffffff, 1);
+        spotLight.position.set(0, 500, 0);
+        spotLight.castShadow = true;
+        spotLight.shadow.mapSize.width = 2048;
+        spotLight.shadow.mapSize.height = 2048;
+        scene.add(spotLight);
+
+        // Stadium Visuals
+        const stadiumGroup = new THREE.Group();
+        scene.add(stadiumGroup);
+
+        // Floor (Bowl Shape)
+        // Curve profile: y = h * (x/R)^2
+        const points = [];
+        const segments = 20;
+        for (let i = 0; i <= segments; i++) {
+            const x = (i / segments) * STADIUM_RADIUS;
+            const y = (x / STADIUM_RADIUS) ** 2 * BOWL_HEIGHT;
+            points.push(new THREE.Vector2(x, y));
+        }
+        const floorGeometry = new THREE.LatheGeometry(points, 64);
+        const floorMaterial = new THREE.MeshStandardMaterial({
+            color: 0x222222,
+            roughness: 0.4,
+            metalness: 0.8,
+            side: THREE.DoubleSide
+        });
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.receiveShadow = true;
+        stadiumGroup.add(floor);
+
+        // Wireframe Grid Overlay (Clone floor)
+        const gridGeo = new THREE.WireframeGeometry(floorGeometry);
+        const gridMat = new THREE.LineBasicMaterial({ color: 0x444444, opacity: 0.3, transparent: true });
+        const grid = new THREE.LineSegments(gridGeo, gridMat);
+        grid.position.y = 0.5; // Slight offset
+        stadiumGroup.add(grid);
+
+        // Ring Boundary (Visual only)
+        const ringGeo = new THREE.TorusGeometry(STADIUM_RADIUS, 5, 16, 100);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x00d2ff, wireframe: true, transparent: true, opacity: 0.5 });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = BOWL_HEIGHT; // Sit on the rim
+        stadiumGroup.add(ring);
+
+        // RAIL VISUAL (X-Dash Line)
+        const RAIL_RADIUS = 220; // Slightly inside the outer rim
+        const railGeo = new THREE.TorusGeometry(RAIL_RADIUS, 2, 8, 100);
+        const railMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.6 }); // Neon Green
+        const rail = new THREE.Mesh(railGeo, railMat);
+        rail.rotation.x = Math.PI / 2;
+        rail.position.y = (RAIL_RADIUS / STADIUM_RADIUS) ** 2 * BOWL_HEIGHT; // Match bowl height
+        stadiumGroup.add(rail);
+
+
+        // --- 4. GAME OBJECTS MANAGEMENT ---
+        const TYPES = {
+            attack: { label: 'Attack', color: 0xff4757, mass: 5, frictionAir: 0.005, restitution: 0.9, radius: 20 },
+            defense: { label: 'Defense', color: 0x2ed573, mass: 20, frictionAir: 0.008, restitution: 0.3, radius: 25 },
+            stamina: { label: 'Stamina', color: 0xffa502, mass: 4, frictionAir: 0.001, restitution: 0.8, radius: 22 },
+            balance: { label: 'Balance', color: 0x1e90ff, mass: 7, frictionAir: 0.015, restitution: 0.85, radius: 22 }
+        };
+
+        let player = { body: null, mesh: null };
+        let enemy = { body: null, mesh: null };
+        let gameActive = false;
+        let battleEnded = false; // Flag for result state
+
+        // Function to create a 3D Beyblade
+        function createBeyMesh(radius, color) {
+            const group = new THREE.Group();
+
+            // Main Disc
+            const geometry = new THREE.CylinderGeometry(radius, radius * 0.8, 10, 32);
+            const material = new THREE.MeshStandardMaterial({
+                color: color,
+                roughness: 0.2,
+                metalness: 0.7
+            });
+            const disc = new THREE.Mesh(geometry, material);
+            disc.castShadow = true;
+            disc.receiveShadow = true;
+            disc.position.y = 5; // Half height
+            group.add(disc);
+
+            // Metal Ring (Visual)
+            const ringGeo = new THREE.TorusGeometry(radius + 1, 2, 8, 32);
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: 0.1 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = 5;
+            group.add(ring);
+
+            // Top Cap / Design
+            const capGeo = new THREE.CylinderGeometry(radius * 0.5, radius * 0.5, 12, 6); // Hexagon shapeish
+            const capMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            const cap = new THREE.Mesh(capGeo, capMat);
+            cap.position.y = 5;
+            group.add(cap);
+
+            // Blade protrusions (to see spin)
+            const bladeGeo = new THREE.BoxGeometry(radius * 2.5, 4, 4);
+            const bladeMat = new THREE.MeshStandardMaterial({ color: color });
+            const blade = new THREE.Mesh(bladeGeo, bladeMat);
+            blade.position.y = 5;
+            group.add(blade);
+
+            return group;
+        }
+
+        function createBeyBody(x, y, typeKey) {
+            const type = TYPES[typeKey];
+            return Bodies.circle(x, y, type.radius, {
+                label: typeKey,
+                mass: type.mass,
+                frictionAir: type.frictionAir,
+                restitution: type.restitution,
+                friction: 0
+            });
+        }
+
+        // --- 5. GAME LOGIC ---
+
+        function startGame(playerTypeKey) {
+            // UI
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('start-screen').classList.add('hidden');
+
+            // Cleanup previous
+            if (player.body) Composite.remove(world, player.body);
+            if (enemy.body) Composite.remove(world, enemy.body);
+            if (player.mesh) scene.remove(player.mesh);
+            if (enemy.mesh) scene.remove(enemy.mesh);
+            Engine.clear(engine); // clear engine state but keep world events? No, best to just clear composite.
+
+            // Setup new round
+            const keys = Object.keys(TYPES);
+            const enemyTypeKey = keys[Math.floor(Math.random() * keys.length)];
+
+            // Physics Bodies
+            const spawnOffset = 120;
+            player.body = createBeyBody(0 - spawnOffset, 0, playerTypeKey);
+            enemy.body = createBeyBody(0 + spawnOffset, 0, enemyTypeKey);
+            Composite.add(world, [player.body, enemy.body]);
+
+            // 3D Meshes
+            player.mesh = createBeyMesh(TYPES[playerTypeKey].radius, TYPES[playerTypeKey].color);
+            enemy.mesh = createBeyMesh(TYPES[enemyTypeKey].radius, TYPES[enemyTypeKey].color);
+            scene.add(player.mesh);
+            scene.add(enemy.mesh);
+
+            // Launch Physics (Randomized Stronger)
+            const spinForce = 35 + (Math.random() - 0.5) * 30; // Range: 20 to 50
+            const baseSpeed = 25 + (Math.random() - 0.5) * 30; // Range: 10 to 40
+
+            // Player Launch (From Left, Aim Right)
+            Body.setAngularVelocity(player.body, spinForce);
+            const pAngle = (Math.random() - 0.5) * 1.0; // Variance increased to +/- 0.5 rad (~28 deg)
+            Body.setVelocity(player.body, {
+                x: Math.cos(pAngle) * baseSpeed,
+                y: Math.sin(pAngle) * baseSpeed
+            });
+
+            // Enemy Launch (From Right, Aim Left)
+            Body.setAngularVelocity(enemy.body, spinForce);
+            const eAngle = Math.PI + (Math.random() - 0.5) * 1.0; // Variance increased
+            Body.setVelocity(enemy.body, {
+                x: Math.cos(eAngle) * baseSpeed,
+                y: Math.sin(eAngle) * baseSpeed
+            });
+
+            // Reset Time
+            engine.timing.timestamp = 0;
+            gameActive = true;
+            battleEnded = false;
+
+            // Clear per-round flags (CRITICAL FIX)
+            player.body.isDead = false;
+            enemy.body.isDead = false;
+            player.body.dashCooldown = 0;
+            enemy.body.dashCooldown = 0;
+        }
+
+        function gameOver(winner, reason) {
+            // gameActive = false; // KEEP PHYSICS RUNNING
+            battleEnded = true;
+            const screen = document.getElementById('result-screen');
+            const msg = document.getElementById('result-message');
+            const rsn = document.getElementById('result-reason');
+
+            screen.classList.remove('hidden');
+            screen.classList.add('active');
+
+            if (winner === 'player') {
+                msg.textContent = "VICTORY";
+                msg.style.color = "#2ed573";
+            } else if (winner === 'enemy') {
+                msg.textContent = "DEFEAT";
+                msg.style.color = "#ff4757";
+            } else {
+                msg.textContent = "DRAW";
+                msg.style.color = "#ffa502";
+            }
+            rsn.textContent = reason;
+        }
+
+        function resetGame() {
+            document.getElementById('result-screen').classList.remove('active');
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            document.getElementById('start-screen').classList.add('active');
+        }
+
+        // --- 6. MAIN LOOP ---
+
+        function updatePhysics() {
+            if (!gameActive) return;
+
+            // Bowl Gravity Logic & Rail Dash
+            [player.body, enemy.body].forEach(body => {
+                const dist = Math.sqrt(body.position.x ** 2 + body.position.y ** 2); // Center is 0,0
+
+                // Gravity (Bowl) - 外周では弱める
+                const t = Math.min(1, dist / (STADIUM_RADIUS * 0.9)); // 0→中心, 1→外周
+                const gravityScale = 1.0 - 0.85 * t; // 外周で 15% まで弱める（0.85は調整）
+                const gravityStrength = 0.00005 * body.mass * gravityScale;
+
+                Body.applyForce(body, body.position, {
+                    x: -body.position.x * gravityStrength,
+                    y: -body.position.y * gravityStrength
+                });
+
+                // Boundary Return Force (Push back to center)
+                if (dist > STADIUM_RADIUS * 0.9) {
+                    const plen = dist || 1;
+
+                    // 一定の強さで中心へ
+                    const returnStrength = 0.0005 * body.mass;
+                    Body.applyForce(body, body.position, {
+                        x: -(body.position.x / plen) * returnStrength,
+                        y: -(body.position.y / plen) * returnStrength
+                    });
+
+                    // 速度減衰（これも弱めに）
+                    const damp = 0.0008 * body.mass;
+                    Body.applyForce(body, body.position, {
+                        x: -body.velocity.x * damp,
+                        y: -body.velocity.y * damp
+                    });
+
+                    // --- 追加：外周を「時計回り」に走らせる接線フォース ---
+                    const rx = body.position.x / plen;
+                    const ry = body.position.y / plen;
+
+                    // 時計回り接線ベクトル（右回転のイメージ）
+                    const tx = ry;
+                    const ty = -rx;
+
+                    // 「外側に当たってる時だけ」効かせたいので、外向き速度成分でゲート
+                    const outwardV = body.velocity.x * rx + body.velocity.y * ry; // >0 なら外へ向かってる
+                    if (outwardV > 0) {
+                        const wallRun = 0.0025 * body.mass; // ここが“外周走り”の強さ
+                        Body.applyForce(body, body.position, { x: tx * wallRun, y: ty * wallRun });
+                    }
+
+                    // --- 壁沿いスライド（右回転=時計回り）---
+                    // 速度を分解： v = vr*R + vt*T
+                    // (rx, ry) は上で計算済み: body.position / plen
+                    // (tx, ty) は上で計算済み: (ry, -rx)
+
+                    const vx = body.velocity.x, vy = body.velocity.y;
+                    const vr = vx * rx + vy * ry;      // 半径方向速度（+外向き）
+                    const vt = vx * tx + vy * ty;      // 接線方向速度（+時計回り）
+
+                    // 「反発しすぎ」抑制：外向き成分を強めに殺す
+                    const killOut = 0.92;  // 0.6〜0.95で調整（大きいほど壁沿い）
+                    const newVr = vr > 0 ? vr * (1.0 - killOut) : vr;  // 外向きだけ削る
+
+                    // 右回転に寄せる：時計回りが負なら少しだけ補正
+                    const biasCW = 0.15; // 0〜0.3（大きいほど右回転に固定される）
+                    const newVt = vt < 0 ? vt * (1.0 - biasCW) : vt;
+
+                    // 合成してセット（速度を直接整形）
+                    Body.setVelocity(body, {
+                        x: rx * newVr + tx * newVt,
+                        y: ry * newVr + ty * newVt
+                    });
+
+                    // 外周では接線速度を最低保証（右回転=時計回り）
+                    const MIN_TANGENTIAL = 8; // 6〜12で調整
+                    const vt2 = body.velocity.x * tx + body.velocity.y * ty;
+                    if (vt2 < MIN_TANGENTIAL) {
+                        Body.setVelocity(body, {
+                            x: body.velocity.x + tx * (MIN_TANGENTIAL - vt2),
+                            y: body.velocity.y + ty * (MIN_TANGENTIAL - vt2)
+                        });
+                    }
+                }
+
+                // RAIL MECHANIC (X-Dash)
+                if (dist > RAIL_RADIUS && dist < STADIUM_RADIUS) {
+                    if (!body.dashCooldown || engine.timing.timestamp > body.dashCooldown) {
+
+                        // 速度方向を正規化
+                        const vx = body.velocity.x, vy = body.velocity.y;
+                        const vlen = Math.hypot(vx, vy) || 1;
+                        const ux = vx / vlen, uy = vy / vlen;
+
+                        // 加速（超弱く一定に）
+                        const accel = 0.0008 * body.mass;
+                        Body.applyForce(body, body.position, { x: ux * accel, y: uy * accel });
+
+                        // ついでに少し内側へ（レール吸着）
+                        const inward = 0.0012 * body.mass;
+                        const plen = dist || 1;
+                        Body.applyForce(body, body.position, {
+                            x: -(body.position.x / plen) * inward,
+                            y: -(body.position.y / plen) * inward
+                        });
+
+                        body.dashCooldown = engine.timing.timestamp + 500;
+                    }
+                }
+
+                // Over Finish Check
+                if (!battleEnded && dist > STADIUM_RADIUS + body.circleRadius) {
+                    gameOver(body === player.body ? 'enemy' : 'player', 'OVER FINISH');
+                }
+            });
+
+            // Max Speed Limit (Safety)
+            const MAX_SPEED = 60;
+            [player.body, enemy.body].forEach(body => {
+                const sp = Math.hypot(body.velocity.x, body.velocity.y);
+                if (sp > MAX_SPEED) {
+                    const s = MAX_SPEED / sp;
+                    Body.setVelocity(body, { x: body.velocity.x * s, y: body.velocity.y * s });
+                }
+            });
+
+            // Spin Finish Check (Grace period 2s)
+            if (engine.timing.timestamp > 2000) {
+                [player.body, enemy.body].forEach(body => {
+                    if (Math.abs(body.angularVelocity) < WIN_SPIN_THRESHOLD) {
+                        body.isDead = true;
+                        Body.setVelocity(body, { x: 0, y: 0 });
+                        Body.setAngularVelocity(body, 0);
+                    }
+                });
+
+                if (!battleEnded) {
+                    const pDead = player.body.isDead;
+                    const eDead = enemy.body.isDead;
+
+                    if (pDead && eDead) {
+                        gameOver('draw', 'SIMULTANEOUS STOP');
+                    } else if (pDead) {
+                        gameOver('enemy', 'SPIN FINISH');
+                    } else if (eDead) {
+                        gameOver('player', 'SPIN FINISH');
+                    }
+                }
+            }
+
+            Engine.update(engine, 1000 / 60);
+        }
+
+        function getBowlY(x, z) {
+            const dist = Math.sqrt(x * x + z * z);
+            if (dist > STADIUM_RADIUS) return BOWL_HEIGHT;
+            return (dist / STADIUM_RADIUS) ** 2 * BOWL_HEIGHT;
+        }
+
+        function updateVisuals() {
+            if (player.body && player.mesh) {
+                player.mesh.position.x = player.body.position.x;
+                player.mesh.position.z = player.body.position.y; // Map Physics Y to 3D Z
+                player.mesh.position.y = getBowlY(player.mesh.position.x, player.mesh.position.z);
+                player.mesh.rotation.y = -player.body.angle; // Rotate mesh
+
+                // Tilt the bey based on slope? (Optional realism)
+                // For now, simple vertical alignment is stable.
+            }
+            if (enemy.body && enemy.mesh) {
+                enemy.mesh.position.x = enemy.body.position.x;
+                enemy.mesh.position.z = enemy.body.position.y;
+                enemy.mesh.position.y = getBowlY(enemy.mesh.position.x, enemy.mesh.position.z);
+                enemy.mesh.rotation.y = -enemy.body.angle;
+
+                if (enemy.body.isDead) { // Visual Tilt
+                    enemy.mesh.rotation.x = Math.PI / 6;
+                    enemy.mesh.position.y -= 2;
+                } else {
+                    enemy.mesh.rotation.x = 0;
+                }
+            }
+
+            // Also tilt player
+            if (player.body && player.mesh && player.body.isDead) {
+                player.mesh.rotation.x = Math.PI / 6;
+                player.mesh.position.y -= 2;
+            } else if (player.mesh) {
+                player.mesh.rotation.x = 0;
+            }
+
+            // Visual Effect for Dash
+            [player, enemy].forEach(p => {
+                if (p.body && p.mesh && p.body.dashCooldown > engine.timing.timestamp) {
+                    // Flash Effect
+                    p.mesh.children.forEach(child => {
+                        if (child.material && child.material.emissive) {
+                            child.material.emissive.setHex(0xffffff); // White flash
+                            child.material.emissiveIntensity = 0.5;
+                        }
+                    });
+                } else if (p.mesh) {
+                    // Reset
+                    p.mesh.children.forEach(child => {
+                        if (child.material && child.material.emissive) {
+                            child.material.emissive.setHex(0x000000);
+                            child.material.emissiveIntensity = 0;
+                        }
+                    });
+                }
+            });
+
+            // Camera Follow (Soft)
+            // Ideally keep both beys in view, but centering on the stadium is safer for now.
+            // Let's add slight camera movement based on action? No, keep steady angled view as requested.
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            updatePhysics();
+            updateVisuals();
+
+            // Dynamic Camera: Slowly rotate around the stadium or react to intensity?
+            // "Angled from above" was requested.
+            // Let's just render.
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start Loop
+        animate();
+
+    </script>
+</body>
+
+</html>
