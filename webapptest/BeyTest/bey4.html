@@ -384,8 +384,8 @@
             scene.add(enemy.mesh);
 
             // Launch Physics (Randomized Stronger)
-            const spinForce = 35 + (Math.random() - 0.5) * 30; // Range: 20 to 50
-            const baseSpeed = 25 + (Math.random() - 0.5) * 30; // Range: 10 to 40
+            const spinForce = 45 + (Math.random() - 0.5) * 30; // Range: 20 to 50
+            const baseSpeed = 35 + (Math.random() - 0.5) * 30; // Range: 10 to 40
 
             // Player Launch (From Left, Aim Right)
             Body.setAngularVelocity(player.body, spinForce);
@@ -688,5 +688,6 @@
 
     </script>
 </body>
+
 
 </html>
