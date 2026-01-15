@@ -297,6 +297,7 @@
 
         let player = { body: null, mesh: null };
         let enemy = { body: null, mesh: null };
+        let playerMarker = null; // Visual Arrow
         let gameActive = false;
         let battleEnded = false; // Flag for result state
 
@@ -365,6 +366,7 @@
             if (enemy.body) Composite.remove(world, enemy.body);
             if (player.mesh) scene.remove(player.mesh);
             if (enemy.mesh) scene.remove(enemy.mesh);
+            if (playerMarker) scene.remove(playerMarker);
             Engine.clear(engine); // clear engine state but keep world events? No, best to just clear composite.
 
             // Setup new round
@@ -383,9 +385,16 @@
             scene.add(player.mesh);
             scene.add(enemy.mesh);
 
+            // Create Player Marker (Green Arrow)
+            const markerGeo = new THREE.ConeGeometry(5, 15, 32);
+            const markerMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            playerMarker = new THREE.Mesh(markerGeo, markerMat);
+            playerMarker.rotation.x = Math.PI; // Point down
+            scene.add(playerMarker);
+
             // Launch Physics (Randomized Stronger)
-            const spinForce = 45 + (Math.random() - 0.5) * 30; // Range: 20 to 50
-            const baseSpeed = 35 + (Math.random() - 0.5) * 30; // Range: 10 to 40
+            const spinForce = 35 + (Math.random() - 0.5) * 30; // Range: 20 to 50
+            const baseSpeed = 25 + (Math.random() - 0.5) * 30; // Range: 10 to 40
 
             // Player Launch (From Left, Aim Right)
             Body.setAngularVelocity(player.body, spinForce);
@@ -451,7 +460,10 @@
             if (!gameActive) return;
 
             // Bowl Gravity Logic & Rail Dash
-            [player.body, enemy.body].forEach(body => {
+            // Filter out null bodies (dead/removed)
+            const activeBodies = [player, enemy].filter(p => p.body).map(p => p.body);
+
+            activeBodies.forEach(body => {
                 const dist = Math.sqrt(body.position.x ** 2 + body.position.y ** 2); // Center is 0,0
 
                 // Gravity (Bowl) - 外周では弱める
@@ -466,69 +478,101 @@
 
                 // Boundary Return Force (Push back to center)
                 if (dist > STADIUM_RADIUS * 0.9) {
-                    const plen = dist || 1;
+                    // Check entry to danger zone
+                    if (!body.wasInDangerZone) {
+                        body.wasInDangerZone = true;
+                        // 20% Chance to be "ejected" (Over Finish candidate)
+                        body.willOverFinish = Math.random() < 0.2;
 
-                    // 一定の強さで中心へ
-                    const returnStrength = 0.0005 * body.mass;
-                    Body.applyForce(body, body.position, {
-                        x: -(body.position.x / plen) * returnStrength,
-                        y: -(body.position.y / plen) * returnStrength
-                    });
-
-                    // 速度減衰（これも弱めに）
-                    const damp = 0.0008 * body.mass;
-                    Body.applyForce(body, body.position, {
-                        x: -body.velocity.x * damp,
-                        y: -body.velocity.y * damp
-                    });
-
-                    // --- 追加：外周を「時計回り」に走らせる接線フォース ---
-                    const rx = body.position.x / plen;
-                    const ry = body.position.y / plen;
-
-                    // 時計回り接線ベクトル（右回転のイメージ）
-                    const tx = ry;
-                    const ty = -rx;
-
-                    // 「外側に当たってる時だけ」効かせたいので、外向き速度成分でゲート
-                    const outwardV = body.velocity.x * rx + body.velocity.y * ry; // >0 なら外へ向かってる
-                    if (outwardV > 0) {
-                        const wallRun = 0.0025 * body.mass; // ここが“外周走り”の強さ
-                        Body.applyForce(body, body.position, { x: tx * wallRun, y: ty * wallRun });
+                        // If ejected, maybe give a small outward boost?
+                        if (body.willOverFinish) {
+                            // Optional: visual cue or sound could go here
+                        }
                     }
 
-                    // --- 壁沿いスライド（右回転=時計回り）---
-                    // 速度を分解： v = vr*R + vt*T
-                    // (rx, ry) は上で計算済み: body.position / plen
-                    // (tx, ty) は上で計算済み: (ry, -rx)
-
-                    const vx = body.velocity.x, vy = body.velocity.y;
-                    const vr = vx * rx + vy * ry;      // 半径方向速度（+外向き）
-                    const vt = vx * tx + vy * ty;      // 接線方向速度（+時計回り）
-
-                    // 「反発しすぎ」抑制：外向き成分を強めに殺す
-                    const killOut = 0.92;  // 0.6〜0.95で調整（大きいほど壁沿い）
-                    const newVr = vr > 0 ? vr * (1.0 - killOut) : vr;  // 外向きだけ削る
-
-                    // 右回転に寄せる：時計回りが負なら少しだけ補正
-                    const biasCW = 0.15; // 0〜0.3（大きいほど右回転に固定される）
-                    const newVt = vt < 0 ? vt * (1.0 - biasCW) : vt;
-
-                    // 合成してセット（速度を直接整形）
-                    Body.setVelocity(body, {
-                        x: rx * newVr + tx * newVt,
-                        y: ry * newVr + ty * newVt
-                    });
-
-                    // 外周では接線速度を最低保証（右回転=時計回り）
-                    const MIN_TANGENTIAL = 8; // 6〜12で調整
-                    const vt2 = body.velocity.x * tx + body.velocity.y * ty;
-                    if (vt2 < MIN_TANGENTIAL) {
-                        Body.setVelocity(body, {
-                            x: body.velocity.x + tx * (MIN_TANGENTIAL - vt2),
-                            y: body.velocity.y + ty * (MIN_TANGENTIAL - vt2)
+                    if (body.willOverFinish) {
+                        // --- OVER FINISH MODE ---
+                        // Don't apply return force. 
+                        // Instead, apply a small OUTWARD force to help it leave (countering any residual gravity/friction)
+                        const plen = dist || 1;
+                        const pushOut = 0.0002 * body.mass;
+                        Body.applyForce(body, body.position, {
+                            x: (body.position.x / plen) * pushOut,
+                            y: (body.position.y / plen) * pushOut
                         });
+
+                        // No wall run, no velocity correction. Let it fly.
+
+                    } else {
+                        // --- NORMAL MODE (Bounce/Wall Run) ---
+                        const plen = dist || 1;
+
+                        // 一定の強さで中心へ
+                        const returnStrength = 0.0005 * body.mass;
+                        Body.applyForce(body, body.position, {
+                            x: -(body.position.x / plen) * returnStrength,
+                            y: -(body.position.y / plen) * returnStrength
+                        });
+
+                        // 速度減衰（これも弱めに）
+                        const damp = 0.0008 * body.mass;
+                        Body.applyForce(body, body.position, {
+                            x: -body.velocity.x * damp,
+                            y: -body.velocity.y * damp
+                        });
+
+                        // --- 追加：外周を「時計回り」に走らせる接線フォース ---
+                        const rx = body.position.x / plen;
+                        const ry = body.position.y / plen;
+
+                        // 時計回り接線ベクトル（右回転のイメージ）
+                        const tx = ry;
+                        const ty = -rx;
+
+                        // 「外側に当たってる時だけ」効かせたいので、外向き速度成分でゲート
+                        const outwardV = body.velocity.x * rx + body.velocity.y * ry; // >0 なら外へ向かってる
+                        if (outwardV > 0) {
+                            const wallRun = 0.0025 * body.mass; // ここが“外周走り”の強さ
+                            Body.applyForce(body, body.position, { x: tx * wallRun, y: ty * wallRun });
+                        }
+
+                        // --- 壁沿いスライド（右回転=時計回り）---
+                        // 速度を分解： v = vr*R + vt*T
+                        // (rx, ry) は上で計算済み: body.position / plen
+                        // (tx, ty) は上で計算済み: (ry, -rx)
+
+                        const vx = body.velocity.x, vy = body.velocity.y;
+                        const vr = vx * rx + vy * ry;      // 半径方向速度（+外向き）
+                        const vt = vx * tx + vy * ty;      // 接線方向速度（+時計回り）
+
+                        // 「反発しすぎ」抑制：外向き成分を強めに殺す
+                        const killOut = 0.92;  // 0.6〜0.95で調整（大きいほど壁沿い）
+                        const newVr = vr > 0 ? vr * (1.0 - killOut) : vr;  // 外向きだけ削る
+
+                        // 右回転に寄せる：時計回りが負なら少しだけ補正
+                        const biasCW = 0.15; // 0〜0.3（大きいほど右回転に固定される）
+                        const newVt = vt < 0 ? vt * (1.0 - biasCW) : vt;
+
+                        // 合成してセット（速度を直接整形）
+                        Body.setVelocity(body, {
+                            x: rx * newVr + tx * newVt,
+                            y: ry * newVr + ty * newVt
+                        });
+
+                        // 外周では接線速度を最低保証（右回転=時計回り）
+                        const MIN_TANGENTIAL = 8; // 6〜12で調整
+                        const vt2 = body.velocity.x * tx + body.velocity.y * ty;
+                        if (vt2 < MIN_TANGENTIAL) {
+                            Body.setVelocity(body, {
+                                x: body.velocity.x + tx * (MIN_TANGENTIAL - vt2),
+                                y: body.velocity.y + ty * (MIN_TANGENTIAL - vt2)
+                            });
+                        }
                     }
+                } else {
+                    // Left danger zone
+                    body.wasInDangerZone = false;
+                    body.willOverFinish = false;
                 }
 
                 // RAIL MECHANIC (X-Dash)
@@ -558,13 +602,31 @@
 
                 // Over Finish Check
                 if (!battleEnded && dist > STADIUM_RADIUS + body.circleRadius) {
-                    gameOver(body === player.body ? 'enemy' : 'player', 'OVER FINISH');
+                    const isPlayer = (body === player.body);
+                    gameOver(isPlayer ? 'enemy' : 'player', 'OVER FINISH');
+
+                    // Remove the fallen beyblade!
+                    Composite.remove(world, body);
+                    if (isPlayer) {
+                        if (player.mesh) scene.remove(player.mesh);
+                        if (playerMarker) scene.remove(playerMarker);
+                        player.body = null;
+                        player.mesh = null;
+                        playerMarker = null;
+                    } else {
+                        if (enemy.mesh) scene.remove(enemy.mesh);
+                        enemy.body = null;
+                        enemy.mesh = null;
+                    }
                 }
             });
 
+            // Re-fetch active bodies after potential removals
+            const currentBodies = [player, enemy].filter(p => p.body).map(p => p.body);
+
             // Max Speed Limit (Safety)
             const MAX_SPEED = 60;
-            [player.body, enemy.body].forEach(body => {
+            currentBodies.forEach(body => {
                 const sp = Math.hypot(body.velocity.x, body.velocity.y);
                 if (sp > MAX_SPEED) {
                     const s = MAX_SPEED / sp;
@@ -574,7 +636,7 @@
 
             // Spin Finish Check (Grace period 2s)
             if (engine.timing.timestamp > 2000) {
-                [player.body, enemy.body].forEach(body => {
+                currentBodies.forEach(body => {
                     if (Math.abs(body.angularVelocity) < WIN_SPIN_THRESHOLD) {
                         body.isDead = true;
                         Body.setVelocity(body, { x: 0, y: 0 });
@@ -583,15 +645,19 @@
                 });
 
                 if (!battleEnded) {
-                    const pDead = player.body.isDead;
-                    const eDead = enemy.body.isDead;
+                    const pDead = player.body && player.body.isDead;
+                    const eDead = enemy.body && enemy.body.isDead;
 
-                    if (pDead && eDead) {
-                        gameOver('draw', 'SIMULTANEOUS STOP');
-                    } else if (pDead) {
-                        gameOver('enemy', 'SPIN FINISH');
-                    } else if (eDead) {
-                        gameOver('player', 'SPIN FINISH');
+                    // If one is missing (Over Finish happened), we shouldn't be here (battleEnded is true)
+                    // But just in case logic flows weirdly:
+                    if (player.body && enemy.body) {
+                        if (pDead && eDead) {
+                            gameOver('draw', 'SIMULTANEOUS STOP');
+                        } else if (pDead) {
+                            gameOver('enemy', 'SPIN FINISH');
+                        } else if (eDead) {
+                            gameOver('player', 'SPIN FINISH');
+                        }
                     }
                 }
             }
@@ -635,6 +701,16 @@
                 player.mesh.position.y -= 2;
             } else if (player.mesh) {
                 player.mesh.rotation.x = 0;
+            }
+
+            // Update Marker
+            if (player.mesh && playerMarker) {
+                playerMarker.position.copy(player.mesh.position);
+                // Bobbing effect
+                playerMarker.position.y += 40 + Math.sin(Date.now() * 0.005) * 5;
+            } else if (playerMarker && !player.mesh) {
+                // Safety cleanup if out of sync
+                playerMarker.visible = false;
             }
 
             // Visual Effect for Dash
@@ -688,6 +764,5 @@
 
     </script>
 </body>
-
 
 </html>
