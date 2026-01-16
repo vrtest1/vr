@@ -165,6 +165,16 @@
             color: #ccc;
             letter-spacing: 2px;
         }
+
+        #countdown-overlay {
+            font-size: 8rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 40px rgba(0, 210, 255, 0.8);
+            font-style: italic;
+            pointer-events: none;
+            z-index: 20;
+        }
     </style>
 </head>
 
@@ -192,6 +202,11 @@
         <button class="btn" style="border-color: #fff;" onclick="resetGame()">REMATCH</button>
     </div>
 
+    <!-- Countdown Screen -->
+    <div id="countdown-overlay" class="overlay hidden">
+        <div id="countdown-text">3</div>
+    </div>
+
     <script>
         // --- 1. CONFIGURATION ---
         const STADIUM_RADIUS = 300;
@@ -217,9 +232,26 @@
         scene.background = new THREE.Color(0x111111);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
-        // Initial Camera Position (Angled)
-        camera.position.set(0, 450, 550);
-        camera.lookAt(0, 0, 0);
+
+        function adjustCamera() {
+            const aspect = window.innerWidth / window.innerHeight;
+            // Base position for landscape
+            const baseX = 0;
+            const baseY = 450;
+            const baseZ = 550;
+
+            if (aspect < 1) {
+                // Portrait: Scale distance to keep stadium visible
+                // Simple heuristic: increase distance proportional to lack of width
+                const scale = 1.2 / aspect;
+                camera.position.set(baseX, baseY * scale, baseZ * scale);
+            } else {
+                // Landscape: Default
+                camera.position.set(baseX, baseY, baseZ);
+            }
+            camera.lookAt(0, 0, 0);
+        }
+        adjustCamera();
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -300,6 +332,174 @@
         let playerMarker = null; // Visual Arrow
         let gameActive = false;
         let battleEnded = false; // Flag for result state
+        let countdownInterval = null;
+
+        // --- AUDIO MANAGER ---
+        class AudioManager {
+            constructor() {
+                this.ctx = null;
+                this.slideOsc = null;
+                this.slideGain = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.setupSlideSound();
+                } else if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            setupSlideSound() {
+                // Procedural rolling sound (filtered noise)
+                const bufferSize = 2 * this.ctx.sampleRate;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                noise.loop = true;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 400;
+
+                const gain = this.ctx.createGain();
+                gain.gain.value = 0;
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                noise.start();
+                this.slideOsc = noise;
+                this.slideGain = gain;
+                this.slideFilter = filter;
+            }
+
+            playClash(intensity = 1) {
+                if (!this.ctx) return;
+                const t = this.ctx.currentTime;
+
+                // Metal Hit (Sine + Noise)
+                const osc = this.ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800 + Math.random() * 400, t);
+                osc.frequency.exponentialRampToValueAtTime(100, t + 0.1);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.5 * intensity, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(t);
+                osc.stop(t + 0.3);
+
+                // Noise burst
+                const nBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.1, this.ctx.sampleRate);
+                const data = nBuffer.getChannelData(0);
+                for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = nBuffer;
+                const nGain = this.ctx.createGain();
+                nGain.gain.setValueAtTime(0.4 * intensity, t);
+                nGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+
+                noise.connect(nGain);
+                nGain.connect(this.ctx.destination);
+                noise.start(t);
+            }
+
+            updateSlide(speed) {
+                if (!this.slideGain) return;
+                // Speed threshold to start sound
+                if (speed > 5) {
+                    const vol = Math.min(0.3, (speed - 5) / 100);
+                    this.slideGain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.1);
+                    // Higher pitch for higher speed
+                    const freq = 100 + speed * 10;
+                    this.slideFilter.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.1);
+                } else {
+                    this.slideGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
+                }
+            }
+
+            playCount(type) {
+                if (!this.ctx) return;
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                if (type === 'tick') {
+                    osc.frequency.setValueAtTime(800, t);
+                    gain.gain.setValueAtTime(0.2, t);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+                    osc.start(t);
+                    osc.stop(t + 0.1);
+                } else {
+                    // GO!
+                    osc.frequency.setValueAtTime(1200, t);
+                    osc.frequency.exponentialRampToValueAtTime(600, t + 0.4);
+                    gain.gain.setValueAtTime(0.4, t);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+                    osc.start(t);
+                    osc.stop(t + 0.4);
+                }
+            }
+
+            playWin() {
+                if (!this.ctx) return;
+                const t = this.ctx.currentTime;
+                // Victory Fanfare (Major Arpeggio)
+                [0, 0.15, 0.3, 0.6].forEach((dt, i) => {
+                    const osc = this.ctx.createOscillator();
+                    osc.type = 'triangle';
+                    const freq = [523.25, 659.25, 783.99, 1046.50][i]; // C E G C
+                    osc.frequency.value = freq;
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.3, t + dt);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + dt + 0.5);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(t + dt);
+                    osc.stop(t + dt + 0.5);
+                });
+            }
+
+            playLose() {
+                if (!this.ctx) return;
+                const t = this.ctx.currentTime;
+                // Defeat (Descending)
+                [0, 0.3, 0.8].forEach((dt, i) => {
+                    const osc = this.ctx.createOscillator();
+                    osc.type = 'sawtooth';
+                    const freq = [440, 415.30, 369.99][i]; // A G# F#
+                    osc.frequency.value = freq;
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.2, t + dt);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + dt + 0.8);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(t + dt);
+                    osc.stop(t + dt + 0.8);
+                });
+            }
+        }
+
+        const audioMgr = new AudioManager();
 
         // Function to create a 3D Beyblade
         function createBeyMesh(radius, color) {
@@ -356,7 +556,59 @@
 
         // --- 5. GAME LOGIC ---
 
+        function showCountdown(onComplete) {
+            const overlay = document.getElementById('countdown-overlay');
+            const text = document.getElementById('countdown-text');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('active');
+
+            let count = 3;
+
+            function updateText(val) {
+                text.textContent = val;
+                text.style.transition = 'none';
+                text.style.transform = 'scale(1.5)';
+                text.style.opacity = '0';
+                // Force reflow
+                void text.offsetWidth;
+                text.style.transition = 'all 0.2s ease-out';
+                text.style.transform = 'scale(1)';
+                text.style.opacity = '1';
+
+                if (val === "GO SHOOT!") {
+                    text.style.color = "#ff4757";
+                    text.style.textShadow = "0 0 50px #ff4757";
+                    audioMgr.playCount('go');
+                } else {
+                    text.style.color = "#fff";
+                    text.style.textShadow = "0 0 40px rgba(0, 210, 255, 0.8)";
+                    audioMgr.playCount('tick');
+                }
+            }
+
+            updateText("3");
+
+            if (countdownInterval) clearInterval(countdownInterval);
+
+            countdownInterval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    updateText(count);
+                } else if (count === 0) {
+                    updateText("GO SHOOT!");
+                } else {
+                    clearInterval(countdownInterval);
+                    overlay.classList.add('hidden');
+                    overlay.classList.remove('active');
+                    if (onComplete) onComplete();
+                }
+            }, 1000);
+        }
+
         function startGame(playerTypeKey) {
+            // Audio Init
+            audioMgr.init();
+
             // UI
             document.getElementById('start-screen').classList.remove('active');
             document.getElementById('start-screen').classList.add('hidden');
@@ -367,7 +619,7 @@
             if (player.mesh) scene.remove(player.mesh);
             if (enemy.mesh) scene.remove(enemy.mesh);
             if (playerMarker) scene.remove(playerMarker);
-            Engine.clear(engine); // clear engine state but keep world events? No, best to just clear composite.
+            Engine.clear(engine);
 
             // Setup new round
             const keys = Object.keys(TYPES);
@@ -398,7 +650,7 @@
 
             // Player Launch (From Left, Aim Right)
             Body.setAngularVelocity(player.body, spinForce);
-            const pAngle = (Math.random() - 0.5) * 1.0; // Variance increased to +/- 0.5 rad (~28 deg)
+            const pAngle = (Math.random() - 0.5) * 1.0;
             Body.setVelocity(player.body, {
                 x: Math.cos(pAngle) * baseSpeed,
                 y: Math.sin(pAngle) * baseSpeed
@@ -406,22 +658,52 @@
 
             // Enemy Launch (From Right, Aim Left)
             Body.setAngularVelocity(enemy.body, spinForce);
-            const eAngle = Math.PI + (Math.random() - 0.5) * 1.0; // Variance increased
+            const eAngle = Math.PI + (Math.random() - 0.5) * 1.0;
             Body.setVelocity(enemy.body, {
                 x: Math.cos(eAngle) * baseSpeed,
                 y: Math.sin(eAngle) * baseSpeed
             });
 
-            // Reset Time
-            engine.timing.timestamp = 0;
-            gameActive = true;
+            // PAUSE GAME INITIALLY
+            gameActive = false;
             battleEnded = false;
 
-            // Clear per-round flags (CRITICAL FIX)
+
+            // Collision Sound Init
+            Events.on(engine, 'collisionStart', function (event) {
+                if (!gameActive) return;
+                const pairs = event.pairs;
+                pairs.forEach(pair => {
+                    // Check if it's bey vs bey
+                    const labels = [pair.bodyA.label, pair.bodyB.label];
+                    const isBeyCollision = Object.keys(TYPES).some(t => labels.includes(t));
+
+                    if (isBeyCollision) {
+                        // Impact Speed
+                        const speed = Math.hypot(
+                            pair.bodyA.velocity.x - pair.bodyB.velocity.x,
+                            pair.bodyA.velocity.y - pair.bodyB.velocity.y
+                        );
+                        // Trigger sound if significant
+                        if (speed > 2) {
+                            audioMgr.playClash(Math.min(1.5, speed / 15));
+                        }
+                    }
+                });
+            });
+
+            // Clear per-round flags
             player.body.isDead = false;
             enemy.body.isDead = false;
             player.body.dashCooldown = 0;
             enemy.body.dashCooldown = 0;
+
+            // Start Countdown
+            showCountdown(() => {
+                // Reset Time when game ACTUALLY starts
+                engine.timing.timestamp = 0;
+                gameActive = true;
+            });
         }
 
         function gameOver(winner, reason) {
@@ -437,12 +719,15 @@
             if (winner === 'player') {
                 msg.textContent = "VICTORY";
                 msg.style.color = "#2ed573";
+                audioMgr.playWin();
             } else if (winner === 'enemy') {
                 msg.textContent = "DEFEAT";
                 msg.style.color = "#ff4757";
+                audioMgr.playLose();
             } else {
                 msg.textContent = "DRAW";
                 msg.style.color = "#ffa502";
+                audioMgr.playLose(); // Draw sound (using lose for now or add new)
             }
             rsn.textContent = reason;
         }
@@ -626,13 +911,17 @@
 
             // Max Speed Limit (Safety)
             const MAX_SPEED = 60;
+            let totalSpeed = 0;
             currentBodies.forEach(body => {
                 const sp = Math.hypot(body.velocity.x, body.velocity.y);
+                totalSpeed += sp;
                 if (sp > MAX_SPEED) {
                     const s = MAX_SPEED / sp;
                     Body.setVelocity(body, { x: body.velocity.x * s, y: body.velocity.y * s });
                 }
             });
+            // Update Rolling Audio
+            audioMgr.updateSlide(totalSpeed);
 
             // Spin Finish Check (Grace period 2s)
             if (engine.timing.timestamp > 2000) {
@@ -757,6 +1046,7 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            adjustCamera();
         });
 
         // Start Loop
