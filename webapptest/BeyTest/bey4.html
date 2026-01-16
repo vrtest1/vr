@@ -17,6 +17,8 @@
             overflow: hidden;
             background-color: #111;
             color: white;
+            -webkit-tap-highlight-color: transparent;
+            /* Mobile fix */
         }
 
         #game-container {
@@ -53,6 +55,9 @@
         .overlay.hidden {
             opacity: 0;
             pointer-events: none !important;
+            visibility: hidden;
+            /* Ensure it's gone */
+            transition: opacity 0.3s, visibility 0.3s;
         }
 
         h1 {
@@ -184,7 +189,7 @@
             font-style: italic;
             pointer-events: none;
             z-index: 20;
-            background: transparent;
+            background: transparent !important;
             /* Fix darkness */
         }
     </style>
