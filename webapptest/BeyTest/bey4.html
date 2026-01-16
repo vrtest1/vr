@@ -56,7 +56,8 @@
             opacity: 0;
             pointer-events: none !important;
             visibility: hidden;
-            /* Ensure it's gone */
+            display: none !important;
+            /* Force remove from flow/render */
             transition: opacity 0.3s, visibility 0.3s;
         }
 
@@ -244,8 +245,8 @@
 
         // --- 3. THREE.JS SETUP (VISUALS) ---
         const scene = new THREE.Scene();
-        // Fog for depth
-        scene.fog = new THREE.FogExp2(0x111111, 0.001);
+        // Fog for depth (Reduced density for mobile camera distance)
+        scene.fog = new THREE.FogExp2(0x111111, 0.0002);
         scene.background = new THREE.Color(0x111111);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
