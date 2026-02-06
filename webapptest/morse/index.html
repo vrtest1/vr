@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Morse Code Input</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { height: 100%; overflow: hidden; }
+
+  body {
+    background: #0a0a1a;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 1200px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 8px 12px;
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    background: #12122a;
+    flex-shrink: 0;
+  }
+  .header h1 {
+    font-size: 1.3rem;
+    color: #00d4ff;
+    margin-bottom: 2px;
+  }
+  .header p {
+    font-size: 0.78rem;
+    color: #888;
+    line-height: 1.3;
+  }
+
+  /* SVG Tree */
+  .tree-section { flex-shrink: 0; }
+  .tree-toggle {
+    display: none;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    background: #12122a;
+    color: #888;
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-align: center;
+  }
+  .tree-toggle:active { background: #1a1a3a; }
+  .tree-toggle .arrow { transition: transform 0.3s; display: inline-block; }
+  .tree-toggle .arrow--open { transform: rotate(180deg); }
+  .tree-container {
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    background: #12122a;
+    padding: 6px;
+    overflow: hidden;
+  }
+  .tree-container svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .tree-container--hidden { display: none; }
+
+  /* SVG styles */
+  .edge {
+    stroke: #2a2a4a;
+    stroke-width: 2;
+    fill: none;
+    transition: stroke 0.3s, stroke-opacity 0.3s;
+  }
+  .edge--path {
+    stroke: #00d4ff;
+    stroke-opacity: 0.5;
+    stroke-width: 2.5;
+  }
+  .edge-label {
+    fill: #555;
+    font-size: 14px;
+    font-weight: bold;
+    text-anchor: middle;
+    dominant-baseline: central;
+    transition: fill 0.3s;
+  }
+  .edge-label--dot.edge-label--path { fill: #4caf50; }
+  .edge-label--dash.edge-label--path { fill: #ff9800; }
+  .node-circle {
+    fill: #2a2a4a;
+    stroke: #3a3a5a;
+    stroke-width: 2;
+    transition: fill 0.3s, stroke 0.3s, filter 0.3s;
+  }
+  .node-circle--active {
+    fill: #003844;
+    stroke: #00d4ff;
+    filter: url(#glow);
+  }
+  .node-circle--path {
+    fill: #1a2a3a;
+    stroke: #00d4ff55;
+  }
+  .node-label {
+    fill: #aaa;
+    font-size: 18px;
+    font-weight: bold;
+    text-anchor: middle;
+    dominant-baseline: central;
+    transition: fill 0.3s;
+  }
+  .node-label--active { fill: #00d4ff; }
+
+  /* Input display */
+  .input-display {
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    background: #12122a;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .current-char {
+    color: #00d4ff;
+    font-size: 0.8rem;
+  }
+  .morse-sequence {
+    font-size: 1.5rem;
+    letter-spacing: 5px;
+    min-height: 1.8rem;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-wrap: wrap;
+  }
+  .morse-sequence .dot { color: #4caf50; font-weight: bold; }
+  .morse-sequence .dash { color: #ff9800; font-weight: bold; }
+  .morse-sequence .dot--error { color: #ff4444; font-weight: bold; }
+  .morse-sequence .error-hint {
+    color: #ff4444;
+    margin-left: 8px;
+    font-size: 0.8rem;
+    letter-spacing: 0;
+    animation: pulse-red 0.5s ease-in-out infinite alternate;
+  }
+  @keyframes pulse-red { from { opacity: 0.6; } to { opacity: 1; } }
+  .error-flash { animation: flash-red 0.4s ease-out; }
+  @keyframes flash-red { 0% { background: #ff444433; } 100% { background: transparent; } }
+  .timer-bar-container {
+    height: 5px;
+    background: #1a1a3a;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .timer-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #00d4ff, #00ff88);
+    border-radius: 3px;
+    transition: none;
+  }
+  .timer-bar--running { width: 100%; transition: width 700ms linear; }
+
+  /* Output */
+  .output-section {
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    background: #12122a;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .output-label { font-size: 0.75rem; color: #666; }
+  .output-text {
+    font-size: 1.2rem;
+    min-height: 1.8rem;
+    word-break: break-all;
+    color: #e0e0e0;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+    overflow-y: auto;
+    max-height: 120px;
+  }
+  .output-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    background: #00d4ff;
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .buttons {
+    display: flex;
+    gap: 6px;
+  }
+  .buttons button {
+    padding: 5px 12px;
+    border: 1px solid #3a3a5a;
+    border-radius: 8px;
+    background: #1a1a3a;
+    color: #ccc;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .buttons button:hover { background: #2a2a5a; border-color: #00d4ff; }
+  .buttons button:active { background: #00d4ff33; }
+
+  /* Tap button area */
+  .tap-area {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 8px 0;
+  }
+  .tap-btn {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 3px solid #2a2a5a;
+    background: radial-gradient(circle at 40% 35%, #1e1e4a, #12122a);
+    color: #888;
+    font-size: 0.8rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    touch-action: none;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.1s;
+    line-height: 1.2;
+  }
+  .tap-btn:active, .tap-btn--active {
+    border-color: #00d4ff;
+    background: radial-gradient(circle at 40% 35%, #003855, #001a2a);
+    box-shadow: 0 0 30px #00d4ff44, inset 0 0 20px #00d4ff22;
+    color: #00d4ff;
+    transform: scale(0.95);
+  }
+  .tap-btn-label {
+    color: #555;
+    font-size: 0.7rem;
+    text-align: center;
+    max-width: 100px;
+    line-height: 1.3;
+  }
+
+  /* ── Desktop (>= 700px) ── */
+  @media (min-width: 700px) {
+    .container { padding: 12px 16px; gap: 10px; }
+    .header { padding: 10px 16px; }
+    .header h1 { font-size: 1.4rem; }
+    .input-display { padding: 10px 16px; }
+    .output-section { padding: 10px 16px; }
+    .output-text { max-height: 200px; }
+    .morse-sequence { font-size: 1.6rem; }
+    .tap-btn { width: 120px; height: 120px; font-size: 0.85rem; }
+  }
+
+  /* ── Mobile (< 700px) ── */
+  @media (max-width: 699px) {
+    .tree-toggle { display: block; }
+    .tree-container { display: none; }
+    .tree-container--visible { display: block; }
+    .header h1 { font-size: 1.1rem; }
+    .header p { font-size: 0.72rem; }
+    .morse-sequence { font-size: 1.3rem; letter-spacing: 4px; }
+    .output-text { font-size: 1rem; max-height: 80px; }
+  }
+
+  /* ── Very small screens ── */
+  @media (max-width: 380px) {
+    .container { padding: 6px 8px; gap: 6px; }
+    .tap-btn { width: 85px; height: 85px; font-size: 0.72rem; }
+    .buttons button { padding: 4px 8px; font-size: 0.72rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Morse Code Input</h1>
+    <p>Tap the button or press <kbd>Space</kbd> &mdash; short = dot, long = dash &mdash; 8 dots = correction</p>
+  </div>
+
+  <div class="tree-section">
+    <button class="tree-toggle" id="tree-toggle">
+      Morse Tree <span class="arrow" id="tree-arrow">&#9660;</span>
+    </button>
+    <div class="tree-container" id="tree-container">
+      <svg id="tree-svg" viewBox="0 0 1200 550" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+          </filter>
+        </defs>
+      </svg>
+    </div>
+  </div>
+
+  <div class="input-display">
+    <div class="current-char">Current input:</div>
+    <div class="morse-sequence" id="morse-sequence"></div>
+    <div class="timer-bar-container">
+      <div class="timer-bar" id="timer-bar"></div>
+    </div>
+  </div>
+
+  <div class="output-section">
+    <div class="output-label">Decoded text:</div>
+    <div class="output-text" id="output-text"><span class="output-cursor"></span></div>
+    <div class="buttons">
+      <button id="btn-backspace">Backspace</button>
+      <button id="btn-clear">Clear</button>
+      <button id="btn-copy">Copy</button>
+    </div>
+  </div>
+
+  <div class="tap-area">
+    <div class="tap-btn-label">short tap<br>= dot</div>
+    <div class="tap-btn" id="tap-btn">TAP<br>&amp; HOLD</div>
+    <div class="tap-btn-label">long press<br>= dash</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ── Constants ──
+  const DOT_THRESHOLD = 200;
+  const CHAR_TIMEOUT  = 700;
+  const WORD_TIMEOUT  = 1500;
+  const TONE_FREQ     = 600;
+  const ERROR_DOTS    = 8;
+
+  const TREE = [
+    null, null,
+    'E','T',
+    'I','A','N','M',
+    'S','U','R','W','D','K','G','O',
+    'H','V','F',null,'L',null,'P','J','B','X','C','Y','Z','Q',null,null
+  ];
+
+  const HIDDEN_NODES = new Set([19, 21, 30, 31]);
+
+  const EXTENDED_CODES = {
+    '.----': '1', '..---': '2', '...--': '3', '....-': '4', '.....': '5',
+    '-....': '6', '--...': '7', '---..': '8', '----.': '9', '-----': '0',
+    '.-.-.-': '.', '--..--': ',', '..--..': '?', '.----.': "'",
+    '-..-.': '/', '-.--.': '(', '-.--.-': ')', '---...': ':',
+    '-....-': '-', '.-..-.': '"',
+  };
+
+  // ── State ──
+  const state = {
+    currentIndex: 1,
+    currentMorse: [],
+    decodedText: '',
+    isKeyDown: false,
+    pressStart: 0,
+    charTimer: null,
+    wordTimer: null,
+    audioCtx: null,
+    oscillator: null,
+    gainNode: null,
+    offTree: false,
+  };
+
+  // ── DOM refs ──
+  const svgEl = document.getElementById('tree-svg');
+  const morseSeqEl = document.getElementById('morse-sequence');
+  const timerBarEl = document.getElementById('timer-bar');
+  const outputTextEl = document.getElementById('output-text');
+  const tapBtnEl = document.getElementById('tap-btn');
+  const treeToggleEl = document.getElementById('tree-toggle');
+  const treeContainerEl = document.getElementById('tree-container');
+  const treeArrowEl = document.getElementById('tree-arrow');
+
+  // ── Tree toggle ──
+  let treeVisible = false;
+  treeToggleEl.addEventListener('click', () => {
+    treeVisible = !treeVisible;
+    treeContainerEl.classList.toggle('tree-container--visible', treeVisible);
+    treeArrowEl.classList.toggle('arrow--open', treeVisible);
+  });
+
+  // ── SVG Tree Drawing ──
+  const NODE_R = 20;
+  const nodePositions = {};
+
+  function buildTree() {
+    const edgesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    const nodesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    edgesGroup.id = 'edges';
+    nodesGroup.id = 'nodes';
+
+    for (let i = 1; i < TREE.length; i++) {
+      if (HIDDEN_NODES.has(i)) continue;
+      const level = Math.floor(Math.log2(i));
+      const posInLevel = i - Math.pow(2, level);
+      const totalInLevel = Math.pow(2, level);
+      const xSpacing = 1200 / totalInLevel;
+      const x = xSpacing * (posInLevel + 0.5);
+      const y = 50 + level * 120;
+      nodePositions[i] = { x, y };
+    }
+
+    for (let i = 1; i < TREE.length; i++) {
+      if (HIDDEN_NODES.has(i) || !nodePositions[i]) continue;
+      const parentIdx = Math.floor(i / 2);
+      if (parentIdx < 1 || !nodePositions[parentIdx]) continue;
+      const p = nodePositions[parentIdx];
+      const c = nodePositions[i];
+      const isLeft = i % 2 === 0;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', p.x);
+      line.setAttribute('y1', p.y + NODE_R);
+      line.setAttribute('x2', c.x);
+      line.setAttribute('y2', c.y - NODE_R);
+      line.classList.add('edge');
+      line.id = `edge-${i}`;
+      if (!isLeft) line.setAttribute('stroke-dasharray', '6,4');
+      edgesGroup.appendChild(line);
+      const mx = (p.x + c.x) / 2;
+      const my = (p.y + NODE_R + c.y - NODE_R) / 2;
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', mx + (isLeft ? -12 : 12));
+      label.setAttribute('y', my);
+      label.classList.add('edge-label', isLeft ? 'edge-label--dot' : 'edge-label--dash');
+      label.id = `edge-label-${i}`;
+      label.textContent = isLeft ? '\u00B7' : '\u2013';
+      edgesGroup.appendChild(label);
+    }
+
+    for (let i = 1; i < TREE.length; i++) {
+      if (HIDDEN_NODES.has(i) || !nodePositions[i]) continue;
+      const { x, y } = nodePositions[i];
+      const char = TREE[i];
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', x);
+      circle.setAttribute('cy', y);
+      circle.setAttribute('r', i === 1 ? 24 : NODE_R);
+      circle.classList.add('node-circle');
+      circle.id = `node-${i}`;
+      nodesGroup.appendChild(circle);
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', x);
+      text.setAttribute('y', y);
+      text.classList.add('node-label');
+      text.id = `node-label-${i}`;
+      text.textContent = char || (i === 1 ? '\u25C6' : '');
+      nodesGroup.appendChild(text);
+    }
+
+    svgEl.appendChild(edgesGroup);
+    svgEl.appendChild(nodesGroup);
+    updateTreeHighlight();
+  }
+
+  function getPathToNode(idx) {
+    const path = [];
+    while (idx > 1) { path.push(idx); idx = Math.floor(idx / 2); }
+    path.push(1);
+    return path.reverse();
+  }
+
+  function updateTreeHighlight() {
+    const pathSet = new Set(getPathToNode(state.currentIndex));
+    for (let i = 1; i < TREE.length; i++) {
+      if (HIDDEN_NODES.has(i)) continue;
+      const circle = document.getElementById(`node-${i}`);
+      const label = document.getElementById(`node-label-${i}`);
+      const edge = document.getElementById(`edge-${i}`);
+      const edgeLabel = document.getElementById(`edge-label-${i}`);
+      if (circle) {
+        circle.classList.remove('node-circle--active', 'node-circle--path');
+        if (i === state.currentIndex) circle.classList.add('node-circle--active');
+        else if (pathSet.has(i)) circle.classList.add('node-circle--path');
+      }
+      if (label) label.classList.toggle('node-label--active', i === state.currentIndex);
+      if (edge) edge.classList.toggle('edge--path', pathSet.has(i));
+      if (edgeLabel) edgeLabel.classList.toggle('edge-label--path', pathSet.has(i));
+    }
+  }
+
+  // ── Audio ──
+  function ensureAudioCtx() {
+    if (!state.audioCtx) state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
+  }
+
+  function startTone() {
+    ensureAudioCtx();
+    if (state.oscillator) return;
+    const ctx = state.audioCtx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = TONE_FREQ;
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.01);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    state.oscillator = osc;
+    state.gainNode = gain;
+  }
+
+  function stopTone() {
+    if (!state.oscillator || !state.audioCtx) return;
+    const ctx = state.audioCtx;
+    state.gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.01);
+    const osc = state.oscillator;
+    setTimeout(() => { try { osc.stop(); } catch(e) {} }, 20);
+    state.oscillator = null;
+    state.gainNode = null;
+  }
+
+  // ── Helpers ──
+  function getMorseStr() { return state.currentMorse.join(''); }
+  function lookupExtended(morseStr) { return EXTENDED_CODES[morseStr] || null; }
+
+  function resolveChar() {
+    const ext = lookupExtended(getMorseStr());
+    if (ext) return ext;
+    if (!state.offTree) return TREE[state.currentIndex] || null;
+    return null;
+  }
+
+  function replayTree() {
+    state.currentIndex = 1;
+    state.offTree = false;
+    for (const sym of state.currentMorse) {
+      if (state.offTree) break;
+      const next = sym === '.' ? state.currentIndex * 2 : state.currentIndex * 2 + 1;
+      if (next < TREE.length && !HIDDEN_NODES.has(next)) {
+        state.currentIndex = next;
+      } else {
+        state.offTree = true;
+      }
+    }
+  }
+
+  function isErrorProsign() {
+    return state.currentMorse.length >= ERROR_DOTS
+      && state.currentMorse.every(s => s === '.');
+  }
+
+  // ── Morse Display ──
+  function renderMorseSequence() {
+    morseSeqEl.innerHTML = '';
+    if (state.currentMorse.length === 0) {
+      morseSeqEl.innerHTML = '<span style="color:#555">...</span>';
+      return;
+    }
+    const allDots = state.currentMorse.every(s => s === '.');
+    const isErrorPath = allDots && state.offTree;
+    const morseStr = getMorseStr();
+    const extChar = lookupExtended(morseStr);
+
+    state.currentMorse.forEach((sym, i) => {
+      const span = document.createElement('span');
+      if (sym === '.') {
+        if (isErrorPath && !extChar && i >= 4) span.classList.add('dot--error');
+        else span.classList.add('dot');
+        span.textContent = '\u00B7';
+      } else {
+        span.classList.add('dash');
+        span.textContent = '\u2014';
+      }
+      morseSeqEl.appendChild(span);
+    });
+
+    if (extChar) {
+      const hint = document.createElement('span');
+      hint.style.cssText = 'color:#00d4ff;margin-left:10px;font-size:1rem;letter-spacing:0;';
+      hint.textContent = `\u2192 ${extChar}`;
+      morseSeqEl.appendChild(hint);
+    } else if (isErrorPath) {
+      const hint = document.createElement('span');
+      hint.classList.add('error-hint');
+      const remaining = ERROR_DOTS - state.currentMorse.length;
+      if (remaining > 0) hint.textContent = `\u2190 ${remaining} more`;
+      morseSeqEl.appendChild(hint);
+    } else if (state.offTree) {
+      const candidates = Object.entries(EXTENDED_CODES)
+        .filter(([code]) => code.startsWith(morseStr) && code !== morseStr)
+        .slice(0, 4);
+      if (candidates.length > 0) {
+        const hint = document.createElement('span');
+        hint.style.cssText = 'color:#888;margin-left:10px;font-size:0.8rem;letter-spacing:0;';
+        hint.textContent = candidates.map(([, ch]) => ch).join(' ');
+        morseSeqEl.appendChild(hint);
+      }
+    } else {
+      const char = TREE[state.currentIndex];
+      if (char) {
+        const hint = document.createElement('span');
+        hint.style.cssText = 'color:#00d4ff;margin-left:10px;font-size:1rem;letter-spacing:0;';
+        hint.textContent = `\u2192 ${char}`;
+        morseSeqEl.appendChild(hint);
+      }
+    }
+  }
+
+  function renderOutput() {
+    outputTextEl.innerHTML = '';
+    outputTextEl.appendChild(document.createTextNode(state.decodedText));
+    const cursor = document.createElement('span');
+    cursor.className = 'output-cursor';
+    outputTextEl.appendChild(cursor);
+  }
+
+  // ── Timer Bar ──
+  function startTimerBar() {
+    timerBarEl.classList.remove('timer-bar--running');
+    void timerBarEl.offsetWidth;
+    timerBarEl.classList.add('timer-bar--running');
+  }
+
+  function resetTimerBar() {
+    timerBarEl.classList.remove('timer-bar--running');
+    timerBarEl.style.width = '0%';
+    void timerBarEl.offsetWidth;
+    timerBarEl.style.width = '';
+  }
+
+  // ── Input Logic ──
+  function clearTimers() {
+    if (state.charTimer) { clearTimeout(state.charTimer); state.charTimer = null; }
+    if (state.wordTimer) { clearTimeout(state.wordTimer); state.wordTimer = null; }
+    resetTimerBar();
+  }
+
+  function resetInput() {
+    state.currentIndex = 1;
+    state.currentMorse = [];
+    state.offTree = false;
+  }
+
+  function confirmChar() {
+    const char = resolveChar();
+    if (char) state.decodedText += char;
+    resetInput();
+    renderMorseSequence();
+    updateTreeHighlight();
+    renderOutput();
+  }
+
+  function insertSpace() {
+    if (state.decodedText.length > 0 && state.decodedText[state.decodedText.length - 1] !== ' ') {
+      state.decodedText += ' ';
+      renderOutput();
+    }
+  }
+
+  function triggerErrorCorrection() {
+    if (state.decodedText.length > 0) {
+      state.decodedText = state.decodedText.replace(/\s?.$/, '');
+    }
+    resetInput();
+    clearTimers();
+    renderMorseSequence();
+    updateTreeHighlight();
+    renderOutput();
+    const inputDisplay = document.querySelector('.input-display');
+    inputDisplay.classList.add('error-flash');
+    setTimeout(() => inputDisplay.classList.remove('error-flash'), 400);
+  }
+
+  function onPressStart() {
+    if (state.isKeyDown) return;
+    state.isKeyDown = true;
+    state.pressStart = performance.now();
+    clearTimers();
+    startTone();
+    tapBtnEl.classList.add('tap-btn--active');
+  }
+
+  function onPressEnd() {
+    if (!state.isKeyDown) return;
+    state.isKeyDown = false;
+    stopTone();
+    tapBtnEl.classList.remove('tap-btn--active');
+
+    const duration = performance.now() - state.pressStart;
+    const isDot = duration < DOT_THRESHOLD;
+    const symbol = isDot ? '.' : '-';
+
+    state.currentMorse.push(symbol);
+
+    if (!state.offTree) {
+      const nextIndex = isDot
+        ? state.currentIndex * 2
+        : state.currentIndex * 2 + 1;
+      if (nextIndex < TREE.length && !HIDDEN_NODES.has(nextIndex)) {
+        state.currentIndex = nextIndex;
+      } else {
+        state.offTree = true;
+      }
+    }
+
+    if (isErrorProsign()) {
+      triggerErrorCorrection();
+      return;
+    }
+
+    if (state.currentMorse.length > 6 && !state.currentMorse.every(s => s === '.')) {
+      state.currentMorse.pop();
+      replayTree();
+      confirmChar();
+      resetTimerBar();
+      return;
+    }
+
+    renderMorseSequence();
+    updateTreeHighlight();
+
+    startTimerBar();
+    state.charTimer = setTimeout(() => {
+      confirmChar();
+      resetTimerBar();
+    }, CHAR_TIMEOUT);
+
+    state.wordTimer = setTimeout(() => {
+      insertSpace();
+    }, WORD_TIMEOUT);
+  }
+
+  // ── Event Listeners ──
+
+  // Keyboard
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (e.repeat) return;
+      onPressStart();
+    }
+    if (e.code === 'Backspace') {
+      e.preventDefault();
+      doBackspace();
+    }
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      onPressEnd();
+    }
+  });
+
+  // Tap button — touch
+  tapBtnEl.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    onPressStart();
+  }, { passive: false });
+
+  tapBtnEl.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    onPressEnd();
+  }, { passive: false });
+
+  tapBtnEl.addEventListener('touchcancel', (e) => {
+    e.preventDefault();
+    onPressEnd();
+  }, { passive: false });
+
+  // Tap button — mouse (for desktop click testing)
+  tapBtnEl.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    onPressStart();
+  });
+  document.addEventListener('mouseup', (e) => {
+    if (state.isKeyDown && e.button === 0) {
+      onPressEnd();
+    }
+  });
+
+  tapBtnEl.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // Prevent default touch behaviors on the whole page when tap button is active
+  document.addEventListener('touchmove', (e) => {
+    if (state.isKeyDown) e.preventDefault();
+  }, { passive: false });
+
+  // Buttons
+  function doBackspace() {
+    if (state.currentMorse.length > 0) {
+      state.currentMorse.pop();
+      replayTree();
+      clearTimers();
+      if (state.currentMorse.length > 0) {
+        startTimerBar();
+        state.charTimer = setTimeout(() => { confirmChar(); resetTimerBar(); }, CHAR_TIMEOUT);
+        state.wordTimer = setTimeout(() => { insertSpace(); }, WORD_TIMEOUT);
+      }
+      renderMorseSequence();
+      updateTreeHighlight();
+    } else {
+      state.decodedText = state.decodedText.slice(0, -1);
+      renderOutput();
+    }
+  }
+
+  document.getElementById('btn-backspace').addEventListener('click', doBackspace);
+
+  document.getElementById('btn-clear').addEventListener('click', () => {
+    state.decodedText = '';
+    resetInput();
+    clearTimers();
+    renderMorseSequence();
+    updateTreeHighlight();
+    renderOutput();
+  });
+
+  document.getElementById('btn-copy').addEventListener('click', () => {
+    if (state.decodedText) {
+      navigator.clipboard.writeText(state.decodedText).then(() => {
+        const btn = document.getElementById('btn-copy');
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.style.borderColor = '#00d4ff';
+        setTimeout(() => { btn.textContent = orig; btn.style.borderColor = ''; }, 1200);
+      });
+    }
+  });
+
+  // ── Init ──
+  buildTree();
+  renderMorseSequence();
+  renderOutput();
+})();
+</script>
+</body>
+</html>
