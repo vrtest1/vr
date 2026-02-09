@@ -212,27 +212,27 @@ function setupTouchControls() {
   const btnLeft = document.getElementById('btnLeft');
   btnLeft.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    if (gameActive && currentPiece) movePiece(-1, 0);
+    if (gameActive && !isPaused && currentPiece) movePiece(-1, 0);
   });
   btnLeft.addEventListener('click', () => {
-    if (gameActive && currentPiece) movePiece(-1, 0);
+    if (gameActive && !isPaused && currentPiece) movePiece(-1, 0);
   });
 
   // 右ボタン
   const btnRight = document.getElementById('btnRight');
   btnRight.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    if (gameActive && currentPiece) movePiece(1, 0);
+    if (gameActive && !isPaused && currentPiece) movePiece(1, 0);
   });
   btnRight.addEventListener('click', () => {
-    if (gameActive && currentPiece) movePiece(1, 0);
+    if (gameActive && !isPaused && currentPiece) movePiece(1, 0);
   });
 
   // 下ボタン（ソフトドロップ）
   const btnDown = document.getElementById('btnDown');
   btnDown.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    if (gameActive && currentPiece) {
+    if (gameActive && !isPaused && currentPiece) {
       const now = Date.now();
       if (now - softDropStartTime > SOFT_DROP_INTERVAL) {
         if (movePiece(0, 1)) {
@@ -243,7 +243,7 @@ function setupTouchControls() {
     }
   });
   btnDown.addEventListener('click', () => {
-    if (gameActive && currentPiece) {
+    if (gameActive && !isPaused && currentPiece) {
       const now = Date.now();
       if (now - softDropStartTime > SOFT_DROP_INTERVAL) {
         if (movePiece(0, 1)) {
@@ -258,41 +258,80 @@ function setupTouchControls() {
   const btnRotateCCW = document.getElementById('btnRotateCCW');
   btnRotateCCW.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    rotatePiece(false);
+    if (!isPaused) rotatePiece(false);
   });
   btnRotateCCW.addEventListener('click', () => {
-    rotatePiece(false);
+    if (!isPaused) rotatePiece(false);
   });
 
   // 回転ボタン（時計回り）
   const btnRotate = document.getElementById('btnRotate');
   btnRotate.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    rotatePiece(true);
+    if (!isPaused) rotatePiece(true);
   });
   btnRotate.addEventListener('click', () => {
-    rotatePiece(true);
+    if (!isPaused) rotatePiece(true);
   });
 
   // Holdボタン
   const btnHold = document.getElementById('btnHold');
   btnHold.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    hold();
+    if (!isPaused) hold();
   });
   btnHold.addEventListener('click', () => {
-    hold();
+    if (!isPaused) hold();
   });
 
   // ハードドロップボタン
   const btnHardDrop = document.getElementById('btnHardDrop');
   btnHardDrop.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    hardDrop();
+    if (!isPaused) hardDrop();
   });
   btnHardDrop.addEventListener('click', () => {
-    hardDrop();
+    if (!isPaused) hardDrop();
   });
+
+  // ポーズボタン
+  const btnPause = document.getElementById('btnPause');
+  btnPause.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    togglePause();
+  });
+  btnPause.addEventListener('click', () => {
+    togglePause();
+  });
+}
+
+let isPaused = false;
+
+function togglePause() {
+  if (!gameActive) return;
+
+  isPaused = !isPaused;
+
+  const btnPause = document.getElementById('btnPause');
+
+  if (isPaused) {
+    cancelAnimationFrame(animationId);
+    btnPause.textContent = "RESUME";
+    btnPause.style.background = "linear-gradient(90deg, #ff9966, #ff5e62)"; // Orange/Red for Resume
+
+    // Draw PAUSED text
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText("PAUSED", canvas.width / 2, canvas.height / 2);
+  } else {
+    btnPause.textContent = "PAUSE";
+    btnPause.style.background = ""; // Reset to default
+    lastDropTime = performance.now();
+    animationId = requestAnimationFrame(gameLoop);
+  }
 }
 
 function createBoard() {
@@ -685,7 +724,7 @@ function drawGhost() {
   for (let y = 0; y < shape.length; y++) {
     for (let x = 0; x < shape[y].length; x++) {
       if (shape[y][x] !== 0) {
-        drawBlock(ctx, currentPiece.x + x, ghostY + y, currentPiece.color, currentPiece.glow, false);
+        drawBlock(ctx, currentPiece.x + x, ghostY + y, currentPiece.color, currentPiece.color, false);
       }
     }
   }
@@ -703,6 +742,8 @@ function gameOver() {
 }
 
 function gameLoop(timestamp) {
+  if (isPaused) return;
+
   if (gameActive) {
     if (timestamp - lastDropTime > dropInterval) {
       movePiece(0, 1);
@@ -714,9 +755,9 @@ function gameLoop(timestamp) {
     drawPiece(currentPiece);
     drawNextPiece();
     drawHold();
-  }
 
-  animationId = requestAnimationFrame(gameLoop);
+    animationId = requestAnimationFrame(gameLoop);
+  }
 }
 
 function startGame() {
