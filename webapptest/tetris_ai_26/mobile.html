@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Neon Tetris Mobile</title>
+  <link rel="stylesheet" href="style-mobile.css">
+</head>
+<body>
+  <div class="game-container">
+    <header>
+      <h1>NEON TETRIS</h1>
+      <div class="stats">
+        <div>SCORE: <span id="score">0</span></div>
+        <div>LEVEL: <span id="level">1</span></div>
+        <div>HIGH: <span id="highScore">0</span></div>
+      </div>
+    </header>
+
+    <div class="game-area">
+      <div class="side-panel left">
+        <div class="hold-piece">
+          <h3>HOLD</h3>
+          <canvas id="holdCanvas" width="80" height="80"></canvas>
+        </div>
+      </div>
+
+      <canvas id="gameCanvas" width="240" height="480"></canvas>
+      
+      <div class="side-panel right">
+        <div class="next-piece">
+          <h3>NEXT</h3>
+          <canvas id="nextCanvas" width="80" height="80"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- タッチコントロール -->
+    <div class="touch-controls">
+      <div class="d-pad">
+        <button class="control-btn" id="btnLeft">←</button>
+        <div class="d-pad-middle">
+          <button class="control-btn" id="btnRotate">↻</button>
+          <button class="control-btn" id="btnDown">↓</button>
+        </div>
+        <button class="control-btn" id="btnRight">→</button>
+      </div>
+      
+      <div class="action-buttons">
+        <button class="control-btn action" id="btnHold">HOLD</button>
+        <button class="control-btn action" id="btnHardDrop">DROP</button>
+      </div>
+    </div>
+
+    <button id="playBtn" class="play-btn">
+      <span>PLAY</span>
+    </button>
+
+    <div id="gameOver" class="overlay hidden">
+      <h2>GAME OVER</h2>
+      <p>Score: <span id="finalScore">0</span></p>
+      <button class="play-btn" id="restartBtn">RESTART</button>
+    </div>
+
+    <!-- PC版へのリンク -->
+    <div class="version-switch">
+      <a href="index.html" class="switch-link">PC版でプレイ →</a>
+    </div>
+  </div>
+
+  <script src="game-mobile.js"></script>
+</body>
+</html>

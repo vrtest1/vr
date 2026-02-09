@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neon Tetris</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="game-container">
+    <header>
+      <h1>NEON TETRIS</h1>
+      <div class="stats">
+        <div>SCORE: <span id="score">0</span></div>
+        <div>LEVEL: <span id="level">1</span></div>
+        <div>HIGH SCORE: <span id="highScore">0</span></div>
+      </div>
+    </header>
+
+    <div class="game-area">
+      <div class="hold-piece">
+        <h3>HOLD</h3>
+        <canvas id="holdCanvas" width="120" height="120"></canvas>
+      </div>
+
+      <canvas id="gameCanvas" width="300" height="600"></canvas>
+      
+      <div class="next-piece">
+        <h3>NEXT</h3>
+        <canvas id="nextCanvas" width="120" height="120"></canvas>
+      </div>
+    </div>
+
+    <div class="controls-info">
+      <p>← → : 移動 | ↑ / X : 時計回り | Z : 反時計回り | ↓ : ソフトドロップ | C : HOLD</p>
+      <p>SPACE : ハードドロップ | S : PLAY/RESTART | ゲームパッド : A/Bで回転, StartでPLAY/RESTART</p>
+    </div>
+
+    <button id="playBtn" class="play-btn">
+      <span>PLAY</span>
+    </button>
+
+    <div id="gameOver" class="overlay hidden">
+      <h2>GAME OVER</h2>
+      <p>Final Score: <span id="finalScore">0</span></p>
+      <button class="play-btn" id="restartBtn">RESTART</button>
+    </div>
+
+    <!-- スマホ版へのリンク -->
+    <div class="version-switch">
+      <a href="mobile.html" class="switch-link">📱 スマホ版でプレイ</a>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

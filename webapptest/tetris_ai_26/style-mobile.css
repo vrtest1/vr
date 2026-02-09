@@ -1,0 +1,281 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+.game-container {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  max-width: 100vw;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header h1 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+  background: linear-gradient(90deg, #ff416c, #ff4b2b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.stats {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 10px;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.stats > div {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 5px 10px;
+  border-radius: 8px;
+  min-width: 60px;
+}
+
+.stats span {
+  font-weight: bold;
+  color: #ffd700;
+}
+
+.game-area {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#gameCanvas {
+  border: 2px solid #fff;
+  border-radius: 5px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  max-width: 240px;
+  max-height: 480px;
+}
+
+.next-piece, .hold-piece {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.next-piece h3, .hold-piece h3 {
+  margin-bottom: 5px;
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+#nextCanvas, #holdCanvas {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 5px;
+  width: 80px;
+  height: 80px;
+}
+
+.hold-piece.disabled {
+  opacity: 0.5;
+}
+
+/* タッチコントロール */
+.touch-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  gap: 20px;
+}
+
+.d-pad {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.d-pad-middle {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.control-btn {
+  width: 55px;
+  height: 55px;
+  font-size: 1.5rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.control-btn:active {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(0.95);
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.control-btn.action {
+  width: 80px;
+  height: 50px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  background: linear-gradient(90deg, #a18cd1, #fbc2eb);
+  border: none;
+}
+
+.control-btn.action:active {
+  background: linear-gradient(90deg, #fbc2eb, #a18cd1);
+}
+
+#btnHardDrop {
+  background: linear-gradient(90deg, #ff416c, #ff4b2b);
+}
+
+#btnHardDrop:active {
+  background: linear-gradient(90deg, #ff4b2b, #ff416c);
+}
+
+.play-btn {
+  margin: 10px auto;
+  padding: 12px 30px;
+  font-size: 1.2rem;
+  background: linear-gradient(90deg, #a18cd1, #fbc2eb);
+  border: none;
+  border-radius: 30px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 5px 15px rgba(161, 140, 209, 0.5);
+}
+
+.play-btn:hover, .play-btn:active {
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(161, 140, 209, 0.7);
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.overlay h2 {
+  font-size: 2rem;
+  color: #ff416c;
+  margin-bottom: 15px;
+}
+
+.overlay p {
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+}
+
+/* PC版リンク */
+.version-switch {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.switch-link {
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.3s ease;
+}
+
+.switch-link:hover, .switch-link:active {
+  color: #fff;
+}
+
+/* 横向き対応 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .game-container {
+    flex-direction: row;
+    padding: 10px;
+  }
+  
+  header {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+  }
+  
+  header h1 {
+    font-size: 1.2rem;
+    margin-bottom: 0;
+    margin-left: 10px;
+  }
+  
+  .stats {
+    flex-direction: column;
+    font-size: 0.7rem;
+  }
+  
+  .touch-controls {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .action-buttons {
+    flex-direction: row;
+  }
+}
