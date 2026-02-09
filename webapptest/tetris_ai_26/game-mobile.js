@@ -145,7 +145,7 @@ const SoundFX = {
 // Game Constants
 const COLS = 10;
 const ROWS = 20;
-const BLOCK_SIZE = 24;
+const BLOCK_SIZE = 20; // キャンバス200x400pxに合わせて調整
 
 // Tetromino definitions
 const PIECES = [
