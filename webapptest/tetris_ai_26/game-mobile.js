@@ -603,6 +603,10 @@ function drawBlock(ctx, x, y, color, glow) {
 function drawBoard() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Reset state as safeguard
+  ctx.globalAlpha = 1.0;
+  ctx.shadowBlur = 0;
+
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       if (board[y][x] !== 0) {
@@ -616,6 +620,10 @@ function drawBoard() {
 
 function drawPiece(piece) {
   if (!piece) return;
+
+  // Reset state as safeguard
+  ctx.globalAlpha = 1.0;
+  ctx.shadowBlur = 0;
 
   const shape = piece.shape;
   for (let y = 0; y < shape.length; y++) {
@@ -719,6 +727,7 @@ function drawGhost() {
 
   if (ghostY === currentPiece.y) return;
 
+  ctx.save(); // Save context state before modifying
   ctx.globalAlpha = 0.3;
   const shape = currentPiece.shape;
 
@@ -737,8 +746,7 @@ function drawGhost() {
       }
     }
   }
-  ctx.globalAlpha = 1.0;
-  ctx.shadowBlur = 0;
+  ctx.restore(); // Restore context state (clears globalAlpha, fillStyle, etc.)
 }
 
 function gameOver() {
