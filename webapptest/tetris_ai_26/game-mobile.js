@@ -721,10 +721,19 @@ function drawGhost() {
 
   ctx.globalAlpha = 0.3;
   const shape = currentPiece.shape;
+
+  ctx.fillStyle = currentPiece.color;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.lineWidth = 1;
+
   for (let y = 0; y < shape.length; y++) {
     for (let x = 0; x < shape[y].length; x++) {
       if (shape[y][x] !== 0) {
-        drawBlock(ctx, currentPiece.x + x, ghostY + y, currentPiece.color, currentPiece.color, false);
+        const drawX = (currentPiece.x + x) * BLOCK_SIZE;
+        const drawY = (ghostY + y) * BLOCK_SIZE;
+
+        ctx.fillRect(drawX, drawY, BLOCK_SIZE, BLOCK_SIZE);
+        ctx.strokeRect(drawX, drawY, BLOCK_SIZE, BLOCK_SIZE);
       }
     }
   }
