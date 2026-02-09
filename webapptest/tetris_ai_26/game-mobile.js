@@ -497,15 +497,37 @@ function isTSpin() {
   return blockedCorners >= 3;
 }
 
+function adjustColor(color, amount) {
+  let usePound = false;
+  if (color[0] == "#") {
+    color = color.slice(1);
+    usePound = true;
+  }
+  let num = parseInt(color, 16);
+  let r = (num >> 16) + amount;
+  if (r > 255) r = 255;
+  else if (r < 0) r = 0;
+  let b = ((num >> 8) & 0x00FF) + amount;
+  if (b > 255) b = 255;
+  else if (b < 0) b = 0;
+  let g = (num & 0x0000FF) + amount;
+  if (g > 255) g = 255;
+  else if (g < 0) g = 0;
+  return (usePound ? "#" : "") + (g | (b << 8) | (r << 16)).toString(16).padStart(6, '0');
+}
+
 function lockPiece() {
   const shape = currentPiece.shape;
+  // Darken color for locked blocks
+  const darkerColor = adjustColor(currentPiece.color, -50); // Darken by 50
+  const darkerGlow = adjustColor(currentPiece.glow, -50);
 
   for (let y = 0; y < shape.length; y++) {
     for (let x = 0; x < shape[y].length; x++) {
       if (shape[y][x] !== 0) {
         const boardY = currentPiece.y + y;
         if (boardY >= 0 && boardY < ROWS) {
-          board[boardY][currentPiece.x + x] = { color: currentPiece.color, glow: currentPiece.glow };
+          board[boardY][currentPiece.x + x] = { color: darkerColor, glow: darkerGlow };
         }
       }
     }
