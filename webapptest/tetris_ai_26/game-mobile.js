@@ -213,7 +213,7 @@ function setupTouchControls() {
   btnLeft.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (gameActive && !isPaused && currentPiece) movePiece(-1, 0);
-  });
+  }, { passive: false });
   btnLeft.addEventListener('click', () => {
     if (gameActive && !isPaused && currentPiece) movePiece(-1, 0);
   });
@@ -223,7 +223,7 @@ function setupTouchControls() {
   btnRight.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (gameActive && !isPaused && currentPiece) movePiece(1, 0);
-  });
+  }, { passive: false });
   btnRight.addEventListener('click', () => {
     if (gameActive && !isPaused && currentPiece) movePiece(1, 0);
   });
@@ -241,7 +241,7 @@ function setupTouchControls() {
         }
       }
     }
-  });
+  }, { passive: false });
   btnDown.addEventListener('click', () => {
     if (gameActive && !isPaused && currentPiece) {
       const now = Date.now();
@@ -259,7 +259,7 @@ function setupTouchControls() {
   btnRotateCCW.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (!isPaused) rotatePiece(false);
-  });
+  }, { passive: false });
   btnRotateCCW.addEventListener('click', () => {
     if (!isPaused) rotatePiece(false);
   });
@@ -269,7 +269,7 @@ function setupTouchControls() {
   btnRotate.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (!isPaused) rotatePiece(true);
-  });
+  }, { passive: false });
   btnRotate.addEventListener('click', () => {
     if (!isPaused) rotatePiece(true);
   });
@@ -279,7 +279,7 @@ function setupTouchControls() {
   btnHold.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (!isPaused) hold();
-  });
+  }, { passive: false });
   btnHold.addEventListener('click', () => {
     if (!isPaused) hold();
   });
@@ -289,7 +289,7 @@ function setupTouchControls() {
   btnHardDrop.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (!isPaused) hardDrop();
-  });
+  }, { passive: false });
   btnHardDrop.addEventListener('click', () => {
     if (!isPaused) hardDrop();
   });
@@ -299,7 +299,7 @@ function setupTouchControls() {
   btnPause.addEventListener('touchstart', (e) => {
     e.preventDefault();
     togglePause();
-  });
+  }, { passive: false });
   btnPause.addEventListener('click', () => {
     togglePause();
   });
