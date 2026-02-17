@@ -1,0 +1,348 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+		<meta name="description" content="
+			下記をお借りして改変
+			1968年頃から1991年頃まで、NHKのテレビ放送で使用されていた青色の「NHK時計」を再現したものです。
+			「NHK時計 青色」は、日本放送協会の「NHK時計」の〝二次創作物〟です。
+			ご利用の際は、350ml.netの「NHK時計 青色」のページを開くか、スマートフォン・タブレットのホーム画面に追加、もしくはダウンロードして〝ローカルで〟お使いください。
+			なお一般に公開されているウェブサーバへのアップロードはおやめください。
+
+			時刻・時報および精度は、機器・ブラウザに依存するため、必ずしも正確であるとは限りません。
+
+			制作：2018-07-12　更新：2020-10-20
+			Copyright 🄫 AKINO Yoh, 350ml.net 2018
+		">
+
+		<script>
+			// ServiceWorker登録
+			if ('serviceWorker' in navigator) {
+				navigator.serviceWorker.register('nhk_blue.js').then(function(registration) {
+					console.log('ServiceWorker registration successful with scope: ', registration.scope);
+				}).catch(function(err) {
+					console.log('ServiceWorker registration failed: ', err);
+				});
+			}
+		</script>
+		<title>NHK時計 青色 | アプリ || 350ml.net</title>
+		<style>
+			html, body {
+				background-color: black;
+				width: 100%;
+				height: 100%;
+				margin: 0;
+				padding: 0;
+				overflow: hidden; /* スクロールバーを完全に防止 */
+			}
+			body {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+			}
+			article {
+				display: block;
+				line-height: 0;
+			}
+			svg {
+				/* アスペクト比を維持して最大化 */
+				max-width: 100vw;
+				max-height: 100vh;
+				width: 1066px; /* 初期値を元のサイズに固定 */
+				height: 600px;
+				object-fit: contain; /* 比率を維持して収める */
+			}
+
+			/* 画面サイズに合わせて比率を保ったままリサイズ */
+			@media (min-aspect-ratio: 1066/600) {
+				/* 横長の画面：高さを基準にサイズを決定 */
+				svg {
+					height: 100vh;
+					width: calc(100vh * (1066 / 600));
+				}
+			}
+
+			@media (max-aspect-ratio: 1066/600) {
+				/* 縦長の画面：幅を基準にサイズを決定 */
+				svg {
+					width: 100vw;
+					height: calc(100vw * (600 / 1066));
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<article>
+			<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1066 600" width="1066" height="600" preserveAspectRatio="none">
+				<defs>
+					<linearGradient id="grad1" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+						<stop offset="0%" style="stop-color:gray; stop-opacity:1" />
+						<stop offset="50%" style="stop-color:aliceblue; stop-opacity:1" />
+						<stop offset="100%" style="stop-color:gray; stop-opacity:1" />
+					</linearGradient>
+					<linearGradient id="grad2" x1="0" y1="0" x2="1" y2="0" spreadMethod="pad" gradientUnits="objectBoundingBox">
+						<stop offset="30%" stop-color="#2d6b90" />
+						<stop offset="45%" stop-color="#5188a6" />
+						<stop offset="55%" stop-color="#5188a6" />
+						<stop offset="70%" stop-color="#2d6b90" />
+					</linearGradient>
+					<linearGradient id="grad3" x1="0" y1="0" x2="1" y2="0" spreadMethod="pad" gradientUnits="objectBoundingBox">
+						<stop offset="30%" stop-color="#2d6b90" />
+						<stop offset="45%" stop-color="#5188a6" />
+						<stop offset="65%" stop-color="#5188a6" />
+						<stop offset="70%" stop-color="#2d6b90" />
+					</linearGradient>
+					<linearGradient id="grad4" x1="0" y1="0" x2="1" y2="0" spreadMethod="pad" gradientUnits="objectBoundingBox">
+						<stop offset="30%" stop-color="#2d6b90" />
+						<stop offset="47.5%" stop-color="#5188a6" />
+						<stop offset="62.5%" stop-color="#5188a6" />
+						<stop offset="70%" stop-color="#2d6b90" />
+					</linearGradient>
+				</defs>
+				<!-- 外枠 -->
+				<rect x="0" y="0" width="1066" height="600" style="fill:#7ab;" />
+				<!-- 縞 -->
+				<g style="stroke:none; fill:url(#grad2);">
+					<rect x="-3" y="0" width="16" height="600" />
+					<rect x="21" y="0" width="16" height="600" />
+					<rect x="45" y="0" width="16" height="600" />
+					<rect x="69" y="0" width="16" height="600" />
+					<rect x="93" y="0" width="16" height="600" />
+					<rect x="117" y="0" width="16" height="600" />
+					<rect x="141" y="0" width="16" height="600" />
+					<rect x="141" y="0" width="16" height="600" />
+					<rect x="165" y="0" width="16" height="600" />
+					<rect x="189" y="0" width="16" height="600" />
+					<rect x="213" y="0" width="16" height="600" />
+					<rect x="237" y="0" width="16" height="600" />
+					<rect x="261" y="0" width="16" height="600" />
+					<rect x="285" y="0" width="16" height="600" />
+					<rect x="309" y="0" width="16" height="600" />
+				</g>
+				<g style="stroke:none; fill:url(#grad3);">
+					<rect x="333" y="0" width="16" height="600" />
+					<rect x="357" y="0" width="16" height="600" />
+					<rect x="381" y="0" width="16" height="600" />
+					<rect x="405" y="0" width="16" height="600" />
+					<rect x="429" y="0" width="16" height="600" />
+					<rect x="453" y="0" width="16" height="600" />
+					<rect x="477" y="0" width="16" height="600" />
+					<rect x="501" y="0" width="16" height="600" />
+				</g>
+				<g style="stroke:none; fill:url(#grad4);">
+					<rect x="525" y="0" width="16" height="600" />
+					<rect x="549" y="0" width="16" height="600" />
+				</g>
+				<g style="stroke:none; fill:url(#grad3);">
+					<rect x="573" y="0" width="16" height="600" />
+					<rect x="597" y="0" width="16" height="600" />
+					<rect x="621" y="0" width="16" height="600" />
+					<rect x="621" y="0" width="16" height="600" />
+					<rect x="645" y="0" width="16" height="600" />
+					<rect x="669" y="0" width="16" height="600" />
+					<rect x="693" y="0" width="16" height="600" />
+					<rect x="717" y="0" width="16" height="600" />
+				</g>
+				<g style="stroke:none; fill:url(#grad2);">
+					<rect x="741" y="0" width="16" height="600" />
+					<rect x="765" y="0" width="16" height="600" />
+					<rect x="789" y="0" width="16" height="600" />
+					<rect x="813" y="0" width="16" height="600" />
+					<rect x="837" y="0" width="16" height="600" />
+					<rect x="861" y="0" width="16" height="600" />
+					<rect x="885" y="0" width="16" height="600" />
+					<rect x="909" y="0" width="16" height="600" />
+					<rect x="933" y="0" width="16" height="600" />
+					<rect x="957" y="0" width="16" height="600" />
+					<rect x="981" y="0" width="16" height="600" />
+					<rect x="1005" y="0" width="16" height="600" />
+					<rect x="1029" y="0" width="16" height="600" />
+					<rect x="1053" y="0" width="16" height="600" />
+					</g>
+				<g style="stroke:none; fill:none;">
+					<!-- 内枠 -->
+					<ellipse cx="533" cy="300" rx="335" ry="250" style="fill:url(#grad1);" />
+					<!-- 文字盤 -->
+					<circle cx="533" cy="300" r="212" style="fill:black;" />
+				</g>
+				<!-- 目盛り -->
+				<g style="stroke: white; stroke-width:2; fill:white;">
+					<circle cx="533" cy="100" r="6" transform="rotate( 0,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 6,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 12,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 18,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 24,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate( 30,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 36,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 42,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 48,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 54,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate( 60,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 66,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 72,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 78,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 84,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate( 90,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate( 96,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(102,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(108,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(114,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate(120,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(126,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(132,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(138,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(144,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate(150,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(156,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(162,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(168,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(174,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate(180,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(186,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(192,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(198,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(204,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate(210,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(216,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(222,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(228,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(234,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate(240,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(246,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(252,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(258,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(264,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate(270,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(276,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(282,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(288,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(294,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate(300,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(306,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(312,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(318,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(324,533,300)" />
+					<circle cx="533" cy="100" r="6" transform="rotate(330,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(336,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(342,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(348,533,300)" />
+					<path d="m533,96 0,10 Z" transform="rotate(354,533,300)" />
+				</g>
+				<!-- 数字 -->
+				<g opacity="1" style="stroke:white; fill:white; stroke-width:1;" transform="scale(1.5,1)">
+					<!-- 12時 -->
+					<path d="m 342,147 v-21.7 h-7.1 v-3.1 q3.8,-.0 5.8,-1.4 1.9,-1.4 2.3,-4.4 h3 v30.8 Z" />
+					<path d="m 352,147 v-0.2 q0,-4.4 2.1,-7.4 2.1,-3 7.5,-6 l2.6,-1.4 q2.3,-1.2 3.4,-2.8 1,-1.5 1,-3.7 0,-2.4 -1.6,-3.9 -1.6,-1.4 -4.4,-1.4 -2.8,0 -4.4,1.8 -1.5,1.8 -1.5,5.2 v0.3 h-4 v-0.5 q0,-4.9 2.7,-7.7 2.7,-2.8 7.4,-2.8 4.5,0 7.3,2.5 2.7,2.5 2.7,6.6 0,3.1 -1.6,5.5 -1.6,2.3 -4.9,4.1 l-2.6,1.3 q-3.5,1.8 -5.1,3.4 -1.6,1.5 -2.1,3.4 h16.5 v3.7 Z" />
+					<!-- 3時 -->
+					<path d="m 458,305 h4 q0,3.2 1.7,5 1.7,1.7 4.8,1.7 3,0 4.7,-1.6 1.7,-1.6 1.7,-4.4 0,-2.5 -1.7,-4 -1.7,-1.4 -4.7,-1.4 -0.6,0 -2,0 l-0.1,0 0,-3.4 q0.2,0 0.5,0 0.3,0 0.7,0 3.3,0 4.7,-1.1 1.4,-1.1 1.4,-3.6 0,-2.3 -1.3,-3.5 -1.3,-1.2 -4,-1.2 -2.9,0 -4.4,1.6 -1.4,1.6 -1.4,4.8 h-3.9 v-0.2 q0,-4.5 2.6,-7.2 2.6,-2.6 6.9,-2.6 4.6,0 7.2,2.1 2.6,2.1 2.6,6 0,2.2 -0.9,3.8 -0.9,1.5 -2.8,2.3 2.4,0.9 3.7,2.8 1.2,1.8 1.2,4.7 0,4.4 -2.9,7.1 -2.9,2.6 -8,2.6 -4.7,0 -7.5,-2.7 -2.8,-2.8 -2.8,-7.5 Z" />
+					<!-- 6時 -->
+					<path d="m 362,475 q 0,-2.9 -1.6,-4.7 -1.6,-1.7 -4.3,-1.7 -3,0 -4.7,1.7 -1.7,1.7 -1.7,4.8 0,3 1.7,4.8 1.7,1.8 4.6,1.8 2.7,0 4.4,-1.8 1.6,-1.8 1.6,-4.8 Z m4,-13 h-4 q-0.2,-2.4 -1.6,-3.6 -1.3,-1.2 -3.8,-1.2 -3.3,0 -5.1,2.7 -1.7,2.7 -2,8.3 1.3,-1.6 3.1,-2.5 1.8,-0.8 4.1,-0.8 4.3,0 7,2.7 2.7,2.7 2.7,7.3 0,4.5 -2.8,7.4 -2.8,2.8 -7.5,2.8 -5.3,0 -8.2,-3.7 -2.8,-3.7 -2.8,-10.7 0,-8.2 3,-12.7 3,-4.4 8.5,-4.4 4.3,0 6.8,2.2 2.4,2.1 2.7,6.2 Z" />
+					<!-- 9時 -->
+					<path d="m 236,294 q0,2.9 1.6,4.7 1.6,1.7 4.3,1.7 2.9,0 4.7,-1.7 1.7,-1.7 1.7,-4.8 0,-3 -1.7,-4.8 -1.7,-1.8 -4.5,-1.8 -2.7,0 -4.4,1.8 -1.6,1.8 -1.6,4.9 Z m-4,13 h4 q0,2.2 1.5,3.5 1.4,1.2 3.9,1.2 3.3,0 5.1,-2.7 1.7,-2.7 2,-8.3 -1.2,1.6 -3.1,2.5 -1.8,0.8 -4.1,0.8 -4.3,0 -7,-2.7 -2.6,-2.7 -2.6,-7.3 0,-4.6 2.8,-7.4 2.8,-2.8 7.5,-2.8 5.3,0 8.2,3.7 2.8,3.7 2.8,10.7 0,8.3 -3,12.7 -3,4.4 -8.6,4.4 -4.3,0 -6.9,-2.2 -2.5,-2.3 -2.5,-6.1 Z" />
+				</g>
+				<g style="stroke:dimGray; stroke-width:1px; stroke-opacity:0.3; fill:white;">
+					<!-- 時針 -->
+					<path d="m532,160 l-8.7,100 c7,5 6,9 6,9 v17.6 a14,14 0,0 0,-10 13.4,14 14,0 0,0 14,14 14,14 0,0 0,14 -14,14 14,0 0,0 -10,-13.4 v-17.6 c1,-5 6,-9 6,-9 l-9,-100 h-2 Z m1,50 l3.8,45 h-7 l3.5 Z" transform="rotate(304.35, 533, 300)" id="hourHand" />
+					<!-- 分針 -->
+					<path d="m531.5,110 l-12,135 c9,4 8,10 8,10 v45 h10 v-45 c2,-9 8,-10 8,-10 l-11,-135 -2,0 Z m1,65 l5,65 h-10 l5,-65 Z" transform="rotate(52.2, 533, 300)" id="minHand" />
+					<!-- 秒針 -->
+					<path d="m532,115.5 l-1.4,178 a7,7 0,0 0,-4.6 6.57,7 7,0 0,0 4.5,6.53 l-0.5,63 h1,5 l-0.5,-63 a7,7 0,0 0,4.5 -6.54,7 7,0 0,0 -4.6,-6.56 l-1.4,-178 h-1 Z" transform="rotate(252,533,300)" id="secHand" />
+				</g>
+				<a onclick="tsToggle();return false;">
+					<!-- 時報切替ボタン -->
+					<g>
+						<circle cx="828" cy="560" r="20" style="fill:white;" />
+						<path d="m825,555 l9,-5 v20 l-9,-5 h-5 v-10 h5 v10 Z" style="fill:none; stroke: black; stroke-width:1.5px;" />
+						<g style="stroke:darkRed; stroke-width:4px;" id="bellCross">
+							<path d="m817,549 l22,22 Z" />
+							<path d="m839,549 l-22,22 Z" />
+						</g>
+					</g>
+				</a>
+			</svg>
+			<audio id="ts_full" preload="auto" src="data:audio/mp3;base64,SUQzAwAAAAAHdlRDT04AAAAFAAAAPz8/AEdFT0IAAAAZAAAAAABTZk1hcmtlcnMADAAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/z0MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFZCUkkAAQbxAAoAAB7IAAAA1wBrAAEAAgACAnIA0AC2AIIANAA0ADQANAA0ADQANAA0ADQANAA0ADQANAA0ADQANAA0ADQAnAA0ADQANAA0ADQANAA0ADQANAA0ADQANAA0ADQANAA0ADQANADQADQANAA0ADQANAA0ADQANAA0ADQANAA0ADQANAA0ADQANAA0ADQATgBOAE4ATgBOAE4ATgBOAE4ATgBOAE4ATgBOAE4ATgBOAE4ATgBOAE4ATgBOAE4ATgBOAE4ATgBOAE4ATgA0AE4ANABOADQATgA0AE4ANAA0ADQANABOADQA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//NgwAAimbpY7VnAADFh+uBkCJmJHmCChWooZygCgC5p3YHUwPCLnbdIwwhgMYzE0ljUMBwj5OGzt+4MSENKQEtWN4FAFiSzeeGGH517dyGGJuPflEYvV6fUbl9v8OfqpL7eqmFent1IbjdvWGH/+f6w/OnzqRuX91h+ef7///PPuqfMoNB8uf+XB8uH/rPl3939JzYJAwADA8Dg//NgwAQjAcqYe5ygAnAAACBlULmRisCAeYCAmKqRKHTWyMROMtnweC5lWXmiDYYUAo1vTAoINQBFXwB20DQgwMQEC6QsY7S8ZoBb8KVFxojlE+ipMXKKkGqBjHLpYMlLVGuViucJw2MUWMnXZRFCBlAnjRM8k6K7/5fLheNTdOgc6l6v/OufOAmIgHX/+IgGFpMCdev0ITAAfymr//MgwAcIQFaiQdwAAF9gKf7dV6ggMmJASeoHIKDTwxVTWIP8/s5aChRY0AAOtRFAICvIuf/zEMANBXhSowBvRkTfJWK10XRjII71qNt///NgwAQeqOq1tt4SivyWABACCjqOmj2YCCpHrTRTAgMECh5xyZ2SiQW1+SP4zg1pNJzKMBDWOzt35f1GKwuCYJgmGxWToIea6NGjRoECCEPc5oECBgEDhQEAQBAEHwQBAEwfygPg+f1g+H/0YnBAEDmIAQDHUGPv5cHwfB/Lg+D5rWD4/qv/3IBEWsrtXau1dsC3Yq0lNA16DlSB//NAwBgYMP609spMpsEg8sZrz/AiS4sKgsCQJAkAQCEkZ9USIkSJEAkUZaTSJEiRIkZre8zMmg0DUSgsDQNB2WBoGgafUDQNArxUFXf/6wWBo9qBoGj/////////////////////////8xDAEgAAAlwAAAAA///////////////////zEMAfAAACXAAAAAD///////////////////MQwCwAAAJcAAAAAP//////////////////8xDAOQAAAlwAAAAA///////////////////zEMBGAAACXAAAAAD///////////////////MQwFMAAAJcAAAAAP//////////////////8xDAYAAAAlwAAAAA///////////////////zEMBtAAACXAAAAAD///////////////////MQwHoAAAJcAAAAAP//////////////////8xDAhwAAAlwAAAAA///////////////////zEMCUAAACXAAAAAD///////////////////MQwKEAAAJcAAAAAP//////////////////8xDArgAAAlwAAAAA///////////////////zEMC7AAACXAAAAAD//////+WqkXFIq1Wp//MQwMgAAAJcAAAAAFSq18ARSnFhIaIaWJ//8xDA1QAAAlwAAAAAyAyETN/jx4DMa85HDv/zEMDiAAACXAAAAAADpImETawdYRUbiCwn//MQwO8AAAJcAAAAAFMp/P2pGRmQuKHML7L/8xDA/AKAAlwAAAAA1OG4jgnWKCw2q3f01//zEMD/A0ACXAAAAADySwZIYSDSLokC4Ji9//MQwP8DQAJcAAAAAKLtciUD4DNG1tau9M3/8xDA/wNAAlwAAAAApeZNfau3TenxQWFWK//zEMD/A0ACXAAAAAC2xVgiUIQSE8ABqVX8//MQwP8DQAJcAAAAAF0WWrtS9b0cAZigemv/8xDA/wNAAlwAAAAAC4GFw8ChE/UFuru1Gv/zEMD/A0ACXAAAAAC+CQIUgAAMoJLtdxlK//MQwP8DQAJcAAAAAKkaz9/DWNNlgHCS5I3/8xDA/wNAAlwAAAAAttyWgMlTrQEAgYLOYv/zEMD/A0ACXAAAAACCuYbgplSuTKU+TEY2//MQwP8DQAJcAAAAAOMGULVsuA1xQCXKG6z/8xDA/wNAAlwAAAAAA2qm7CGzLEbG97kRGP/zEMD/A0ACXAAAAAAeUVZ+V1rFe1SXUkhY//MQwP8DQAIsAUAAAAwiYsjkLJJyLSCcikn/8xDA/x0o6sG/m3gCyzOr///+7NZ7IpJ7M//zEMCXCLhWpuHcAACrs52//t/+3hOY/V2c//MQwIEFEDqLAAG6ATVTOrtbs0gn3Lbkttv/8xDAeR0ArqpexzAnuAwFujnqlaov5rLdFP/zUMASHVEOrR7LzI2RgmBdE8uzuTUEQ2HKcBLkUtoa1II0VIjk63qlTP2VuTCQJRItQMeNJHpGwkbBItRFlzCRsJHWicllJoooWDIpiqKcklymJJZSSbVmNXKsas3u/f/+6sxq3////93Ka3u7GrcAHde8CBhBbPCY0icWYeUWUWb/8xDAEQZ4ZkGAEIwAlHwmrTPWzios///////zEMAEAAACXAAAAAD///////////////////MQwBEAAAJcAAAAAP//////////////////8xDAHgAAAlwAAAAA///////////////////zEMArAAACXAAAAAD///////////////////MQwDgAAAJcAAAAAP//////////////////8xDARQAAAlwAAAAA///////////////////zEMBSAAACXAAAAAD///////////////////MQwF8AAAJcAAAAAP//////////////////8xDAbAAAAlwAAAAA///////////////////zEMB5AAACXAAAAAD///////////////////MQwIYAAAJcAAAAAP//////////////////8xDAkwAAAlwAAAAA///////////////////zEMCgAAACXAAAAAD//////2y461WazGij//MQwK0AAAJcAAAAAI8RjMAUtG1VixgAKKj/8xDAugAAAlwAAAAAlLLBfAx4CMbRzt3+N//zEMDHAAACXAAAAABtI9X5ohcCi8tJRMLM//MQwNQAAAJcAAAAAGEYArCHEoZOUC+4jI//8xDA4QAAAlwAAAAAhTfm5gx4S4nlAkfp3f/zEMDuAAACXAAAAAAJgfLyZ7+ybuqxigkZ//MQwPsCQAJcAAAAAAFO+16JoGgKGgp/Rej/8xDA/wNAAlwAAAAAwKSFB6GP/ocm7rQxYP/zEMD/A0ACXAAAAADBq3Jf/wPypo1D02h+//MQwP8DQAJcAAAAANFTVEAHKAicgRo8FkH/8xDA/wNAAlwAAAAA1xYd1lVpcQVEQNDAaf/zEMD/A0ACXAAAAADiU7QoGnEaztEGnazv//MQwP8DQAJcAAAAAPt9EGlgs9Z1RVwpUmb/8xDA/wNAAlwAAAAAKzHBp4lcs7Azy1DYav/zEMD/A0ACXAAAAABZ5ZiwmsNUgAoUWMAA//MQwP8DQAJcAAAAAAqJ4Bc8IbOx1+W/Odv/8xDA/wNAAlwAAAAAAYBgkBKtttt4di+TA//zEMD/A0ACXAAAAACsVgE67clBzomrmX+b//MQwP8DQAJcAUAAAPkSQYLIHmGpLQTMtnr/8xDA/xvZRq5Xm2sAUpMDpgrgdNIxGRpkXP/zEMCcFUhWmP/cAAKP+s7///pWWZ/1gPa///MQwFMFGEKjAAN6Bf//cgA0EIeACCFZKoH/8xDASw7QmpZYj0xHC1hnlUvMLCzFlw8ecP/zQMAcHIDuvZbG0jbBxsQgiDokLEQYGAaK6ciy2ZNZac5rruQAgLg8IQ0Oj4kFZc4VRGT5hGokqsy9htRdWUXuBwLAyaBwLCU0BAsJjQECwsYNBYWSaULTFv/+kUakytqTK1Vq//+W//NAwAUV0KqVlnsSboBfkWoFWmjiISK8JCRknh/lQrkgQxwFY1iQRyyZJYIYBgnPEyFZNRNODUVrBMUAoVIuiojMtWKmQkykBC7KRZmoX6mel0WY7/c3/vZoCrceKcVA////////////8xDACAAAAlwAAAAA///////////////////zEMAVAAACXAAAAAD///////////////////MQwCIAAAJcAAAAAP//////////////////8xDALwAAAlwAAAAA///////////////////zEMA8AAACXAAAAAD///////////////////MQwEkAAAJcAAAAAP//////////////////8xDAVgAAAlwAAAAA///////////////////zEMBjAAACXAAAAAD///////////////////MQwHAAAAJcAAAAAP//////////////////8xDAfQAAAlwAAAAA///////////////////zEMCKAAACXAAAAAD///////////////////MQwJcAAAJcAAAAAP//////////////////8xDApAAAAlwAAAAA//////8QhkIhIJCEMv/zEMCxAAACXAAAAAAZEIpGIA/jLkJGOP9n//MQwL4AAAJcAAAAAGOMLn/CZAh4EvyWNiD/8xDAywAAAlwAAAAAgGckEBngYAYRCfJAvv/zEMDYAAACXAAAAACgMrDoDEASAaBnldjd//MQwOUAAAJcAAAAAMNVi4yub/UzLczNxmD/8xDA8gAAAlwAAAAAihOf3/HPIublw0b/1v/zEMD/A0ACXAAAAADuq3sbpplxAE/8gNN4//MQwP8DQAJcAAAAAH5QMA+BDn9CzZByd0v/8xDA/wNAAlwAAAAAtBAugZpuSS4CtKo1Tf/zEMD/A0ACXAAAAAAqjUajUajMZjMZhl/Y//MQwP8DQAJcAAAAAMxmGWtKZIrA0GMpQQn/8xDA/wNAAlwAAAAAlFyxB3gqGSEyhQikUv/zEMD/A0ACXAAAAAApFQqFSJEiRIkSFChQ//MQwP8DQAJcAAAAAKFChZBYGgaDvg0DIKj/8xDA/wNAAlwAAAAAKgqCoNA0DQNAyCoKu//zEMD/A0ACXAAAAADiwdBoGgaBUFQVO//y//MQwP8DQAJcAAAAAKIg6///USAAAKbAMLX/8xDA/wNAAlwAAAAApTGqaMu8iqYDxSE3q//zEMD/A0ACXAFAAAB9O93rb4cAAACmwDC1//MQwP8cubamX4+oIqUxqmjLlImmAs0g+vX/8xDAmRrg1rD/20gAtp3u9bfDgAAApsAwtf/zEMA6BlCCesAAumClMapoy5SCUwDqMFzy//MQwC0GWIJ6wAC6YNtZ7vW4M4AAAKaAMLX/8xDAIAZYgnrAALpgpTGqalhpOUwDtcDxS//zEMATBlCCesAAumCtZ7vXwZeAAACmgDC1//MgwAYG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"></audio>
+			<script>
+
+				function showClock() { /* 運針 */
+					var nowTime = new Date();
+					var mSecTime = nowTime.getMilliseconds();
+					var secTime = nowTime.getSeconds();
+					var minTime = nowTime.getMinutes();
+					var hourTime = nowTime.getHours();
+
+					document.getElementById("secHand").setAttribute("transform", "rotate(" + (secTime * 6 + ((mSecTime < 100) ? ((mSecTime < 50) ? +0.2 : -0.05) : 0)) + ", 533, 300)");
+					document.getElementById("minHand").setAttribute("transform", "rotate(" + (minTime * 6 + secTime * 0.1 + mSecTime * 0.00001) + ", 533, 300)");
+					document.getElementById("hourHand").setAttribute("transform", "rotate(" + (hourTime * 30 + minTime * 0.5 + secTime * 0.5 / 60 + mSecTime * 0.00003) + ", 533, 300)");
+				};
+
+				function tsToggle() {
+					/* 時報切替・鳴動 */
+					var bellCross = document.getElementById("bellCross");
+					var ts_full = document.getElementById("ts_full");
+
+					if (bellCross.getAttribute("opacity") == 0) {
+						bellCross.setAttribute("opacity", 1);
+						clearInterval(bellTimer);
+						ts_full.pause();
+					} else {
+						bellCross.setAttribute("opacity", 0);
+						ts_full.load();
+						bellTimer = setInterval(function() {
+							var nowTime = new Date();
+							var mSecTime = nowTime.getMilliseconds();
+							var secTime = nowTime.getSeconds();
+							var minTime = nowTime.getMinutes();
+							var hourTime = nowTime.getHours();
+							var seeqTime = ts_full.currentTime;
+							if ((minTime == 0) && (secTime == 0) && (mSecTime < 10) && (seeqTime == 0)) {
+								/* 0分0秒（誤差+0.01秒未満）に正報音を再生 */
+								ts_full.currentTime = 4 + (mSecTime / 100);
+								ts_full.play();
+							};
+							if ((minTime == 59) && (secTime >= 57) && (mSecTime < 10) && (seeqTime == 0)) {
+								/* 59分57～59秒（誤差+0.01秒未満）に予報音を再生 */
+								ts_full.currentTime = (secTime - 57) + (mSecTime / 100);
+								ts_full.play();
+							};
+						}, 0);
+					};
+				};
+				
+				// イージング関数（アナログの質感を出す）
+				function easeOutBack(x) {
+					const c1 = 1.70158;
+					const c3 = c1 + 1;
+					return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+				}
+
+				function showClock() {
+					var nowTime = new Date();
+					var mSecTime = nowTime.getMilliseconds();
+					var secTime = nowTime.getSeconds();
+					var minTime = nowTime.getMinutes();
+					var hourTime = nowTime.getHours();
+
+					// --- 秒針：アナログ運針 ---
+					// 最初の350msで動かして残りは静止（350の部分を変えると速さが変わります）
+					var moveProgress = Math.min(mSecTime / 350, 1.0);
+					var easedProgress = easeOutBack(moveProgress);
+					var secAngle = (secTime * 6) + (easedProgress * 6) - 6;
+
+					// --- 分針・時針：元の計算式をベースに高精度化 ---
+					var minAngle = (minTime * 6 + secTime * 0.1 + mSecTime * 0.0001);
+					var hourAngle = (hourTime * 30 + minTime * 0.5 + secTime * 0.5 / 60 + mSecTime * 0.00003);
+
+					document.getElementById("secHand").setAttribute("transform", "rotate(" + secAngle + ", 533, 300)");
+					document.getElementById("minHand").setAttribute("transform", "rotate(" + minAngle + ", 533, 300)");
+					document.getElementById("hourHand").setAttribute("transform", "rotate(" + hourAngle + ", 533, 300)");
+
+					// 次のフレームを描画
+					requestAnimationFrame(showClock);
+				}
+
+				// 最初の実行を開始
+				requestAnimationFrame(showClock);
+
+					</script>
+		</article>
+	</body>
+</html>
