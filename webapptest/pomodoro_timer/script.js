@@ -1,0 +1,333 @@
+const WORK_TIME_SEC = 30 * 60; // 30 minutes
+const BREAK_TIME_SEC = 5 * 60;  // 5 minutes
+
+let timeLeft = WORK_TIME_SEC;
+let isRunning = false;
+let isWorkMode = true;
+let timerId = null;
+let cycles = 0;
+let volumeLevel = 2; // 2=High, 1=Low, 0=Mute
+
+const timeDisplay = document.getElementById('time-left');
+const modeText = document.getElementById('mode-text');
+const btnStart = document.getElementById('btn-start');
+const btnReset = document.getElementById('btn-reset');
+const btnVolume = document.getElementById('btn-volume');
+const cycleCount = document.getElementById('cycle-count');
+const circle = document.querySelector('.progress-ring__circle');
+
+// Get the actual radius and calculate circumference
+const radius = circle.r.baseVal.value;
+const circumference = radius * 2 * Math.PI;
+
+circle.style.strokeDasharray = `${circumference} ${circumference}`;
+circle.style.strokeDashoffset = 0;
+
+function setProgress(percent) {
+    const offset = circumference - (percent / 100) * circumference;
+    circle.style.strokeDashoffset = offset;
+}
+
+function updateDisplay() {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+    // Update document title for background tracking
+    document.title = `${timeDisplay.textContent} - ${isWorkMode ? '作業集中 📚' : '休憩 🌱'}`;
+
+    const totalTime = isWorkMode ? WORK_TIME_SEC : BREAK_TIME_SEC;
+    const progress = (timeLeft / totalTime) * 100;
+    setProgress(progress);
+}
+
+let currentAudioCtx = null;
+
+function playChime() {
+    if (volumeLevel === 0) return;
+
+    try {
+        if (currentAudioCtx) {
+            currentAudioCtx.close(); // Stop any currently playing chime
+        }
+
+        currentAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = currentAudioCtx;
+
+        // Frequencies for C Major:
+        // C4 = 261.63 (Do)
+        // D4 = 293.66 (Re)
+        // E4 = 329.63 (Mi)
+        // G3 = 196.00 (Sol low) or G4 = 392.00 (Sol high)
+        // We will use G3 for the low Sol to match the traditional chime contour
+        const do_c = 261.63;
+        const re_d = 293.66;
+        const mi_e = 329.63;
+        const sol_g = 196.00; // Low G
+
+        const notes = [
+            // ドーミーレーソー (Do - Mi - Re - Sol)
+            { freq: do_c, time: 0.0 },
+            { freq: mi_e, time: 0.5 },
+            { freq: re_d, time: 1.0 },
+            { freq: sol_g, time: 1.5 },
+
+            // ソーレーミードー (Sol - Re - Mi - Do)
+            { freq: sol_g, time: 2.5 },
+            { freq: re_d, time: 3.0 },
+            { freq: mi_e, time: 3.5 },
+            { freq: do_c, time: 4.0 },
+
+            // ミードーレーソー (Mi - Do - Re - Sol)
+            { freq: mi_e, time: 5.0 },
+            { freq: do_c, time: 5.5 },
+            { freq: re_d, time: 6.0 },
+            { freq: sol_g, time: 6.5 },
+
+            // ソーレーミードー (Sol - Re - Mi - Do)
+            { freq: sol_g, time: 7.5 },
+            { freq: re_d, time: 8.0 },
+            { freq: mi_e, time: 8.5 },
+            { freq: do_c, time: 9.0 }
+        ];
+
+        const baseVol = volumeLevel === 2 ? 0.3 : 0.05;
+
+        notes.forEach(note => {
+            // Main oscillator (fundamental frequency)
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+
+            // Overtone oscillator for brighter, richer bell sound
+            const osc2 = ctx.createOscillator();
+            const gainNode2 = ctx.createGain();
+
+            // Using triangle and sine waves mixed together creates a brighter, more chime-like timbre
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(note.freq, ctx.currentTime + note.time);
+
+            osc2.type = 'sine';
+            // True bells have overtones that are not perfect harmonics. 
+            // Multiplying by ~2.01 or 2.4 adds a slightly metallic, bright characteristic.
+            osc2.frequency.setValueAtTime(note.freq * 2.01, ctx.currentTime + note.time);
+
+            // Bell envelope: sharp attack, long exponential decay
+            gainNode.gain.setValueAtTime(0, ctx.currentTime + note.time);
+            gainNode.gain.linearRampToValueAtTime(baseVol * 0.7, ctx.currentTime + note.time + 0.02);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + note.time + 1.5);
+
+            gainNode2.gain.setValueAtTime(0, ctx.currentTime + note.time);
+            gainNode2.gain.linearRampToValueAtTime(baseVol * 0.3, ctx.currentTime + note.time + 0.01);
+            gainNode2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + note.time + 1.0);
+
+            osc.connect(gainNode);
+            osc2.connect(gainNode2);
+
+            gainNode.connect(ctx.destination);
+            gainNode2.connect(ctx.destination);
+
+            osc.start(ctx.currentTime + note.time);
+            osc2.start(ctx.currentTime + note.time);
+
+            osc.stop(ctx.currentTime + note.time + 2.0);
+            osc2.stop(ctx.currentTime + note.time + 2.0);
+        });
+
+        if (isLoud) {
+            // Add a loud buzzer sound at the end of the sequence (starts around 10.5s after chime decay)
+            const buzzerStart = 10.5;
+            const buzzerOsc = ctx.createOscillator();
+            const buzzerGain = ctx.createGain();
+
+            // Square wave for harsh buzzer sound
+            buzzerOsc.type = 'square';
+            buzzerOsc.frequency.setValueAtTime(150, ctx.currentTime + buzzerStart);
+
+            // Buzz envelope (a few rapid, loud bursts)
+            const buzzerVol = volumeLevel === 2 ? 0.8 : 0.2;
+
+            buzzerGain.gain.setValueAtTime(0, ctx.currentTime + buzzerStart);
+
+            // Bzzzt
+            buzzerGain.gain.setValueAtTime(buzzerVol, ctx.currentTime + buzzerStart + 0.1);
+            buzzerGain.gain.setValueAtTime(0, ctx.currentTime + buzzerStart + 0.3);
+
+            // Bzzzt
+            buzzerGain.gain.setValueAtTime(buzzerVol, ctx.currentTime + buzzerStart + 0.5);
+            buzzerGain.gain.setValueAtTime(0, ctx.currentTime + buzzerStart + 0.7);
+
+            // Bzzzzzzzt
+            buzzerGain.gain.setValueAtTime(buzzerVol, ctx.currentTime + buzzerStart + 0.9);
+            buzzerGain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + buzzerStart + 1.8);
+
+            buzzerOsc.connect(buzzerGain);
+            buzzerGain.connect(ctx.destination);
+
+            buzzerOsc.start(ctx.currentTime + buzzerStart);
+            buzzerOsc.stop(ctx.currentTime + buzzerStart + 2.0);
+        }
+
+    } catch (e) {
+        console.log("Audio not supported or blocked");
+    }
+}
+
+function switchMode() {
+    playChime();
+    isWorkMode = !isWorkMode;
+
+    if (isWorkMode) {
+        cycles++;
+        cycleCount.textContent = cycles;
+        timeLeft = WORK_TIME_SEC;
+        modeText.textContent = "📚 作業集中 (30分)";
+        document.body.classList.remove('break-mode');
+    } else {
+        timeLeft = BREAK_TIME_SEC;
+        modeText.textContent = "🌱 休憩タイム (5分)";
+        document.body.classList.add('break-mode');
+    }
+
+    // Briefly disable animation to prevent circle spinning backwards
+    circle.style.transition = 'none';
+    setProgress(100);
+    setTimeout(() => {
+        circle.style.transition = 'stroke-dashoffset 1s linear, stroke 0.5s ease';
+        updateDisplay();
+    }, 50);
+}
+
+function tick() {
+    if (timeLeft > 0) {
+        timeLeft--;
+        updateDisplay();
+    } else {
+        switchMode();
+    }
+}
+
+function toggleTimer() {
+    if (isRunning) {
+        clearInterval(timerId);
+        btnStart.textContent = 'Resume';
+        isRunning = false;
+    } else {
+        if (timeLeft === 0) {
+            switchMode();
+        }
+        timerId = setInterval(tick, 1000);
+        btnStart.textContent = 'Pause';
+        isRunning = true;
+    }
+}
+
+function resetTimer() {
+    clearInterval(timerId);
+    isRunning = false;
+    isWorkMode = true;
+    timeLeft = WORK_TIME_SEC;
+    cycles = 0;
+
+    cycleCount.textContent = cycles;
+    modeText.textContent = "📚 作業集中 (30分)";
+    btnStart.textContent = 'Start';
+    document.body.classList.remove('break-mode');
+
+    circle.style.transition = 'none';
+    updateDisplay();
+    setTimeout(() => {
+        circle.style.transition = 'stroke-dashoffset 1s linear, stroke 0.5s ease';
+    }, 50);
+}
+
+const btnPlus = document.getElementById('btn-plus');
+const btnMinus = document.getElementById('btn-minus');
+const btnLoud = document.getElementById('btn-loud');
+
+let isLoud = true;
+btnLoud.classList.add('active'); // Start active
+
+function adjustTime(seconds) {
+    if (isRunning) return; // Prevent adjustment while running
+
+    timeLeft += seconds;
+
+    // Limits
+    const totalTime = isWorkMode ? WORK_TIME_SEC : BREAK_TIME_SEC;
+    if (timeLeft < 0) timeLeft = 0;
+    if (timeLeft > totalTime) timeLeft = totalTime;
+
+    updateDisplay();
+}
+
+function toggleVolume() {
+    volumeLevel = volumeLevel - 1;
+    if (volumeLevel < 0) volumeLevel = 2; // Default to max (2)
+
+    if (volumeLevel === 2) {
+        btnVolume.textContent = '🔊';
+    } else if (volumeLevel === 1) {
+        btnVolume.textContent = '🔉';
+    } else {
+        btnVolume.textContent = '🔇';
+        // Immediately stop any playing sounds
+        if (currentAudioCtx) {
+            currentAudioCtx.close();
+        }
+    }
+
+    if (volumeLevel > 0) {
+        playChime();
+    }
+}
+
+function toggleLoud() {
+    isLoud = !isLoud;
+    if (isLoud) {
+        btnLoud.classList.add('active');
+        if (volumeLevel > 0) {
+            // Play a quick test buzz
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const bOsc = ctx.createOscillator();
+                const bGain = ctx.createGain();
+                bOsc.type = 'square';
+                bOsc.frequency.setValueAtTime(150, ctx.currentTime);
+                const bVol = volumeLevel === 2 ? 0.8 : 0.2;
+                bGain.gain.setValueAtTime(0, ctx.currentTime);
+                bGain.gain.linearRampToValueAtTime(bVol, ctx.currentTime + 0.05);
+                bGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+                bOsc.connect(bGain);
+                bGain.connect(ctx.destination);
+                bOsc.start();
+                bOsc.stop(ctx.currentTime + 0.5);
+            } catch (e) { }
+        }
+    } else {
+        btnLoud.classList.remove('active');
+    }
+}
+
+const btnSkip = document.getElementById('btn-skip');
+
+function skipMode() {
+    if (isRunning) {
+        clearInterval(timerId);
+        btnStart.textContent = 'Start';
+        isRunning = false;
+    }
+    // Set time to 0 to force next mode immediately
+    timeLeft = 0;
+    switchMode();
+}
+
+btnStart.addEventListener('click', toggleTimer);
+btnReset.addEventListener('click', resetTimer);
+btnSkip.addEventListener('click', skipMode);
+btnPlus.addEventListener('click', () => adjustTime(60));
+btnMinus.addEventListener('click', () => adjustTime(-60));
+btnVolume.addEventListener('click', toggleVolume);
+btnLoud.addEventListener('click', toggleLoud);
+
+// Initialize
+updateDisplay();

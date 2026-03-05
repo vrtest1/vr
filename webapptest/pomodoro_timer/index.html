@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>30/5 Timer - 集中と休憩</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="timer-card">
+        <div class="top-controls">
+            <button id="btn-volume" class="btn-icon volume-btn" aria-label="Toggle Volume">🔊</button>
+            <button id="btn-loud" class="btn-icon loud-btn" aria-label="Toggle Final Buzzer">⚡ Loud</button>
+        </div>
+        <h1 id="mode-text">📚 作業集中 (30分)</h1>
+
+        <div class="progress-ring-container">
+            <svg class="progress-ring" viewBox="0 0 200 200">
+                <circle class="progress-ring__background" cx="100" cy="100" r="90"></circle>
+                <circle class="progress-ring__circle" cx="100" cy="100" r="90"></circle>
+            </svg>
+            <div class="time-display" id="time-left">30:00</div>
+        </div>
+
+        <div class="time-adjust">
+            <button id="btn-minus" class="btn-icon" aria-label="Subtract 1 minute">-1m</button>
+            <button id="btn-plus" class="btn-icon" aria-label="Add 1 minute">+1m</button>
+        </div>
+
+        <div class="controls">
+            <button id="btn-start" class="btn primary">Start</button>
+            <button id="btn-reset" class="btn secondary">Reset</button>
+            <button id="btn-skip" class="btn secondary">Skip</button>
+        </div>
+
+        <div class="cycle-count">ループ回数: <span id="cycle-count">0</span></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
