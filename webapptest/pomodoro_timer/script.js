@@ -172,6 +172,59 @@ function playChime() {
     }
 }
 
+// --- PWA & Notification Setup ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => {
+            console.log('ServiceWorker registration failed: ', err);
+        });
+    });
+}
+
+function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        console.log("This browser does not support desktop notification");
+        return;
+    }
+
+    if (Notification.permission === 'default' || Notification.permission === 'prompt') {
+        Notification.requestPermission().then((permission) => {
+            if (permission === 'granted') {
+                alert('通知が許可されました！');
+            } else {
+                alert('通知がブロックされました: ' + permission);
+            }
+        }).catch((err) => {
+            alert('通知の許可リクエスト中にエラーが発生しました: ' + err);
+        });
+    }
+}
+
+function triggerSystemNotification(title, body) {
+    // Vibrate (works on Android Chrome)
+    if ('vibrate' in navigator && volumeLevel > 0) {
+        navigator.vibrate([200, 100, 200]);
+    }
+
+    // System Notification (works on PWA / desktop if permitted)
+    if ('Notification' in window && Notification.permission === 'granted') {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(function (registration) {
+                registration.showNotification(title, {
+                    body: body,
+                    icon: './favicon.ico' // fallback icon
+                });
+            }).catch(function (err) {
+                console.log("SW notification failed, falling back to window.Notification", err);
+                new Notification(title, { body: body, icon: './favicon.ico' });
+            });
+        } else {
+            new Notification(title, { body: body, icon: './favicon.ico' });
+        }
+    }
+}
+// ------------------------------
+
 function switchMode() {
     playChime();
     isWorkMode = !isWorkMode;
@@ -182,10 +235,12 @@ function switchMode() {
         timeLeft = WORK_TIME_SEC;
         modeText.textContent = "📚 作業集中 (30分)";
         document.body.classList.remove('break-mode');
+        triggerSystemNotification("作業集中 📚", "30分の作業時間です！");
     } else {
         timeLeft = BREAK_TIME_SEC;
         modeText.textContent = "🌱 休憩タイム (5分)";
         document.body.classList.add('break-mode');
+        triggerSystemNotification("休憩タイム 🌱", "5分間の休憩です！");
     }
 
     // Briefly disable animation to prevent circle spinning backwards
@@ -207,6 +262,8 @@ function tick() {
 }
 
 function toggleTimer() {
+    requestNotificationPermission(); // Ask for permission on first interaction
+
     if (isRunning) {
         clearInterval(timerId);
         btnStart.textContent = 'Resume';
