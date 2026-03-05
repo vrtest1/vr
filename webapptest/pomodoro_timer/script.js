@@ -189,13 +189,9 @@ function requestNotificationPermission() {
 
     if (Notification.permission === 'default' || Notification.permission === 'prompt') {
         Notification.requestPermission().then((permission) => {
-            if (permission === 'granted') {
-                alert('通知が許可されました！');
-            } else {
-                alert('通知がブロックされました: ' + permission);
-            }
+            console.log('Notification permission:', permission);
         }).catch((err) => {
-            alert('通知の許可リクエスト中にエラーが発生しました: ' + err);
+            console.log('Notification permission error:', err);
         });
     }
 }
@@ -225,6 +221,8 @@ function triggerSystemNotification(title, body) {
 }
 // ------------------------------
 
+let targetTime = 0; // Timestamp when the current timer should end
+
 function switchMode() {
     playChime();
     isWorkMode = !isWorkMode;
@@ -243,6 +241,10 @@ function switchMode() {
         triggerSystemNotification("休憩タイム 🌱", "5分間の休憩です！");
     }
 
+    if (isRunning) {
+        targetTime = Date.now() + (timeLeft * 1000);
+    }
+
     // Briefly disable animation to prevent circle spinning backwards
     circle.style.transition = 'none';
     setProgress(100);
@@ -253,10 +255,19 @@ function switchMode() {
 }
 
 function tick() {
-    if (timeLeft > 0) {
-        timeLeft--;
+    if (!isRunning) return;
+
+    const now = Date.now();
+    const remainingMs = targetTime - now;
+
+    if (remainingMs > 0) {
+        // Calculate remaining seconds, always rounding up so it shows "00:01" until the last millisecond
+        timeLeft = Math.ceil(remainingMs / 1000);
         updateDisplay();
     } else {
+        // Timer finished
+        timeLeft = 0;
+        updateDisplay();
         switchMode();
     }
 }
@@ -268,11 +279,15 @@ function toggleTimer() {
         clearInterval(timerId);
         btnStart.textContent = 'Resume';
         isRunning = false;
+        // timeLeft represents how much time is left when paused.
     } else {
-        if (timeLeft === 0) {
+        if (timeLeft <= 0) {
             switchMode();
         }
-        timerId = setInterval(tick, 1000);
+        // Calculate exactly when this timer will end based on real-world time
+        targetTime = Date.now() + (timeLeft * 1000);
+
+        timerId = setInterval(tick, 200); // Check more frequently (5 times a second) for precision
         btnStart.textContent = 'Pause';
         isRunning = true;
     }
@@ -296,6 +311,14 @@ function resetTimer() {
         circle.style.transition = 'stroke-dashoffset 1s linear, stroke 0.5s ease';
     }, 50);
 }
+
+// When the user switches back to the app from another app or waking up the phone,
+// immediately force an update so they don't see stale times
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === 'visible' && isRunning) {
+        tick();
+    }
+});
 
 const btnPlus = document.getElementById('btn-plus');
 const btnMinus = document.getElementById('btn-minus');
