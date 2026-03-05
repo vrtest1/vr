@@ -223,6 +223,32 @@ function triggerSystemNotification(title, body) {
 
 let targetTime = 0; // Timestamp when the current timer should end
 
+// --- Screen Wake Lock Setup ---
+let wakeLock = null;
+
+async function requestWakeLock() {
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log('Wake Lock is active');
+
+            wakeLock.addEventListener('release', () => {
+                console.log('Wake Lock was released');
+            });
+        }
+    } catch (err) {
+        console.error(`${err.name}, ${err.message}`);
+    }
+}
+
+function releaseWakeLock() {
+    if (wakeLock !== null) {
+        wakeLock.release();
+        wakeLock = null;
+    }
+}
+// ------------------------------
+
 function switchMode() {
     playChime();
     isWorkMode = !isWorkMode;
@@ -279,6 +305,7 @@ function toggleTimer() {
         clearInterval(timerId);
         btnStart.textContent = 'Resume';
         isRunning = false;
+        releaseWakeLock(); // Let screen sleep when paused
         // timeLeft represents how much time is left when paused.
     } else {
         if (timeLeft <= 0) {
@@ -290,12 +317,14 @@ function toggleTimer() {
         timerId = setInterval(tick, 200); // Check more frequently (5 times a second) for precision
         btnStart.textContent = 'Pause';
         isRunning = true;
+        requestWakeLock(); // Keep screen on while running
     }
 }
 
 function resetTimer() {
     clearInterval(timerId);
     isRunning = false;
+    releaseWakeLock(); // Let screen sleep
     isWorkMode = true;
     timeLeft = WORK_TIME_SEC;
     cycles = 0;
@@ -315,8 +344,11 @@ function resetTimer() {
 // When the user switches back to the app from another app or waking up the phone,
 // immediately force an update so they don't see stale times
 document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === 'visible' && isRunning) {
-        tick();
+    if (document.visibilityState === 'visible') {
+        if (isRunning) {
+            tick();
+            requestWakeLock(); // re-request lock if it was lost while hidden
+        }
     }
 });
 
