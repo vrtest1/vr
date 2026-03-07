@@ -17,7 +17,11 @@
     <div class="timer-card">
         <div class="top-controls">
             <button id="btn-volume" class="btn-icon volume-btn" aria-label="Toggle Volume">🔊</button>
-            <button id="btn-loud" class="btn-icon loud-btn" aria-label="Toggle Final Buzzer">⚡ Loud</button>
+            <label class="toggle-switch">
+                <input type="checkbox" id="btn-loud" checked>
+                <span class="slider round"></span>
+                <span class="toggle-label">⚡ Loud</span>
+            </label>
         </div>
         <h1 id="mode-text">📚 作業集中 (30分)</h1>
 

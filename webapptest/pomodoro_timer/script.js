@@ -91,7 +91,7 @@ function playChime() {
             { freq: do_c, time: 9.0 }
         ];
 
-        const baseVol = volumeLevel === 2 ? 0.3 : 0.05;
+        const baseVol = volumeLevel === 2 ? 0.8 : 0.3;
 
         notes.forEach(note => {
             // Main oscillator (fundamental frequency)
@@ -136,35 +136,33 @@ function playChime() {
         if (isLoud) {
             // Add a loud buzzer sound at the end of the sequence (starts around 10.5s after chime decay)
             const buzzerStart = 10.5;
-            const buzzerOsc = ctx.createOscillator();
-            const buzzerGain = ctx.createGain();
+            // Retro arcade-style completion chime (major arpeggio)
+            const buzzerVol = volumeLevel === 2 ? 1.5 : 0.6; // Significantly louder
 
-            // Square wave for harsh buzzer sound
-            buzzerOsc.type = 'square';
-            buzzerOsc.frequency.setValueAtTime(150, ctx.currentTime + buzzerStart);
+            const retroNotes = [
+                { f: 440.00, t: 0 },    // A4
+                { f: 554.37, t: 0.15 }, // C#5
+                { f: 659.25, t: 0.3 },  // E5
+                { f: 880.00, t: 0.45 }  // A5
+            ];
 
-            // Buzz envelope (a few rapid, loud bursts)
-            const buzzerVol = volumeLevel === 2 ? 0.8 : 0.2;
+            retroNotes.forEach(n => {
+                const bOsc = ctx.createOscillator();
+                const bGain = ctx.createGain();
 
-            buzzerGain.gain.setValueAtTime(0, ctx.currentTime + buzzerStart);
+                bOsc.type = 'triangle'; // Sharper retro sound (triangle wave)
+                bOsc.frequency.setValueAtTime(n.f, ctx.currentTime + buzzerStart + n.t);
 
-            // Bzzzt
-            buzzerGain.gain.setValueAtTime(buzzerVol, ctx.currentTime + buzzerStart + 0.1);
-            buzzerGain.gain.setValueAtTime(0, ctx.currentTime + buzzerStart + 0.3);
+                bGain.gain.setValueAtTime(0, ctx.currentTime + buzzerStart + n.t);
+                bGain.gain.linearRampToValueAtTime(buzzerVol, ctx.currentTime + buzzerStart + n.t + 0.05);
+                bGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + buzzerStart + n.t + 0.4);
 
-            // Bzzzt
-            buzzerGain.gain.setValueAtTime(buzzerVol, ctx.currentTime + buzzerStart + 0.5);
-            buzzerGain.gain.setValueAtTime(0, ctx.currentTime + buzzerStart + 0.7);
+                bOsc.connect(bGain);
+                bGain.connect(ctx.destination);
 
-            // Bzzzzzzzt
-            buzzerGain.gain.setValueAtTime(buzzerVol, ctx.currentTime + buzzerStart + 0.9);
-            buzzerGain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + buzzerStart + 1.8);
-
-            buzzerOsc.connect(buzzerGain);
-            buzzerGain.connect(ctx.destination);
-
-            buzzerOsc.start(ctx.currentTime + buzzerStart);
-            buzzerOsc.stop(ctx.currentTime + buzzerStart + 2.0);
+                bOsc.start(ctx.currentTime + buzzerStart + n.t);
+                bOsc.stop(ctx.currentTime + buzzerStart + n.t + 0.5);
+            });
         }
 
     } catch (e) {
@@ -357,7 +355,7 @@ const btnMinus = document.getElementById('btn-minus');
 const btnLoud = document.getElementById('btn-loud');
 
 let isLoud = true;
-btnLoud.classList.add('active'); // Start active
+btnLoud.checked = true; // Use checked property for checkbox
 
 function adjustTime(seconds) {
     if (isRunning) return; // Prevent adjustment while running
@@ -394,29 +392,41 @@ function toggleVolume() {
 }
 
 function toggleLoud() {
-    isLoud = !isLoud;
+    isLoud = btnLoud.checked; // Sync with checkbox state
+
     if (isLoud) {
-        btnLoud.classList.add('active');
         if (volumeLevel > 0) {
-            // Play a quick test buzz
+            // Play preview of the retro chime
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const bOsc = ctx.createOscillator();
-                const bGain = ctx.createGain();
-                bOsc.type = 'square';
-                bOsc.frequency.setValueAtTime(150, ctx.currentTime);
-                const bVol = volumeLevel === 2 ? 0.8 : 0.2;
-                bGain.gain.setValueAtTime(0, ctx.currentTime);
-                bGain.gain.linearRampToValueAtTime(bVol, ctx.currentTime + 0.05);
-                bGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-                bOsc.connect(bGain);
-                bGain.connect(ctx.destination);
-                bOsc.start();
-                bOsc.stop(ctx.currentTime + 0.5);
+                const buzzerVol = volumeLevel === 2 ? 1.5 : 0.6;
+
+                const retroNotes = [
+                    { f: 440.00, t: 0 },
+                    { f: 554.37, t: 0.15 },
+                    { f: 659.25, t: 0.3 },
+                    { f: 880.00, t: 0.45 }
+                ];
+
+                retroNotes.forEach(n => {
+                    const bOsc = ctx.createOscillator();
+                    const bGain = ctx.createGain();
+
+                    bOsc.type = 'triangle'; // Sharper retro sound
+                    bOsc.frequency.setValueAtTime(n.f, ctx.currentTime + n.t);
+
+                    bGain.gain.setValueAtTime(0, ctx.currentTime + n.t);
+                    bGain.gain.linearRampToValueAtTime(buzzerVol, ctx.currentTime + n.t + 0.05);
+                    bGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + n.t + 0.4);
+
+                    bOsc.connect(bGain);
+                    bGain.connect(ctx.destination);
+
+                    bOsc.start(ctx.currentTime + n.t);
+                    bOsc.stop(ctx.currentTime + n.t + 0.5);
+                });
             } catch (e) { }
         }
-    } else {
-        btnLoud.classList.remove('active');
     }
 }
 
@@ -439,7 +449,7 @@ btnSkip.addEventListener('click', skipMode);
 btnPlus.addEventListener('click', () => adjustTime(60));
 btnMinus.addEventListener('click', () => adjustTime(-60));
 btnVolume.addEventListener('click', toggleVolume);
-btnLoud.addEventListener('click', toggleLoud);
+btnLoud.addEventListener('change', toggleLoud);
 
 // Initialize
 updateDisplay();
