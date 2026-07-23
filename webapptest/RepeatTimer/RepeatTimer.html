@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0f0b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Repeat Timer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070a08;
+      --panel: #0e1510;
+      --line: #34563d;
+      --text: #d9ffe1;
+      --muted: #89a991;
+      --accent: #6cff7f;
+      --danger: #ff7b7b;
+      --shadow: rgba(108, 255, 127, 0.18);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 50% -20%, rgba(108,255,127,.11), transparent 42%),
+        linear-gradient(180deg, #09100b 0%, var(--bg) 100%);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      -webkit-font-smoothing: antialiased;
+      touch-action: manipulation;
+    }
+
+    body {
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding:
+        max(18px, env(safe-area-inset-top))
+        18px
+        max(22px, env(safe-area-inset-bottom));
+    }
+
+    .app {
+      width: min(100%, 460px);
+      min-height: min(760px, calc(100dvh - 40px));
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: rgba(10, 16, 12, 0.92);
+      box-shadow:
+        0 24px 80px rgba(0,0,0,.45),
+        0 0 34px var(--shadow) inset;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .scanlines {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      opacity: .08;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 3px,
+        rgba(255,255,255,.18) 4px
+      );
+      mix-blend-mode: screen;
+    }
+
+    header {
+      padding: 26px 24px 18px;
+      border-bottom: 1px solid rgba(108,255,127,.16);
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(24px, 7vw, 34px);
+      letter-spacing: .08em;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: .06em;
+    }
+
+    main {
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .settings {
+      display: grid;
+      gap: 12px;
+    }
+
+    .setting-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      border: 1px solid rgba(108,255,127,.18);
+      border-radius: 18px;
+      background: rgba(108,255,127,.035);
+    }
+
+    .setting-row label {
+      color: var(--muted);
+      font-size: 15px;
+      letter-spacing: .08em;
+    }
+
+    .stepper {
+      display: grid;
+      grid-template-columns: 42px minmax(88px, auto) 42px;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid rgba(108,255,127,.35);
+      background: #101a13;
+      color: var(--text);
+      font: inherit;
+      border-radius: 14px;
+      min-height: 44px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:active { transform: translateY(1px) scale(.99); }
+
+    .stepper button {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .value {
+      text-align: center;
+      font-size: 20px;
+      color: var(--accent);
+      min-width: 88px;
+    }
+
+    .display {
+      border: 1px solid rgba(108,255,127,.22);
+      border-radius: 24px;
+      padding: 26px 18px;
+      text-align: center;
+      background:
+        radial-gradient(circle at 50% 25%, rgba(108,255,127,.11), transparent 48%),
+        #0a100c;
+      box-shadow: 0 0 28px rgba(108,255,127,.08) inset;
+    }
+
+    .phase {
+      min-height: 42px;
+      font-size: clamp(30px, 10vw, 48px);
+      letter-spacing: .1em;
+      color: var(--accent);
+    }
+
+    .round {
+      margin-top: 8px;
+      color: var(--muted);
+      min-height: 20px;
+      font-size: 15px;
+    }
+
+    .time {
+      margin-top: 18px;
+      font-size: clamp(68px, 22vw, 104px);
+      line-height: .96;
+      letter-spacing: -.06em;
+      text-shadow: 0 0 20px rgba(108,255,127,.25);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status {
+      margin-top: 20px;
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .primary {
+      grid-column: 1 / -1;
+      min-height: 58px;
+      font-size: 18px;
+      background: var(--accent);
+      color: #071008;
+      border-color: var(--accent);
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
+    .secondary {
+      min-height: 48px;
+    }
+
+    .danger {
+      color: var(--danger);
+      border-color: rgba(255,123,123,.45);
+    }
+
+    .hidden { display: none !important; }
+
+    footer {
+      text-align: center;
+      color: #617868;
+      font-size: 11px;
+      padding: 0 20px 18px;
+    }
+
+    @media (max-height: 720px) {
+      header { padding-top: 18px; padding-bottom: 14px; }
+      main { gap: 12px; padding: 16px; }
+      .setting-row { padding: 12px; }
+      .display { padding: 18px 14px; }
+      .time { margin-top: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <section class="app" aria-label="Repeat Timer">
+    <div class="scanlines"></div>
+
+    <header>
+      <h1>REPEAT TIMER</h1>
+      <div class="subtitle">WORK / REST INTERVALS</div>
+    </header>
+
+    <main>
+      <section id="settings" class="settings" aria-label="タイマー設定">
+        <div class="setting-row">
+          <label for="workValue">WORK</label>
+          <div class="stepper">
+            <button type="button" data-action="work-minus" aria-label="運動時間を減らす">−</button>
+            <div id="workValue" class="value">00:30</div>
+            <button type="button" data-action="work-plus" aria-label="運動時間を増やす">＋</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <label for="restValue">REST</label>
+          <div class="stepper">
+            <button type="button" data-action="rest-minus" aria-label="休憩時間を減らす">−</button>
+            <div id="restValue" class="value">00:10</div>
+            <button type="button" data-action="rest-plus" aria-label="休憩時間を増やす">＋</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <label for="repeatValue">REPEATS</label>
+          <div class="stepper">
+            <button type="button" data-action="repeat-minus" aria-label="回数を減らす">−</button>
+            <div id="repeatValue" class="value">3</div>
+            <button type="button" data-action="repeat-plus" aria-label="回数を増やす">＋</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="display" aria-live="polite">
+        <div id="phase" class="phase">READY</div>
+        <div id="round" class="round">30秒 / 10秒 × 3回</div>
+        <div id="time" class="time">00:30</div>
+        <div id="status" class="status">STARTを押してください</div>
+      </section>
+
+      <section class="controls">
+        <button id="startPause" type="button" class="primary">START</button>
+        <button id="reset" type="button" class="secondary danger">RESET</button>
+        <button id="soundToggle" type="button" class="secondary">SOUND: ON</button>
+      </section>
+    </main>
+
+    <footer>iPhoneでは「ホーム画面に追加」でアプリ風に使えます</footer>
+  </section>
+
+  <script>
+    (() => {
+      const MODES = { SET: 'set', RUNNING: 'running', PAUSED: 'paused', DONE: 'done' };
+      const PHASES = { WORK: 'work', REST: 'rest' };
+
+      let mode = MODES.SET;
+      let phase = PHASES.WORK;
+      let workSeconds = 30;
+      let restSeconds = 10;
+      let repeatCount = 3;
+      let currentRepeat = 1;
+      let secondsRemaining = workSeconds;
+      let timerId = null;
+      let nextTickAt = 0;
+      let soundEnabled = true;
+      let audioContext = null;
+      let wakeLock = null;
+
+      const $ = (id) => document.getElementById(id);
+      const settingsEl = $('settings');
+      const workValueEl = $('workValue');
+      const restValueEl = $('restValue');
+      const repeatValueEl = $('repeatValue');
+      const phaseEl = $('phase');
+      const roundEl = $('round');
+      const timeEl = $('time');
+      const statusEl = $('status');
+      const startPauseBtn = $('startPause');
+      const resetBtn = $('reset');
+      const soundToggleBtn = $('soundToggle');
+
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+      const pad = (n) => String(n).padStart(2, '0');
+      const formatTime = (seconds) => `${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`;
+
+      function saveSettings() {
+        localStorage.setItem('repeatTimerSettings', JSON.stringify({
+          workSeconds,
+          restSeconds,
+          repeatCount,
+          soundEnabled
+        }));
+      }
+
+      function loadSettings() {
+        try {
+          const saved = JSON.parse(localStorage.getItem('repeatTimerSettings') || '{}');
+          if (Number.isFinite(saved.workSeconds)) workSeconds = clamp(saved.workSeconds, 5, 3600);
+          if (Number.isFinite(saved.restSeconds)) restSeconds = clamp(saved.restSeconds, 0, 3600);
+          if (Number.isFinite(saved.repeatCount)) repeatCount = clamp(saved.repeatCount, 1, 99);
+          if (typeof saved.soundEnabled === 'boolean') soundEnabled = saved.soundEnabled;
+        } catch (_) {}
+        secondsRemaining = workSeconds;
+      }
+
+      function render() {
+        workValueEl.textContent = formatTime(workSeconds);
+        restValueEl.textContent = formatTime(restSeconds);
+        repeatValueEl.textContent = repeatCount;
+        soundToggleBtn.textContent = `SOUND: ${soundEnabled ? 'ON' : 'OFF'}`;
+
+        settingsEl.classList.toggle('hidden', mode !== MODES.SET);
+
+        if (mode === MODES.SET) {
+          phaseEl.textContent = 'READY';
+          roundEl.textContent = `${workSeconds}秒 / ${restSeconds}秒 × ${repeatCount}回`;
+          timeEl.textContent = formatTime(workSeconds);
+          statusEl.textContent = 'STARTを押してください';
+          startPauseBtn.textContent = 'START';
+        } else if (mode === MODES.DONE) {
+          phaseEl.textContent = 'COMPLETE';
+          roundEl.textContent = `${repeatCount} ROUNDS FINISHED`;
+          timeEl.textContent = '00:00';
+          statusEl.textContent = 'お疲れさまでした';
+          startPauseBtn.textContent = 'AGAIN';
+        } else {
+          phaseEl.textContent = phase === PHASES.WORK ? 'WORK' : 'REST';
+          roundEl.textContent = phase === PHASES.WORK
+            ? `ROUND ${currentRepeat} / ${repeatCount}`
+            : `NEXT: ROUND ${currentRepeat + 1} / ${repeatCount}`;
+          timeEl.textContent = formatTime(secondsRemaining);
+          statusEl.textContent = mode === MODES.PAUSED ? 'PAUSED' : '進行中';
+          startPauseBtn.textContent = mode === MODES.PAUSED ? 'RESUME' : 'PAUSE';
+        }
+      }
+
+      function getAudioContext() {
+        if (!audioContext) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) audioContext = new AudioCtx();
+        }
+        if (audioContext?.state === 'suspended') audioContext.resume();
+        return audioContext;
+      }
+
+      function beep(frequency = 880, duration = 0.12, delay = 0) {
+        if (!soundEnabled) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        const start = ctx.currentTime + delay;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.35, start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration); // louder
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + duration + 0.03);
+      }
+
+      function signal(kind) {
+        if (kind === 'complete') {
+          beep(880, .12, 0);
+          beep(1040, .12, .18);
+          beep(1320, .18, .36);
+          navigator.vibrate?.([120, 80, 120, 80, 180]);
+        } else if (kind === 'work') {
+          beep(1100, .16, 0);
+          navigator.vibrate?.(160);
+        } else {
+          beep(720, .10, 0);
+          beep(720, .10, .16);
+          navigator.vibrate?.([80, 60, 80]);
+        }
+      }
+
+      async function requestWakeLock() {
+        try {
+          if ('wakeLock' in navigator && !wakeLock) {
+            wakeLock = await navigator.wakeLock.request('screen');
+            wakeLock.addEventListener('release', () => { wakeLock = null; });
+          }
+        } catch (_) {}
+      }
+
+      async function releaseWakeLock() {
+        try {
+          await wakeLock?.release();
+        } catch (_) {}
+        wakeLock = null;
+      }
+
+      function stopTimer() {
+        if (timerId !== null) {
+          clearInterval(timerId);
+          timerId = null;
+        }
+      }
+
+      function finish() {
+        stopTimer();
+        mode = MODES.DONE;
+        secondsRemaining = 0;
+        signal('complete');
+        releaseWakeLock();
+        render();
+      }
+
+      function advancePhase() {
+        if (phase === PHASES.WORK) {
+          if (currentRepeat >= repeatCount) {
+            finish();
+            return;
+          }
+
+          if (restSeconds > 0) {
+            phase = PHASES.REST;
+            secondsRemaining = restSeconds;
+            signal('rest');
+          } else {
+            currentRepeat += 1;
+            phase = PHASES.WORK;
+            secondsRemaining = workSeconds;
+            signal('work');
+          }
+        } else {
+          currentRepeat += 1;
+          phase = PHASES.WORK;
+          secondsRemaining = workSeconds;
+          signal('work');
+        }
+
+        nextTickAt = performance.now() + 1000;
+        render();
+      }
+
+      function updateClock() {
+        if (mode !== MODES.RUNNING) return;
+
+        const now = performance.now();
+        while (now >= nextTickAt && mode === MODES.RUNNING) {
+          secondsRemaining -= 1;
+          nextTickAt += 1000;
+
+          if (secondsRemaining <= 0) {
+            advancePhase();
+            break;
+          }
+        }
+
+        render();
+      }
+
+      function startTimer() {
+        stopTimer();
+        nextTickAt = performance.now() + 1000;
+        timerId = setInterval(updateClock, 200);
+      }
+
+      function startSession() {
+        getAudioContext();
+        mode = MODES.RUNNING;
+        phase = PHASES.WORK;
+        currentRepeat = 1;
+        secondsRemaining = workSeconds;
+        signal('work');
+        requestWakeLock();
+        startTimer();
+        render();
+      }
+
+      function pauseSession() {
+        stopTimer();
+        mode = MODES.PAUSED;
+        releaseWakeLock();
+        render();
+      }
+
+      function resumeSession() {
+        mode = MODES.RUNNING;
+        requestWakeLock();
+        startTimer();
+        render();
+      }
+
+      function resetSession() {
+        stopTimer();
+        mode = MODES.SET;
+        phase = PHASES.WORK;
+        currentRepeat = 1;
+        secondsRemaining = workSeconds;
+        releaseWakeLock();
+        render();
+      }
+
+      function changeSetting(type, delta) {
+        if (mode !== MODES.SET) return;
+
+        if (type === 'work') {
+          workSeconds = clamp(workSeconds + delta * 5, 5, 3600);
+          secondsRemaining = workSeconds;
+        } else if (type === 'rest') {
+          restSeconds = clamp(restSeconds + delta * 5, 0, 3600);
+        } else {
+          repeatCount = clamp(repeatCount + delta, 1, 99);
+        }
+
+        saveSettings();
+        render();
+      }
+
+      document.querySelectorAll('[data-action]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const [type, direction] = button.dataset.action.split('-');
+          changeSetting(type, direction === 'plus' ? 1 : -1);
+        });
+      });
+
+      startPauseBtn.addEventListener('click', () => {
+        if (mode === MODES.SET || mode === MODES.DONE) startSession();
+        else if (mode === MODES.RUNNING) pauseSession();
+        else resumeSession();
+      });
+
+      resetBtn.addEventListener('click', resetSession);
+
+      soundToggleBtn.addEventListener('click', () => {
+        soundEnabled = !soundEnabled;
+        getAudioContext();
+        saveSettings();
+        if (soundEnabled) beep(900, .08);
+        render();
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && mode === MODES.RUNNING) {
+          requestWakeLock();
+          updateClock();
+        }
+      });
+
+      loadSettings();
+      render();
+    })();
+  </script>
+</body>
+</html>
