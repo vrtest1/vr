@@ -25,3 +25,19 @@ html, body {
   user-select: none;
   -webkit-touch-callout: none;
 }
+@media (pointer: coarse) and (orientation: landscape) {
+  #game {
+    width: auto;
+    height: 100vh;
+    height: 100svh;
+    max-width: 100vw;
+  }
+}
+@media (orientation: landscape) and (pointer: coarse) {
+  #game {
+    width: auto;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100vw;
+  }
+}

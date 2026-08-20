@@ -6,7 +6,7 @@
   const ctx = canvas.getContext('2d');
   const game = new Game(canvas);
   window.__game = game;
-  Mobile.init(canvas);
+  if (window.Mobile) Mobile.init(canvas);
   let last = performance.now();
   function loop(now) {
     let dt = (now - last) / 1000;
@@ -16,8 +16,7 @@
     game.update(dt);
     ctx.setTransform(Q, 0, 0, Q, 0, 0);
     game.draw(ctx);
-    Mobile.draw(ctx);
-    Mobile.endFrame();
+    if (window.Mobile) { Mobile.draw(ctx); Mobile.endFrame(); }
     Input.endFrame();
     requestAnimationFrame(loop);
   }
