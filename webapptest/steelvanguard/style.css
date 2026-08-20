@@ -1,0 +1,27 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #04050a;
+  overflow: hidden;
+}
+#wrap {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 40%, #0a0e1c 0%, #04050a 70%);
+}
+#game {
+  width: min(100vw, 160vh);
+  aspect-ratio: 16 / 10;
+  background: #0a0c12;
+  box-shadow: 0 0 80px rgba(0, 0, 0, 0.9);
+  cursor: crosshair;
+  image-rendering: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
