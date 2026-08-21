@@ -13,10 +13,12 @@
     last = now;
     if (dt > 0.05) dt = 0.05;
     if (dt < 0) dt = 0;
+    if (window.Gamepad) Gamepad.update();
     game.update(dt);
     ctx.setTransform(Q, 0, 0, Q, 0, 0);
     game.draw(ctx);
     if (window.Mobile) { Mobile.draw(ctx); Mobile.endFrame(); }
+    if (window.Gamepad) Gamepad.endFrame();
     Input.endFrame();
     requestAnimationFrame(loop);
   }

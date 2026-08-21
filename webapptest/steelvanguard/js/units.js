@@ -57,6 +57,12 @@
       const rt = K.has('KeyD') || K.has('ArrowRight');
       let vx = (dn ? 1 : 0) - (up ? 1 : 0) + (rt ? 1 : 0) - (lf ? 1 : 0);
       let vy = (dn ? 1 : 0) - (up ? 1 : 0) - (rt ? 1 : 0) + (lf ? 1 : 0);
+      if (window.Gamepad && Gamepad.active) {
+        const gx = Gamepad.axes[0];
+        const gy = Gamepad.axes[1];
+        vx += gx + gy;
+        vy += -gx + gy;
+      }
       if (vx !== 0 || vy !== 0) {
         const l = Math.hypot(vx, vy);
         vx /= l; vy /= l;
@@ -77,7 +83,7 @@
         this.shieldT += dt;
         if (this.shieldT > 2.5) this.shield = Math.min(this.stats.shieldMax * this.maxHp, this.shield + this.maxHp * 0.08 * dt);
       }
-      if (Input.mouse.down || K.has('Space')) this.tryFire();
+      if (Input.mouse.down || K.has('Space') || (window.Gamepad && Gamepad.down(0))) this.tryFire();
     }
     tryFire() {
       if (this.cdT > 0 || !this.alive) return;

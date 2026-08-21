@@ -148,7 +148,8 @@ class Game {
     }
     if (Input.pressed('KeyM')) SFX.toggleMute();
     if (this.state === 'menu') {
-      if (Input.pressed('Enter') || Input.pressed('Space') || Input.mouse.downOnce) {
+      const gpConfirm = window.Gamepad && Gamepad.pressed(0);
+      if (Input.pressed('Enter') || Input.pressed('Space') || Input.mouse.downOnce || gpConfirm) {
         SFX.init();
         SFX.resume();
         SFX.click();
@@ -158,7 +159,8 @@ class Game {
       return;
     }
     if (this.state === 'gameover') {
-      if (Input.pressed('Enter')) {
+      const gpA = window.Gamepad && Gamepad.pressed(0);
+      if (Input.pressed('Enter') || gpA) {
         this.state = 'menu';
         SFX.startMusic('menu');
         SFX.click();
@@ -170,7 +172,7 @@ class Game {
       SFX.update();
       return;
     }
-    if (Input.pressed('KeyP')) {
+    if (Input.pressed('KeyP') || (window.Gamepad && Gamepad.pressed(9))) {
       this.paused = !this.paused;
       SFX.click();
     }
