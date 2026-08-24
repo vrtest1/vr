@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Super Scroll Adventure</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game-wrap">
+  <canvas id="game"></canvas>
+
+  <!-- タッチ端末用バーチャルパッド -->
+  <div id="touch-layer" class="hidden">
+    <div id="pad-left">
+      <button id="btn-left"  class="vpad" data-action="left"  type="button" aria-label="left"></button>
+      <button id="btn-right" class="vpad" data-action="right" type="button" aria-label="right"></button>
+    </div>
+    <div id="pad-right">
+      <button id="btn-dash" class="vpad" data-action="dash" type="button" aria-label="dash"></button>
+      <button id="btn-jump" class="vpad" data-action="jump" type="button" aria-label="jump"></button>
+    </div>
+  </div>
+
+  <!-- 縦画面案内 -->
+  <div id="rotate-hint" class="hidden">横画面にすると遊びやすくなります</div>
+</div>
+
+<script src="js/input.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/render.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
