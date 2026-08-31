@@ -425,15 +425,23 @@ class WhaleShark {
     this.target = this.newTarget();
   }
   newTarget() {
-    return new THREE.Vector3((Math.random() * 2 - 1) * 95, -16 + Math.random() * 22, (Math.random() * 2 - 1) * 42);
+    return new THREE.Vector3((Math.random() * 2 - 1) * 80, -16 + Math.random() * 22, (Math.random() * 2 - 1) * 28);
   }
   update(dt, others) {
     if (this.pos.distanceTo(this.target) < 25) this.target = this.newTarget();
     const desired = new THREE.Vector3().subVectors(this.target, this.pos);
+    // 水槽境界接近時に内側へ誘導(マグロと同じ趣旨の境界反発)。壁に擦り付いて止まるのを防ぐ
+    const margin = 30, push = 3;
+    let nearWall = false;
+    if (this.pos.x > HALF_W - margin) { desired.x -= (this.pos.x - (HALF_W - margin)) * push; nearWall = true; }
+    if (this.pos.x < -HALF_W + margin) { desired.x += ((-HALF_W + margin) - this.pos.x) * push; nearWall = true; }
+    if (this.pos.z > HALF_D - margin) { desired.z -= (this.pos.z - (HALF_D - margin)) * push; nearWall = true; }
+    if (this.pos.z < -HALF_D + margin) { desired.z += ((-HALF_D + margin) - this.pos.z) * push; nearWall = true; }
     let cur = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
     const flat = new THREE.Vector3(desired.x, 0, desired.z).normalize();
     let ang = Math.atan2(cur.x * flat.z - cur.z * flat.x, cur.x * flat.x + cur.z * flat.z);
-    ang = THREE.MathUtils.clamp(ang, -this.turnMax * dt, this.turnMax * dt);
+    const turn = nearWall ? this.turnMax * 3 : this.turnMax;
+    ang = THREE.MathUtils.clamp(ang, -turn * dt, turn * dt);
     this.heading += ang;
     // 他個体と接近したら回避
     for (const o of others) {
