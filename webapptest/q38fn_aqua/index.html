@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>AQUALIUM — 巨大水族館 3D水槽</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#04182a;font-family:"Hiragino Sans","Yu Gothic",sans-serif;
+       -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;overscroll-behavior:none}
+  #hud{position:fixed;left:16px;bottom:14px;color:#bfe3ff;font-size:12px;line-height:1.7;
+       background:rgba(2,20,38,.55);padding:10px 14px;border-radius:8px;pointer-events:none;
+       backdrop-filter:blur(4px);letter-spacing:.04em}
+  body.touch #hud-pc{display:none}
+  body:not(.touch) #hud-touch{display:none}
+  #title{position:fixed;left:16px;top:12px;color:#e8f6ff;font-size:15px;letter-spacing:.35em;
+         text-shadow:0 0 12px rgba(90,200,255,.6);pointer-events:none}
+  /* --- タッチUI --- */
+  #joy{position:fixed;left:0;top:0;width:132px;height:132px;margin:-66px 0 0 -66px;border-radius:50%;
+       border:1.5px solid rgba(160,220,255,.35);background:rgba(10,50,85,.22);
+       opacity:0;transition:opacity .15s;pointer-events:none;z-index:10}
+  #joy.active{opacity:1}
+  #joy-knob{position:absolute;left:50%;top:50%;width:56px;height:56px;border-radius:50%;
+       transform:translate(-50%,-50%);
+       background:radial-gradient(circle at 35% 32%,rgba(210,240,255,.85),rgba(70,150,200,.55));
+       box-shadow:0 0 14px rgba(90,200,255,.45)}
+  #vbtns{position:fixed;right:16px;bottom:22px;display:none;flex-direction:column;gap:14px;z-index:10}
+  body.touch #vbtns{display:flex}
+  .vbtn{width:66px;height:66px;border-radius:50%;border:1.5px solid rgba(160,220,255,.4);
+       background:rgba(8,44,76,.5);color:#cfeaff;font-size:13px;letter-spacing:.08em;
+       display:flex;align-items:center;justify-content:center;pointer-events:auto;
+       backdrop-filter:blur(4px);touch-action:none;-webkit-tap-highlight-color:transparent}
+  .vbtn.active{background:rgba(70,160,220,.55);color:#fff}
+  .vbtn.small{width:56px;height:56px;font-size:11px;opacity:.9}
+</style>
+<script type="importmap">{"imports":{"three":"./three.module.js"}}</script>
+</head>
+<body>
+<div id="title">A Q U A L I U M</div>
+<div id="hud"><span id="hud-pc">クリックで視点操作開始 (ポインターロック)<br>
+W / A / S / D : 移動 &nbsp; E / Space : 上昇 &nbsp; Q : 下降<br>
+Shift : 高速移動 &nbsp; マウス : 視点移動 &nbsp; Esc : 解除</span><span id="hud-touch">左画面ドラッグ: 移動 &nbsp; 右画面ドラッグ: 視点<br>
+右ボタン: 浮上 / 潜水 / 高速</span></div>
+<div id="joy"><div id="joy-knob"></div></div>
+<div id="vbtns">
+  <div class="vbtn small" id="btn-boost">高速</div>
+  <div class="vbtn" id="btn-up">浮上</div>
+  <div class="vbtn" id="btn-down">潜水</div>
+</div>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
