@@ -438,8 +438,12 @@ class WhaleShark {
     if (this.pos.z > HALF_D - margin) { desired.z -= (this.pos.z - (HALF_D - margin)) * push; nearWall = true; }
     if (this.pos.z < -HALF_D + margin) { desired.z += ((-HALF_D + margin) - this.pos.z) * push; nearWall = true; }
     let cur = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
-    const flat = new THREE.Vector3(desired.x, 0, desired.z).normalize();
-    let ang = Math.atan2(cur.x * flat.z - cur.z * flat.x, cur.x * flat.x + cur.z * flat.z);
+    let ang = 0;
+    if (desired.x * desired.x + desired.z * desired.z > 1e-4) {
+      const flat = new THREE.Vector3(desired.x, 0, desired.z).normalize();
+      // 目標方位 - 現在方位 の最短角。符号を間違えると target と逆向きへ旋回し壁に張り付く
+      ang = Math.atan2(flat.x * cur.z - flat.z * cur.x, flat.x * cur.x + flat.z * cur.z);
+    }
     const turn = nearWall ? this.turnMax * 3 : this.turnMax;
     ang = THREE.MathUtils.clamp(ang, -turn * dt, turn * dt);
     this.heading += ang;
@@ -448,6 +452,28 @@ class WhaleShark {
       const d = this.pos.distanceTo(o.pos);
       if (d < 26 && d > 1e-3) this.heading -= Math.sign(ang || 1) * dt * 0.35;
     }
+    // 壁際緊急旋回: 先読み点が安全境界を超すなら、heading を速度上限無視で内側へ直接補正。
+    // turnMax*3(0.255rad/s)では壁までの距離でＵターンしきれず位置 clamp に張り付くため
+    const limX = HALF_W - 12, limZ = HALF_D - 12, look = this.speed * 6 + this.L;
+    if (nearWall) {
+      const dir = new THREE.Vector2(Math.sin(this.heading), Math.cos(this.heading));
+      let danger = false;
+      if (this.pos.x + dir.x * look > limX) { dir.x = -Math.max(0.6, Math.abs(dir.x)); danger = true; }
+      if (this.pos.x - dir.x * look < -limX) { dir.x = Math.max(0.6, Math.abs(dir.x)); danger = true; }
+      if (this.pos.z + dir.y * look > limZ) { dir.y = -Math.max(0.6, Math.abs(dir.y)); danger = true; }
+      if (this.pos.z - dir.y * look < -limZ) { dir.y = Math.max(0.6, Math.abs(dir.y)); danger = true; }
+      if (danger) {
+        const eh = Math.atan2(dir.x, dir.y);
+        const ea = THREE.MathUtils.clamp(Math.atan2(Math.sin(eh - this.heading), Math.cos(eh - this.heading)), -0.9 * dt, 0.9 * dt);
+        this.heading += ea;
+      }
+    }
+    cur = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
+    // 最終防御: clamp 境界に張り付いたまま外向きの移動は不许。接線へ寄せて翌フレーム内側へ離脱させる
+    const eps = 0.05;
+    if ((this.pos.x > limX - eps && cur.x > 0) || (this.pos.x < -limX + eps && cur.x < 0)) this.heading = cur.z >= 0 ? 0 : Math.PI;
+    cur = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
+    if ((this.pos.z > limZ - eps && cur.z > 0) || (this.pos.z < -limZ + eps && cur.z < 0)) this.heading = cur.x >= 0 ? Math.PI / 2 : -Math.PI / 2;
     cur = new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
     this.pos.addScaledVector(cur, this.speed * dt);
     this.pos.y += THREE.MathUtils.clamp(this.target.y - this.pos.y, -0.6 * dt, 0.6 * dt) * 2;
