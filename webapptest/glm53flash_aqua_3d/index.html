@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>AQUALIUM — 巨大水槽体験 (250m × 120m × 50m)</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#04121c;overflow:hidden}
+  canvas{display:block}
+  #vignette{position:fixed;inset:0;pointer-events:none;z-index:5;
+    background:radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(2,12,20,.55) 100%)}
+  #title{position:fixed;top:16px;left:18px;z-index:10;pointer-events:none;color:#cfeaf2;opacity:.92;
+    font:600 14px/1.5 "Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+    text-shadow:0 1px 8px rgba(0,25,35,.9)}
+  #title .dim{font-weight:400;font-size:11px;color:#9fc3d0}
+  #hud{position:fixed;bottom:14px;left:18px;z-index:10;pointer-events:none;color:#b7d7e2;opacity:.85;
+    font:400 11px/1.7 "Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+    text-shadow:0 1px 6px rgba(0,20,30,.9)}
+  #hint{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none;
+    color:#dff3fa;opacity:.9;font:500 13px/1.6 "Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+    background:rgba(4,26,38,.45);border:1px solid rgba(120,200,220,.25);border-radius:10px;
+    padding:8px 14px;text-shadow:0 1px 6px rgba(0,20,30,.9);transition:opacity .4s}
+  #fps{position:fixed;bottom:14px;right:18px;z-index:10;pointer-events:none;color:#dff0f8;
+    background:rgba(4,26,38,.45);border:1px solid rgba(120,200,220,.25);border-radius:8px;
+    padding:4px 9px;font:400 11px/1.4 ui-monospace,Menlo,monospace;text-shadow:0 1px 6px rgba(0,20,30,.9)}
+  #err{position:fixed;top:10px;left:10px;z-index:50;color:#ffb9b9;display:none;white-space:pre;
+    font:12px/1.5 ui-monospace,Menlo,monospace;max-width:82vw;max-height:70vh;overflow:auto;
+    background:rgba(20,4,6,.7);padding:8px;border-radius:6px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+</head>
+<body>
+<div id="vignette"></div>
+<div id="title">AQUALIUM<span class="dim">　巨大海洋展示槽 250m × 120m × 50m　—　ジンベエザメ / マンタ / クロマグロ</span></div>
+<div id="hud">鑑賞用3D体験　生体の泳ぎとスケール感をどうぞ</div>
+<div id="hint">クリックで視点ロック　マウス：視線　WASD：移動　Shift：高速　E：上昇　Q：下降（Space/Cも可）　ESC：解除</div>
+<div id="fps"></div>
+<div id="err"></div>
+<script>
+window.addEventListener('error',function(e){ console.log('ERRSTACK: '+(e.error&&e.error.stack||e.message)); });
+/* =========================================================================
+   AQUALIUM — 巨大水族館 3D 水槽 (Three.js / WebGL)
+   水槽: 横250m × 奥行120m × 高さ50m (水面 y=46m)
+   生物: ジンベエザメ×2 / マンタ(オニイトマキエイ)×4 / クロマグロ×30
+   すべてコードから生成 (外部アセット不使用)
+   ========================================================================= */
+(function(){
+"use strict";
+const ERR = document.getElementById('err');
+function showErr(m){ ERR.style.display='block'; ERR.textContent += m + "\n"; }
+window.addEventListener('error', e=>showErr('ERR: '+e.message+' @'+(e.lineno||'')));
+window.addEventListener('unhandledrejection', e=>showErr('REJ: '+e.reason));
+
+if(!window.THREE){ showErr('THREE not loaded'); return; }
+
+/* ---------------- 基本 ---------------- */
+const HW = 125, HD = 60, H = 50;      // 半幅 / 半奥行 / 高
+const SURF = 46;                       // 水面
+const FOGD = 0.0063;                   // 水中の霞 (距離減衰)
+const OX = 340, OZ = 200;              // 水槽の外に広がる「続きの海」の範囲
+const FOGC = 0x0b3c52;
+const rndSeed = { s: 0x2f61a3 };
+function rnd(){ rndSeed.s = (rndSeed.s*1664525 + 1013904223) >>> 0; return (rndSeed.s >>> 9) / 8388608; }
+function rr(a,b){ return a + (b-a)*rnd(); }
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function wrapPI(a){ a = (a + Math.PI) % (Math.PI*2); if(a<0) a += Math.PI*2; return a - Math.PI; }
+function lerpAngle(a,b,t){ return a + wrapPI(b-a)*t; }
+
+/* ---------------- テクスチャ生成 ---------------- */
+function tex(w,h,draw,opt){
+  const c = document.createElement('canvas'); c.width=w; c.height=h;
+  const g = c.getContext('2d'); draw(g,w,h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  if(!opt || opt.repeat!==false){ t.wrapS=THREE.RepeatWrapping; t.wrapT=THREE.RepeatWrapping; }
+  t.anisotropy = 4;
+  return t;
+}
+const sandTex = tex(256,256,(g,w,h)=>{
+  g.fillStyle='#c7b393'; g.fillRect(0,0,w,h);
+  for(let i=0;i<900;i++){ // 明るい粒
+    g.fillStyle='rgba(235,220,185,'+rr(0.25,0.8).toFixed(2)+')';
+    const x=rr(0,w),y=rr(0,h),r=rr(0.4,1.8); g.beginPath();g.arc(x,y,r,0,7);g.fill();
+  }
+  for(let i=0;i<700;i++){ // 暗い粒
+    g.fillStyle='rgba(112,95,68,'+rr(0.15,0.55).toFixed(2)+')';
+    const x=rr(0,w),y=rr(0,h),r=rr(0.4,2.2); g.beginPath();g.arc(x,y,r,0,7);g.fill();
+  }
+  for(let i=0;i<26;i++){ // 波模様のうすい帯
+    g.fillStyle='rgba(180,164,132,0.10)';
+    const y=rr(0,h); g.fillRect(0,y,w,rr(4,14));
+  }
+});
+const rockTex = tex(256,256,(g,w,h)=>{
+  g.fillStyle='#6b6357'; g.fillRect(0,0,w,h);
+  for(let i=0;i<420;i++){
+    const r=rr(3,16); g.fillStyle= rr()<0.5?'rgba(46,42,38,'+rr(0.08,0.28).toFixed(2)+')':'rgba(150,138,118,'+rr(0.05,0.2).toFixed(2)+')';
+    g.beginPath(); g.arc(rr(0,w),rr(0,h),r,0,7); g.fill();
+  }
+  g.strokeStyle='rgba(30,28,25,0.35)';
+  for(let i=0;i<26;i++){ g.lineWidth=rr(1,2.5); g.beginPath();
+    const x=rr(0,w),y=rr(0,h); g.moveTo(x,y); g.lineTo(x+rr(-60,60),y+rr(-60,60)); g.stroke(); }
+});
+const sharkTex = tex(512,256,(g,w,h)=>{
+  const gr=g.createLinearGradient(0,0,0,h); // 上(背)=暗、下(腹)=明
+  gr.addColorStop(0,'#4c5e68'); gr.addColorStop(0.55,'#6d8189'); gr.addColorStop(0.82,'#b7c3c8'); gr.addColorStop(1,'#d9dfe2');
+  g.fillStyle=gr; g.fillRect(0,0,w,h);
+  // 3本の隆起線 (体長方向 = 縦方向の線)
+  g.strokeStyle='rgba(28,38,44,0.18)'; g.lineWidth=3;
+  [0.30,0.42,0.54].forEach(u=>{ g.beginPath(); g.moveTo(w*u,0); g.lineTo(w*u,h); g.stroke(); });
+  g.strokeStyle='rgba(20,28,34,0.12)'; g.lineWidth=1.5;
+  for(let i=0;i<40;i++){ const x=rr(0,w),y=rr(0,h*0.6); g.beginPath(); g.moveTo(x,y); g.lineTo(x+rr(-14,14),y+rr(20,60)); g.stroke(); }
+  // 白斑 (ジンベエザメの模様) — 主に上半分
+  for(let i=0;i<520;i++){
+    const x=rr(0,w), y=rr(0,h*0.62), r=rr(1.2,6.5);
+    g.fillStyle='rgba(245,248,250,'+rr(0.35,0.75).toFixed(2)+')';
+    g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+  }
+  for(let i=0;i<160;i++){ // 腹寄りの淡い斑
+    const x=rr(0,w), y=rr(h*0.5,h), r=rr(2,7);
+    g.fillStyle='rgba(228,236,238,'+rr(0.25,0.5).toFixed(2)+')';
+    g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+  }
+});
+const tunaTex = tex(512,256,(g,w,h)=>{
+  const gr=g.createLinearGradient(0,0,0,h);
+  gr.addColorStop(0,'#122a4c'); gr.addColorStop(0.45,'#2c5680'); gr.addColorStop(0.75,'#7f9cb4'); gr.addColorStop(0.92,'#dfe8ec'); gr.addColorStop(1,'#eef3f5');
+  g.fillStyle=gr; g.fillRect(0,0,w,h);
+  g.strokeStyle='rgba(240,248,252,0.12)';
+  for(let i=0;i<70;i++){ const y=rr(h*0.55,h); g.lineWidth=rr(1,2); g.beginPath(); g.moveTo(rr(0,w*0.5),y); g.lineTo(rr(w*0.5,w),y); g.stroke(); }
+  g.fillStyle='rgba(8,18,36,0.35)';
+  for(let i=0;i<40;i++){ g.beginPath(); g.arc(rr(0,w),rr(0,h*0.35),rr(2,6),0,7); g.fill(); }
+});
+const mantaTex = tex(512,256,(g,w,h)=>{
+  const gr=g.createLinearGradient(0,0,0,h);
+  gr.addColorStop(0,'#272f39'); gr.addColorStop(0.35,'#3a4450'); gr.addColorStop(0.5,'#6a727c'); gr.addColorStop(0.62,'#c6c9cc'); gr.addColorStop(0.8,'#e6e7e3'); gr.addColorStop(1,'#f2f2ee');
+  g.fillStyle=gr; g.fillRect(0,0,w,h);
+  for(let i=0;i<70;i++){ // 背の白紋
+    const x=rr(0,w), y=rr(0,h*0.55), r=rr(2,8);
+    g.fillStyle='rgba(232,238,240,'+rr(0.2,0.5).toFixed(2)+')';
+    g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+  }
+  g.fillStyle='rgba(16,20,26,0.3)';
+  for(let i=0;i<50;i++){ g.beginPath(); g.arc(rr(0,w),rr(0,h*0.4),rr(2,7),0,7); g.fill(); }
+});
+const wallTex = tex(512,512,(g,w,h)=>{
+  const gr=g.createLinearGradient(0,0,0,h);
+  gr.addColorStop(0,'#0e2436'); gr.addColorStop(0.5,'#133149'); gr.addColorStop(1,'#0c2030');
+  g.fillStyle=gr; g.fillRect(0,0,w,h);
+  for(let x=0;x<=w;x+=64){ g.fillStyle='rgba(70,120,140,0.16)'; g.fillRect(x-1,0,2,h); }
+  [0.33,0.62,0.9].forEach(f=>{ g.fillStyle='rgba(90,140,160,0.22)'; g.fillRect(0,h*f-2,w,4); });
+});
+const dotTex = tex(64,64,(g)=>{
+  const gr=g.createRadialGradient(32,32,2,32,32,30);
+  gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(0.4,'rgba(255,255,255,0.5)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=gr; g.fillRect(0,0,64,64);
+},{repeat:false});
+function shaftTexture(){
+  const w=128,h=512,c=document.createElement('canvas'); c.width=w;c.height=h;
+  const g=c.getContext('2d'); const img=g.createImageData(w,h);
+  for(let y=0;y<h;y++){ for(let x=0;x<w;x++){
+    const cx=Math.abs(x-w*0.5)/(w*0.5);
+    const hx=Math.pow(Math.max(0,1-cx),1.7);
+    const vy=y/h;
+    const vz=Math.pow(1-vy,1.35)*0.95 + 0.06;
+    const a=Math.min(1, hx*vz);
+    const i=(y*w+x)*4;
+    img.data[i]=225; img.data[i+1]=238; img.data[i+2]=255; img.data[i+3]=Math.round(a*255);
+  }}
+  g.putImageData(img,0,0);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+}
+const shaftTex = shaftTexture();
+
+/* ---------------- レンダラ / シーン ---------------- */
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.22;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+renderer.domElement.id = 'gl';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(FOGC);
+scene.fog = new THREE.FogExp2(FOGC, FOGD);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, 900);
+camera.rotation.order='YXZ';
+camera.position.set(0, 11, 30);
+
+addEventListener('resize', ()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+/* ライティング */
+scene.add(new THREE.HemisphereLight(0x8fc7dd, 0xa3977a, 0.95));
+scene.add(new THREE.AmbientLight(0x16324a, 0.35));
+// 水面からの反射光 (下向き面を照らす)
+const upL = new THREE.DirectionalLight(0x86b7c9, 0.35);
+upL.position.set(0,-12,0); scene.add(upL);
+const key = new THREE.DirectionalLight(0xeef6ff, 1.7);
+key.position.set(70,110,30); key.castShadow=true;
+key.shadow.mapSize.set(2048,2048);
+key.shadow.camera.left=-150; key.shadow.camera.right=150;
+key.shadow.camera.top=95; key.shadow.camera.bottom=-95;
+key.shadow.camera.near=20; key.shadow.camera.far=260;
+key.shadow.bias=-0.0003; key.shadow.normalBias=0.05;
+scene.add(key); scene.add(key.target);
+const fill = new THREE.DirectionalLight(0x6fb0cf, 0.35);
+fill.position.set(-70,25,-60); scene.add(fill);
+
+/* ---------------- ジオメトリヘルパ ---------------- */
+function ellip(sx,sy,sz,ws=16,hs=12){ const g=new THREE.SphereGeometry(1,ws,hs); g.scale(sx,sy,sz); return g; }
+function finGeom(len,h1,h2,curve){
+  curve = curve||0; const seg=7, pos=[],uv=[],idx=[];
+  for(let i=0;i<=seg;i++){
+    const t=i/seg, x=len*t;
+    const hb=h1*Math.pow(1-t,1.15)+h2*t;
+    const zc=curve*Math.sin(Math.PI*t);
+    pos.push(x,hb,zc, x,-hb,zc);
+    uv.push(t,1, t,0);
+  }
+  for(let i=0;i<seg;i++){ const a=i*2; idx.push(a,a+1,a+2, a+1,a+3,a+2); }
+  const g=new THREE.BufferGeometry();
+  g.setIndex(idx);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2));
+  g.computeVertexNormals();
+  return g;
+}
+function M(g,m){ const o=new THREE.Mesh(g,m); o.castShadow=true; return o; }
+function G(parent,x,y,z){ const o=new THREE.Group(); o.position.set(x,y,z); parent.add(o); return o; }
+
+/* ---------------- マテリアル ---------------- */
+const eyeMat = new THREE.MeshStandardMaterial({color:0x0b0f13, roughness:0.35, metalness:0});
+const sharkMat = new THREE.MeshStandardMaterial({map:sharkTex, roughness:0.82, metalness:0.02, side:THREE.DoubleSide});
+const finSharkMat = new THREE.MeshStandardMaterial({color:0x55636d, roughness:0.8, side:THREE.DoubleSide});
+const tunaMat = new THREE.MeshStandardMaterial({map:tunaTex, roughness:0.42, metalness:0.22});
+const finTunaMat = new THREE.MeshStandardMaterial({color:0x1e3350, roughness:0.55, side:THREE.DoubleSide});
+const mantaMat = new THREE.MeshStandardMaterial({map:mantaTex, roughness:0.55, metalness:0.05});
+const mantaDarkMat = new THREE.MeshStandardMaterial({color:0x333c47, roughness:0.6, side:THREE.DoubleSide});
+const sandMatBase = {roughness:0.95, metalness:0};
+
+/* コースティクス注入 (水面からの屈折光) */
+const caustShaders = [];
+function addCaustics(mat, intensity){
+  mat.customProgramCacheKey = ()=> 'aq-caustic';
+  mat.onBeforeCompile = (sh)=>{
+    sh.uniforms.uTime = {value:0};
+    sh.uniforms.uCaust = {value:intensity};
+    let fs = sh.fragmentShader;
+    fs = 'uniform float uTime;\nuniform float uCaust;\nvarying vec3 vWPos2;\n' + fs;
+    let vs = sh.vertexShader;
+    vs = 'varying vec3 vWPos2;\n' + vs;
+    vs = vs.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n vWPos2 = (modelMatrix * vec4(transformed,1.0)).xyz;');
+    const code = [
+      '{',
+      ' vec2 p = vWPos2.xz;',
+      ' float ct = uTime * 0.7;',
+      ' float l1 = sin(p.x*0.55 + ct*1.7 + sin(p.y*0.42 + ct*0.9)*2.2);',
+      ' float m1 = sin(p.y*0.5  - ct*1.4 + sin(p.x*0.38 - ct*0.8)*2.4);',
+      ' float v1 = pow(max(l1*0.5+m1*0.5+0.35, 0.0), 5.0);',
+      ' float l2 = sin(p.x*1.05 - ct*2.2 + sin(p.y*0.9  + ct*1.3)*2.0);',
+      ' float m2 = sin(p.y*0.95 + ct*1.9 + sin(p.x*0.8  - ct*1.1)*2.2);',
+      ' float v2 = pow(max(l2*0.5+m2*0.5+0.45, 0.0), 5.0);',
+      ' float c = (v1*1.15 + v2*0.75) * (0.55 + 0.45*sin(p.x*0.11 + p.y*0.09 + ct*0.3));',
+      ' c = min(max(c,0.0), 3.0);',
+      ' reflectedLight.indirectDiffuse += vec3(0.35,0.78,0.85) * (c * uCaust) * diffuseColor.rgb;',
+      '}'
+    ].join('\n');
+    let tgt = '\n\tvec3 totalDiffuse = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse;';
+    if(fs.indexOf(tgt) >= 0){ fs = fs.replace(tgt, '\n' + code + tgt); }
+    else {
+      let target = '#include <opaque_fragment>';
+      if(fs.indexOf(target) >= 0){ fs = fs.replace(target, code + '\n' + target); }
+      else { /* フォールバック: 放置 */ }
+    }
+    sh.fragmentShader = fs;
+    sh.vertexShader = vs;
+    caustShaders.push(sh);
+  };
+}
+const sandMat = new THREE.MeshStandardMaterial(Object.assign({map:sandTex}, sandMatBase));
+sandTex.repeat.set(14,7);
+addCaustics(sandMat, 1.3);
+const rockMat = new THREE.MeshStandardMaterial({map:rockTex, roughness:0.98, flatShading:true});
+addCaustics(rockMat, 0.4);
+const moundMat = new THREE.MeshStandardMaterial({color:0xa89877, roughness:1});
+const wallMat = new THREE.MeshStandardMaterial({map:wallTex, roughness:0.85, metalness:0.05, side:THREE.FrontSide});
+const colMat = new THREE.MeshStandardMaterial({color:0x182a39, roughness:0.7, metalness:0.05});
+const ceilMat = new THREE.MeshBasicMaterial({color:0x081521});
+
+/* ---------------- 静的環境 ---------------- */
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(250,120), sandMat);
+floor.rotation.x = -Math.PI/2; floor.position.y = 0; floor.receiveShadow = true;
+scene.add(floor);
+
+/* 水槽の外の床 — 砂がずっと続く */
+const sandTex2 = sandTex.clone(); sandTex2.repeat.set(100,60);
+const sandMatOut = new THREE.MeshStandardMaterial({map:sandTex2, roughness:0.95});
+addCaustics(sandMatOut, 1.1);
+const floorOut = new THREE.Mesh(new THREE.PlaneGeometry(1800,1200), sandMatOut);
+floorOut.rotation.x = -Math.PI/2; floorOut.position.set(0,-0.06,0);
+floorOut.receiveShadow = true; scene.add(floorOut);
+
+function wall(wd, x,y,z, ry){
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(wd,H), wallMat);
+  m.position.set(x,y,z); m.rotation.y = ry; scene.add(m);
+}
+wall(250, 0,H/2, HD, Math.PI);
+wall(250, 0,H/2,-HD, 0);
+wall(120, HW,H/2, 0, -Math.PI/2);
+wall(120,-HW,H/2, 0,  Math.PI/2);
+
+const colGeo = new THREE.BoxGeometry(1.5,H,1.5);
+for(let x=-125;x<=125;x+=25){ if(x%25===0){ 
+  [[x,HD],[x,-HD]].forEach(p=>{ const c=new THREE.Mesh(colGeo,colMat); c.position.set(p[0],H/2,p[1]); c.castShadow=true; c.receiveShadow=true; scene.add(c); });
+}}
+for(let z=-60;z<=60;z+=20){
+  [[HW,z],[-HW,z]].forEach(p=>{ const c=new THREE.Mesh(colGeo,colMat); c.position.set(p[0],H/2,p[1]); c.castShadow=true; c.receiveShadow=true; scene.add(c); });
+}
+const railNS = new THREE.BoxGeometry(250,0.5,0.5), railEW = new THREE.BoxGeometry(0.5,0.5,120);
+[14,30].forEach(y=>{ [HD,-HD].forEach(z=>{ const r=new THREE.Mesh(railNS,colMat); r.position.set(0,y,z*0.995); scene.add(r); });
+  [HW,-HW].forEach(x=>{ const r=new THREE.Mesh(railEW,colMat); r.position.set(x*0.995,y,0); scene.add(r); }); });
+
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(250,120), ceilMat);
+ceil.rotation.x = Math.PI/2; ceil.position.y = H; scene.add(ceil);
+
+/* 水面 (下から見る Animated Surface) */
+const surfUniforms = { uTime:{value:0}, uFogD:{value:FOGD}, uFogC:{value:new THREE.Color(FOGC)} };
+const surfMat = new THREE.ShaderMaterial({
+  uniforms: surfUniforms,
+  transparent:true, depthWrite:false, side:THREE.DoubleSide,
+  vertexShader:
+    'varying vec2 vUv; varying float vD;\n'+
+    'void main(){ vUv=uv; vec4 mv=modelViewMatrix*vec4(position,1.0); vD=-mv.z;'+
+    ' gl_Position=projectionMatrix*mv; }',
+  fragmentShader:
+    'uniform float uTime; uniform float uFogD; uniform vec3 uFogC;\n'+
+    'varying vec2 vUv; varying float vD;\n'+
+    'void main(){\n'+
+    ' vec2 uv=vUv;\n'+
+    ' float a=sin(uv.x*768.0 + sin(uv.y*96.0+uTime*0.6)*3.0 + uTime*1.4);\n'+
+    ' float b=sin(uv.y*576.0 + sin(uv.x*83.0-uTime*0.5)*2.8 - uTime*1.1);\n'+
+    ' float k=pow(0.5+0.5*(a*0.5+b*0.5),3.0);\n'+
+    ' vec3 col=mix(vec3(0.05,0.15,0.22), vec3(0.62,0.92,1.0), k*0.45);\n'+
+    ' vec2 sun=vec2(0.5+0.08*sin(uTime*0.07), 0.45+0.05*cos(uTime*0.05));\n'+
+    ' float d=length((uv-sun)*vec2(1.7,1.0));\n'+
+    ' col+=vec3(1.0,0.92,0.74)*exp(-d*d*20.0)*0.6;\n'+
+    ' float fogF=1.0-exp(-uFogD*uFogD*vD*vD);\n'+
+    ' col=mix(col,uFogC,fogF);\n'+
+    ' gl_FragColor=vec4(col,0.85);\n'+
+    '}'
+});
+const surf = new THREE.Mesh(new THREE.PlaneGeometry(1600,1000), surfMat);
+surf.rotation.x = Math.PI/2; surf.position.y = SURF; scene.add(surf);
+
+/* 岩礁・砂時計 (生物回避用のリストも作る) */
+const ROCKS = [];
+function makeRockGeo(){
+  const g = new THREE.DodecahedronGeometry(1,1);
+  const pa = g.attributes.position;
+  const map = new Map();
+  for(let i=0;i<pa.count;i++){
+    const key = pa.getX(i).toFixed(3)+','+pa.getY(i).toFixed(3)+','+pa.getZ(i).toFixed(3);
+    if(!map.has(key)){
+      map.set(key, new THREE.Vector3(rr(-0.24,0.24),rr(-0.20,0.20),rr(-0.24,0.24)));
+    }
+    const o = map.get(key);
+    pa.setXYZ(i, pa.getX(i)+o.x, pa.getY(i)+o.y, pa.getZ(i)+o.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+const rockGeos = [makeRockGeo(), makeRockGeo(), makeRockGeo()];
+function addRock(x,z,s,syMul){
+  const m = new THREE.Mesh(rockGeos[(rnd()*3)|0], rockMat);
+  const sy = s*(syMul||0.78);
+  m.scale.set(s,sy,s*rr(0.8,1.05));
+  m.rotation.set(rr(-0.15,0.15), rr(0,Math.PI*2), rr(-0.15,0.15));
+  m.position.set(x, sy*0.42, z);
+  m.castShadow=true; m.receiveShadow=true;
+  scene.add(m);
+  ROCKS.push({x:x, z:z, r:Math.max(s,s*0.85)*0.92, h:sy*1.1});
+}
+const clusters = [[-70,-34],[55,-30],[82,18],[-92,14],[-22,-47],[36,-44],[104,-10],[-104,-42],[-10,-52],[-48,-44]];
+clusters.forEach(c=>{ for(let k=0;k<6;k++){ addRock(c[0]+rr(-15,15), c[1]+rr(-11,11), rr(2.2,6.8)); } });
+for(let i=0;i<9;i++){
+  let x=rr(-105,105), z=rr(-48,48), tries=0;
+  while(Math.abs(x)<38 && Math.abs(z)<26 && tries<20){ x=rr(-105,105); z=rr(-48,48); tries++; }
+  addRock(x, z, rr(2.5,5.5));
+}
+[[52,-46],[-72,-52],[-98,32],[78,38]].forEach(p=>{ addRock(p[0],p[1],rr(3.2,4.5),2.6); }); // 細高の尖塔
+for(let i=0;i<6;i++){
+  const m=new THREE.Mesh(ellip(rr(6,12),rr(1.6,3.2),rr(5,9)), moundMat);
+  m.position.set(rr(-95,95), 0.4, rr(-45,45)); m.rotation.y=rr(0,6.28);
+  m.receiveShadow=true; m.castShadow=true; scene.add(m);
+}
+
+/* ---- 水槽の外 — 続きの海 (岩・砂時計) ---- */
+for(let i=0;i<16;i++){
+  let x=rr(-OX,OX), z=rr(-OZ,OZ), tries=0;
+  while(Math.abs(x)<150 && Math.abs(z)<85 && tries<30){ x=rr(-OX,OX); z=rr(-OZ,OZ); tries++; }
+  addRock(x, z, rr(3,7.5));
+}
+[[180,-120],[-210,100],[240,140],[-260,-40]].forEach(p=>{ addRock(p[0],p[1],rr(4,6),2.4); });
+for(let i=0;i<4;i++){
+  let x=rr(-280,280), z=rr(-170,170), tries=0;
+  while(Math.abs(x)<150 && Math.abs(z)<85 && tries<30){ x=rr(-280,280); z=rr(-170,170); tries++; }
+  const m=new THREE.Mesh(ellip(rr(8,16),rr(2,4),rr(6,12)), moundMat);
+  m.position.set(x, 0.4, z); m.rotation.y=rr(0,6.28);
+  m.receiveShadow=true; m.castShadow=true; scene.add(m);
+}
+
+/* 光の柱 (ゴッドレイ) */
+const shafts = [];
+const shaftBaseGeo = new THREE.PlaneGeometry(1,1);
+function addShaft(w, base, x,z){
+  const mat = new THREE.MeshBasicMaterial({map:shaftTex, transparent:true, opacity:base,
+    blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false});
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w,42), mat);
+  m.position.set(x,24,z);
+  const tilt = rr(-0.22,0.22);
+  m.rotation.set(0, rr(0,Math.PI*2), tilt);
+  m.renderOrder = 5;
+  scene.add(m);
+  shafts.push({m:m, base:base, tilt:tilt, ph:rr(0,6.28)});
+}
+for(let i=0;i<10;i++){ addShaft(rr(4,12), rr(0.06,0.15), rr(-105,105), rr(-48,48)); }
+addShaft(30, 0.07, 20, 0); addShaft(26, 0.06, -55, 18); addShaft(24, 0.06, 65, -30);
+
+/* 続きの海の光柱 (ガラスの外) */
+for(let i=0;i<12;i++){
+  let x=rr(-320,320), z=rr(-190,190), tries=0;
+  while(Math.abs(x)<140 && Math.abs(z)<80 && tries<30){ x=rr(-320,320); z=rr(-190,190); tries++; }
+  addShaft(rr(8,18), rr(0.05,0.12), x, z);
+}
+
+/* 微粒子 (マリンスノー) */
+function makeParticles(n, size, opacity, spd, col, bx, bz){
+  bx=bx||HW; bz=bz||HD;
+  const pos = new Float32Array(n*3), vel = new Float32Array(n*3), ph = new Float32Array(n);
+  for(let i=0;i<n;i++){
+    pos[i*3]=rr(-bx,bx); pos[i*3+1]=rr(1.5,SURF-1); pos[i*3+2]=rr(-bz,bz);
+    const a=rr(0,6.283), s=rr(0.15,0.65)*spd;
+    vel[i*3]=Math.sin(a)*s; vel[i*3+1]=rr(-0.05,0.1); vel[i*3+2]=Math.cos(a)*s;
+    ph[i]=rr(0,6.283);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  const mat=new THREE.PointsMaterial({map:dotTex, size:size, transparent:true, opacity:opacity,
+    blending:THREE.AdditiveBlending, depthWrite:false, sizeAttenuation:true, color:col, fog:false});
+  const pts=new THREE.Points(geo,mat); pts.frustumCulled=false; scene.add(pts);
+  return {
+    update(dt,t){
+      const a=geo.attributes.position.array;
+      for(let i=0;i<n;i++){
+        let x=a[i*3], y=a[i*3+1], z=a[i*3+2];
+        x += (vel[i*3] + Math.sin(z*0.06 + t*0.5 + ph[i])*0.35)*dt;
+        y += (vel[i*3+1] + Math.sin(x*0.1 + t*0.4 + ph[i]*1.7)*0.12)*dt;
+        z += (vel[i*3+2] + Math.cos(x*0.05 + t*0.35 + ph[i])*0.35)*dt;
+        if(x>bx) x=-bx; else if(x<-bx) x=bx;
+        if(z>bz) z=-bz; else if(z<-bz) z=bz;
+        if(y>SURF-0.5) y=1.5; else if(y<1.2) y=SURF-0.5;
+        a[i*3]=x; a[i*3+1]=y; a[i*3+2]=z;
+      }
+      geo.attributes.position.needsUpdate=true;
+    }
+  };
+}
+const motes = makeParticles(2100, 0.55, 0.5, 1, 0xbfe3f2);
+const flakes = makeParticles(260, 1.9, 0.32, 0.5, 0xd8ecf2);
+const motesOut = makeParticles(900, 1.2, 0.3, 0.7, 0xa9d2e0, OX, OZ);
+
+/* ---------------- ジンベエザメ: スプライン連続肉体 + 4節 CPUスキニング ---------------- */
+const SHARK_SKIN={};
+const SB1=-1.25, SB2=-3.60, SB3=-5.15, SHW=0.75;
+function getPointZ(pts,x){
+  for(let i=0;i<pts.length-1;i++){
+    const a=pts[i], b=pts[i+1];
+    if(x>=a.x&&x<=b.x){ const t=(x-a.x)/(b.x-a.x);
+      return new THREE.Vector3(a.x+(b.x-a.x)*t, a.y+(b.y-a.y)*t, a.z+(b.z-a.z)*t); }
+  }
+  return pts[pts.length-1].clone();
+}
+function sharkRing(top,bot,sid,RD){
+  const sr=sid.clone(), sl=sid.clone(); sl.z=-sid.z;
+  const cur=new THREE.CatmullRomCurve3([bot,sr,top,sl],true);
+  const pts=cur.getSpacedPoints(RD); pts.length=RD;
+  return pts;
+}
+function bakeSegW(pa){
+  const N=pa.length/3, w=new Float32Array(N*4), skip=new Uint8Array(N);
+  const sm=x=>{ x=clamp(x,0,1); return x*x*(3-2*x); };
+  for(let i=0;i<N;i++){
+    const z=pa[i*3+2];
+    const b1=sm(clamp((SB1-z)/SHW,-1,1)*0.5+0.5);
+    const b2=sm(clamp((SB2-z)/SHW,-1,1)*0.5+0.5);
+    const b3=sm(clamp((SB3-z)/SHW,-1,1)*0.5+0.5);
+    w[i*4]=1-b1; w[i*4+1]=b1-b2; w[i*4+2]=b2-b3; w[i*4+3]=b3;
+    skip[i]=(w[i*4]===1)?1:0;
+  }
+  return {w:w,skip:skip};
+}
+function xfGeom(g,pos,euler){
+  const m=new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(euler[0],euler[1],euler[2]));
+  const pa=g.attributes.position, na=g.attributes.normal;
+  const v=new THREE.Vector3(), n=new THREE.Vector3();
+  for(let i=0;i<pa.count;i++){
+    v.fromBufferAttribute(pa,i).applyMatrix4(m); pa.setXYZ(i,v.x,v.y,v.z);
+    n.fromBufferAttribute(na,i).applyMatrix4(m); na.setXYZ(i,n.x,n.y,n.z);
+  }
+  g.translate(pos[0],pos[1],pos[2]);
+  return g;
+}
+function finBake(len,h1,h2,curve,pos,euler,pc){
+  const g=xfGeom(finGeom(len,h1,h2,curve),pos,euler);
+  if(pc!==undefined){
+    const sk=bakeSegW(g.attributes.position.array);
+    SHARK_SKIN[pc]={rest:new Float32Array(g.attributes.position.array),
+      nor:new Float32Array(g.attributes.normal.array),
+      uv:new Float32Array(g.attributes.uv.array),
+      w:sk.w, skip:sk.skip, n:g.attributes.position.count,
+      idx:g.index.array};
+  }
+  return g;
+}
+function buildSharkBody(){
+  const RD=72, Z0=3.7;
+  const TOP=[[0,0.62],[0.35,0.95],[0.9,1.12],[2.2,1.25],[3.4,1.30],[5.0,1.15],[6.6,0.85],[7.6,0.62],[8.2,0.55]];
+  const BOT=[[0,-0.45],[0.4,-0.72],[1.0,-0.80],[2.2,-0.85],[3.4,-0.88],[5.0,-0.82],[6.6,-0.68],[7.6,-0.55],[8.2,-0.50]];
+  const SID=[[0,0.05,0.28],[0.4,0.02,0.72],[1.0,-0.05,0.86],[2.4,-0.15,0.95],[3.6,-0.18,0.98],[5.0,-0.05,0.82],[6.5,0.08,0.55],[7.7,0.12,0.34],[8.2,0.10,0.30]];
+  const topP=new THREE.CatmullRomCurve3(TOP.map(p=>new THREE.Vector3(p[0],p[1],0))).getSpacedPoints(100);
+  const botP=new THREE.CatmullRomCurve3(BOT.map(p=>new THREE.Vector3(p[0],p[1],0))).getSpacedPoints(100);
+  const sidP=new THREE.CatmullRomCurve3(SID.map(p=>new THREE.Vector3(p[0],p[1],p[2]))).getSpacedPoints(100);
+  const halfWidthAt=pen=>getPointZ(sidP,pen).z;
+  const frames=[sharkRing(topP[0],botP[0],sidP[0],RD)];
+  for(let i=1;i<=81;i++){ const x=i*0.1;
+    frames.push(sharkRing(getPointZ(topP,x),getPointZ(botP,x),getPointZ(sidP,x),RD)); }
+  frames.push(sharkRing(topP[100],botP[100],sidP[100],RD));
+  const rows=frames.length, cols=RD, NV=rows*cols+2;
+  const pos=new Float32Array(NV*3), uv=new Float32Array(NV*2), idx=[];
+  const yMid=fr=>{ let lo=1e9,hi=-1e9; for(let c=0;c<cols;c++){ const y=fr[c].y; if(y<lo)lo=y; if(y>hi)hi=y; } return (lo+hi)/2; };
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const p=frames[r][c], o=r*cols+c;
+    pos[o*3]=p.z; pos[o*3+1]=p.y; pos[o*3+2]=Z0-p.x;
+    uv[o*2]=r/(rows-1); uv[o*2+1]=1-Math.abs(2*c/cols-1);
+  }
+  const ni=rows*cols, ti=ni+1;
+  pos[ni*3]=0; pos[ni*3+1]=yMid(frames[0]); pos[ni*3+2]=Z0+0.06;
+  pos[ti*3]=0; pos[ti*3+1]=yMid(frames[rows-1]); pos[ti*3+2]=Z0-8.2-0.06;
+  uv[ni*2]=0; uv[ni*2+1]=0.5;
+  uv[ti*2]=1;  uv[ti*2+1]=0.5;
+  for(let r=0;r<rows-1;r++){
+    const rA=r*cols, rB=(r+1)*cols;
+    for(let c=0;c<cols;c++){
+      const A=rA+c, B=rA+((c+1)%cols), C=rB+c, D=rB+((c+1)%cols);
+      idx.push(A,D,B, A,C,D);
+    }
+  }
+  for(let c=0;c<cols;c++){ idx.push(ni, c, (c+1)%cols); }
+  const bR=(rows-1)*cols;
+  for(let c=0;c<cols;c++){ idx.push(ti, bR+((c+1)%cols), bR+c); }
+  const g=new THREE.BufferGeometry();
+  g.setIndex(idx);
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  /* 解析的なスイープ法線 (行方向×列方向の外積。fan の退化三角形による法線汚染を避ける) */
+  const na=new Float32Array(NV*3);
+  const setN=(i,ax,ay,az,bx,by,bz)=>{
+    const nx=ay*bz-az*by, ny=az*bx-ax*bz, nz=ax*by-ay*bx;
+    const l=Math.sqrt(nx*nx+ny*ny+nz*nz)||1e-9;
+    na[i*3]=nx/l; na[i*3+1]=ny/l; na[i*3+2]=nz/l;
+  };
+  for(let r=0;r<rows;r++){
+    const rP=(r>0?r-1:r)*cols, rN=(r<rows-1?r+1:r)*cols, rO=r*cols;
+    for(let c=0;c<cols;c++){
+      const o3rP=(rP+c)*3, o3rN=(rN+c)*3, o3cN=(rO+((c+1)%cols))*3, o3cP=(rO+((c-1+cols)%cols))*3;
+      const lx=pos[o3rN]-pos[o3rP], ly=pos[o3rN+1]-pos[o3rP+1], lz=pos[o3rN+2]-pos[o3rP+2];
+      const rx=pos[o3cN]-pos[o3cP], ry=pos[o3cN+1]-pos[o3cP+1], rz=pos[o3cN+2]-pos[o3cP+2];
+      setN(rO+c, lx,ly,lz, rx,ry,rz);
+    }
+  }
+  na[ni*3]=0; na[ni*3+1]=0; na[ni*3+2]=1;
+  na[ti*3]=0; na[ti*3+1]=0; na[ti*3+2]=-1;
+  g.setAttribute('normal',new THREE.BufferAttribute(na,3));
+  const sk=bakeSegW(pos);
+  SHARK_SKIN[0]={rest:new Float32Array(pos), nor:new Float32Array(na), uv:uv,
+    w:sk.w, skip:sk.skip, n:NV, idx:g.index.array};
+  return {g:g, halfWidthAt:halfWidthAt};
+}
+function sharkSkin(f,p1,p2,p3){
+  /* 累積チェーン C_k = M1…Mk (Mi = b_i周りの Ry(φi)) の閉じた形:
+     C_k·v = Ry(Φk)v + Σ_{i≤k} Ry(Φ_{i-1})Δi,  Δi = (−b_i sinφi, 0, b_i(1−cosφi)) */
+  const c1=Math.cos(p1), s1=Math.sin(p1);
+  const c2=Math.cos(p1+p2), s2=Math.sin(p1+p2);
+  const c3=Math.cos(p1+p2+p3), s3=Math.sin(p1+p2+p3);
+  const sp2=Math.sin(p2), cp2=Math.cos(p2);
+  const sp3=Math.sin(p3), cp3=Math.cos(p3);
+  const d1x=-SB1*s1, d1z=SB1*(1-c1);
+  const d2x=-SB2*sp2, d2z=SB2*(1-cp2);
+  const d3x=-SB3*sp3, d3z=SB3*(1-cp3);
+  const t1x=d1x, t1z=d1z;
+  const t2x=d2x*c1+d2z*s1+t1x, t2z=-d2x*s1+d2z*c1+t1z;
+  const t3x=d3x*c2+d3z*s2+t2x, t3z=-d3x*s2+d3z*c2+t2z;
+  for(let k=0;k<f.skins.length;k++){
+    const S=f.skins[k];
+    const pa=S.m.geometry.attributes.position, na=S.m.geometry.attributes.normal;
+    const P=pa.array, Nm=na.array, rest=S.rest, nor=S.nor, w=S.w, skip=S.skip;
+    for(let i=0;i<S.n;i++){
+      const i3=i*3, i4=i*4;
+      if(skip[i]) continue;
+      const q1=w[i4+1], q2=w[i4+2], q3=w[i4+3], q0=1-q1-q2-q3;
+      const x=rest[i3], z=rest[i3+2];
+      P[i3]   = q0*x + q1*(c1*x+s1*z) + q2*(c2*x+s2*z) + q3*(c3*x+s3*z) + q1*t1x + q2*t2x + q3*t3x;
+      P[i3+2] = q0*z + q1*(c1*z-s1*x) + q2*(c2*z-s2*x) + q3*(c3*z-s3*x) + q1*t1z + q2*t2z + q3*t3z;
+      const nx=nor[i3], nz=nor[i3+2], ny=nor[i3+1];
+      const bx=q0*nx + q1*(c1*nx+s1*nz) + q2*(c2*nx+s2*nz) + q3*(c3*nx+s3*nz);
+      const bz=q0*nz + q1*(c1*nz-s1*nx) + q2*(c2*nz-s2*nx) + q3*(c3*nz-s3*nx);
+      const L=Math.sqrt(bx*bx+ny*ny+bz*bz), inv=L>1e-9?1/L:0;
+      Nm[i3]=bx*inv; Nm[i3+1]=ny*inv; Nm[i3+2]=bz*inv;
+    }
+    pa.needsUpdate=true; na.needsUpdate=true;
+  }
+}
+
+/* ---------------- 魚のテンプレート (体型と遊泳機構) ---------------- */
+const TEMPLATES = {};
+
+/* ジンベエザメ: 全長~10.6m。CatmullRom スプライン→断面フレーム→連続グリッド (両端に蓋)。
+   遊泳波打ちは体メッシュ+背鰭/尾鰭を CPUスキニング (骨4節: head剛体/s1/s2/s3, pivot z=-1.25/-3.6/-5.15) で変形 */
+(function(){
+  const body=buildSharkBody();
+  const root=new THREE.Group();
+  const bm=M(body.g,sharkMat); bm.userData.pc=0; root.add(bm);
+  const dorsal=M(finBake(1.3,0.55,0.13,0.06,[0,0.95,-0.78],[0.25,Math.PI/2,0],1),finSharkMat);
+  dorsal.userData.pc=1; root.add(dorsal);
+  const upC=M(finBake(3.0,0.55,0.20,0.07,[0,0.25,-4.25],[0.45,Math.PI/2,0],2),finSharkMat);
+  upC.userData.pc=2; root.add(upC);
+  const loC=M(finBake(1.7,0.40,0.10,0.05,[0,-0.12,-4.30],[-0.40,Math.PI/2,0],3),finSharkMat);
+  loC.userData.pc=3; root.add(loC);
+  // 胸びれ (剛体: 弦の上端は体側面に埋没気味、下端は腹カールを避けて y=-0.10)
+  root.add(M(finBake(2.5,0.55,0.10,0.05,[0.65,-0.10,1.60],[0,0.45,-0.40]),finSharkMat));
+  root.add(M(finBake(2.5,0.55,0.10,0.05,[-0.65,-0.10,1.60],[0,Math.PI-0.45,-0.40]),finSharkMat));
+  // 目
+  [1,-1].forEach(s=>{ const e=M(ellip(0.12,0.12,0.10),eyeMat); e.position.set(s*0.80,0.10,3.1); root.add(e); });
+  // 終端口 (頭部前端の鼻ドームを軽く突き出す小さな暗色楕円: 断面が前端で急に細まるため幅広は置けない)
+  const mo=M(ellip(0.26,0.10,0.16),eyeMat); mo.position.set(0,-0.30,3.62); root.add(mo);
+  // 鰓孔 5対 (体側面に半埋没の縦長楕円)
+  for(let k=0;k<5;k++){
+    const z=2.7-0.2*k, w=body.halfWidthAt(3.7-z);
+    [1,-1].forEach(s=>{
+      const gs=M(ellip(0.06,0.36,0.05),eyeMat);
+      gs.position.set(s*(w-0.03),0.05,z);
+      gs.rotation.y=s*0.3;
+      root.add(gs);
+    });
+  }
+  TEMPLATES.shark={tpl:root, scale:1.05, nodes:[]};
+})();
+
+/* マンタ(オニイトマキエイ): 全長~7m, 撥翼で波打たせて滑空 */
+(function(){
+  const root=new THREE.Group();
+  const body=M(ellip(1.0,0.40,1.30),mantaMat); root.add(body);
+  // 頭翼 (前方に巻き込む2枚)
+  [1,-1].forEach(s=>{ const c=M(ellip(0.20,0.09,0.42),mantaDarkMat);
+    c.position.set(s*0.35,0.10,1.10); c.rotation.x=-0.55; c.rotation.y=s*0.25; root.add(c); });
+  // 目
+  [1,-1].forEach(s=>{ const e=M(ellip(0.07,0.07,0.05),eyeMat); e.position.set(s*0.70,0.12,0.72); root.add(e); });
+  // 尾 (細長)
+  const tail=M(ellip(0.055,0.055,1.5),mantaDarkMat); tail.position.z=-2.55; root.add(tail);
+  // 胸鰭 (翼): 付け根ヒンジで上下にフラップ, 翼面自身も遅相位で波打つ
+  const wings={};
+  [1,-1].forEach(s=>{
+    const hg=G(root, s*0.85, 0.02, -0.05); hg.name = s>0?'wr':'wl';
+    const wm=M(ellip(1.35,0.10,0.62),mantaMat); wm.name = s>0?'wmr':'wml';
+    wm.position.set(s*1.40, 0, -0.15); wm.rotation.y = s*0.22; // 翼はやや後方へ掃引
+    hg.add(wm);
+    wings[s>0?'wr':'wl']=true;
+  });
+  TEMPLATES.manta={tpl:root, scale:1.0, nodes:[],
+    wings:[['wr',1],['wl',-1]], wingMeshes:[['wmr',1],['wml',-1]]};
+})();
+
+/* クロマグロ: 全長~2m。細長い紡錘形, 高速尻尾打ち */
+(function(){
+  const root=new THREE.Group();
+  const body=M(ellip(0.17,0.26,0.85),tunaMat); root.add(body);
+  [1,-1].forEach(s=>{ const e=M(ellip(0.05,0.05,0.04),eyeMat); e.position.set(s*0.15,0.10,0.45); root.add(e); });
+  // 胸鰭
+  [1,-1].forEach(s=>{
+    const w=G(root, s*0.14,-0.02,0.38); w.rotation.y = s>0?0.55:(Math.PI-0.55);
+    const f=M(ellip(0.30,0.035,0.10),finTunaMat); f.position.x=0.05; f.rotation.z=-0.5; w.add(f);
+  });
+  // 背鰭 ×2
+  const d1G=G(root,0,0.22,-0.05); d1G.rotation.y=Math.PI/2;
+  d1G.add(M(finGeom(0.32,0.14,0.04,0.03),finTunaMat));
+  const d2G=G(root,0,0.20,-0.62); d2G.rotation.y=Math.PI/2;
+  d2G.add(M(finGeom(0.22,0.10,0.03,0.02),finTunaMat));
+  // 尾柄部 → 尾鰭 (二又)
+  const tp=G(root,0,0,-0.72); tp.name='tp';
+  const ped=M(ellip(0.055,0.10,0.22),tunaMat); ped.position.z=-0.05; tp.add(ped);
+  const cp=G(tp,0,0,-0.30); cp.name='cp';
+  const up=G(cp,0,0.02,-0.05); up.rotation.x=0.62;
+  const upM=M(ellip(0.08,0.32,0.42),finTunaMat); upM.position.z=-0.34; up.add(upM);
+  const lo=G(cp,0,-0.02,-0.05); lo.rotation.x=-0.42;
+  const loM=M(ellip(0.06,0.22,0.32),finTunaMat); loM.position.z=-0.26; lo.add(loM);
+  TEMPLATES.tuna={tpl:root, scale:0.85, nodes:[['tp',0.085,0.35],['cp',0.34,1.0]]};
+})();
+
+/* ---------------- 種パラメータ ---------------- */
+const SPECIES = {
+  shark:{len:10.6, cruise:1.15, turn:0.10, pitchMax:0.26, pitchRate:0.07, yMin:6,  yMax:26, wallM:16, sepW:0.9},
+  manta:{len:7.2,  cruise:2.5,  turn:0.38, pitchMax:0.50, pitchRate:0.30, yMin:10, yMax:40, wallM:13, sepW:1.1},
+  tuna: {len:2.0,  cruise:6.4,  turn:1.25, pitchMax:0.34, pitchRate:0.55, yMin:4,  yMax:30, wallM:8,  sepW:1.6}
+};
+
+/* ---------------- 魚クラス (操舵・群泳・遊泳アニメ) ---------------- */
+const _v1=new THREE.Vector3(), _v2=new THREE.Vector3(), _v3=new THREE.Vector3(), _v4=new THREE.Vector3(), _v5=new THREE.Vector3();
+const fishes=[]; let TUNAS=[], TUNAS2=[], SHARKS=[];
+
+class Fish{
+  constructor(kind, spawn, opts){
+    opts=opts||{};
+    this.kind=kind; this.p=SPECIES[kind];
+    this.outer=!!opts.outer;                       // true: 水槽の外の「続きの海」で遊泳
+    this.st=(this.outer?ctxO:ctxI);
+    this.BX=this.outer?OX:HW;
+    this.BZ=this.outer?OZ:HD;
+    const T=TEMPLATES[kind];
+    const root=T.tpl.clone(true);
+    root.scale.setScalar(T.scale);
+    root.rotation.order='YXZ';
+    if(!this.skins) this.skins=[];
+    root.traverse(o=>{
+      if(!o.isMesh) return;
+      o.castShadow=true;
+      const pc=o.userData.pc;
+      if(pc===undefined) return;
+      const K=SHARK_SKIN[pc];
+      const g=new THREE.BufferGeometry();
+      g.setIndex(new THREE.BufferAttribute(K.idx,1));
+      const pa=new THREE.BufferAttribute(new Float32Array(K.rest),3); pa.setUsage(THREE.DynamicDrawUsage);
+      const na=new THREE.BufferAttribute(new Float32Array(K.nor),3); na.setUsage(THREE.DynamicDrawUsage);
+      g.setAttribute('position',pa); g.setAttribute('normal',na);
+      g.setAttribute('uv',new THREE.BufferAttribute(K.uv,2));
+      o.geometry=g; o.frustumCulled=false;
+      this.skins.push({m:o, rest:K.rest, nor:K.nor, w:K.w, skip:K.skip, n:K.n});
+    });
+    this.root=root;
+    this.len=this.p.len; this.r=this.len*0.35+0.5;
+    this.nodes=T.nodes.map(n=>{ return {g:root.getObjectByName(n[0]), amp:n[1], lag:n[2]}; });
+    if(kind==='manta'){
+      this.hinges=T.wings.map(w=>({g:root.getObjectByName(w[0]), s:w[1]}));
+      this.wms=T.wingMeshes.map(w=>({g:root.getObjectByName(w[0]), s:w[1]}));
+    }
+    this.pos=spawn.clone();
+    this.yaw=(opts.yaw!==undefined)?opts.yaw:rr(0,Math.PI*2);
+    this.pitch=0; this.roll=0; this.yawVel=0;
+    this.ph=rr(0,6.283); this.flap=rr(0,6.283);
+    this.spd=this.p.cruise; this.phi=rr(0,6.283);
+    this.target=new THREE.Vector3(); this.tTimer=0;
+    this.off=new THREE.Vector3();
+    this.burst=1; this.burstDur=0; this.bTimer=rr(4,12);
+    this.avoidSide=(rr()<0.5?1:-1);
+    this.wps=null; this.wi=0; this.wTimer=0;
+    if(kind==='shark'){
+      const a=this.outer?rr(150,300):rr(70,95);
+      const b=this.outer?rr(80,170):rr(28,42);
+      const ph0=rr(0,6.283);
+      this.wps=[];
+      for(let k=0;k<6;k++){
+        const ang=ph0 + k*(Math.PI*2/6) * (rr()<0.5?1:-1) * (k%2?1:1);
+        this.wps.push(new THREE.Vector3(Math.sin(ang)*a, rr(this.outer?8:7, this.outer?20:18), Math.cos(ang)*b));
+      }
+      this.wi=(opts.wi||0);
+    }
+    if(kind==='manta'){ this.newTarget(); }
+    scene.add(root);
+    fishes.push(this);
+    if(kind==='tuna'){ (this.outer?TUNAS2:TUNAS).push(this); }
+    if(kind==='shark') SHARKS.push(this);
+  }
+  newTarget(){
+    if(this.outer){
+      const a=rr(0,6.283);
+      this.target.set(Math.cos(a)*rr(140,320), rr(10,26), Math.sin(a)*rr(70,180));
+    } else {
+      this.target.set(rr(-(HW-28),HW-28), rr(10,28), rr(-(HD-28),HD-28));
+    }
+    this.tTimer=rr(16,26);
+  }
+  update(dt, t){
+    const P=this.p, pos=this.pos;
+    /* --- 目標 --- */
+    if(this.kind==='shark'){
+      this.wTimer-=dt;
+      const tp=this.wps[this.wi];
+      _v4.set(tp.x-pos.x,0,tp.z-pos.z);
+      if(_v4.length()<22 || this.wTimer<=0){
+        this.wi=(this.wi+1)%this.wps.length; this.wTimer=rr(30,60);
+      }
+      this.target.copy(this.wps[this.wi]);
+      this.target.y = lerp(this.target.y, tp.y, 0.2);
+    } else if(this.kind==='manta'){
+      this.tTimer-=dt;
+      if(_v1.subVectors(this.target,pos).length()<10 || this.tTimer<=0){ this.newTarget(); }
+    } else {
+      this.tTimer-=dt;
+      if(this.tTimer<=0){
+        const a=rr(0,6.283), rad=rr(1.5,6);
+        this.off.set(Math.sin(a)*rad, rr(-3,2), Math.cos(a)*rad);
+        this.tTimer=rr(4,9);
+      }
+      // 個体差オフセットをゆっくり渦巻かせる (群れの生きた動き)
+      const ra=0.35*dt, rc=Math.cos(ra), rs=Math.sin(ra);
+      const ox=this.off.x, oz=this.off.z;
+      this.off.x=ox*rc-oz*rs; this.off.z=ox*rs+oz*rc;
+      this.target.set(this.st.leader.x+this.off.x, this.st.leader.y+this.off.y, this.st.leader.z+this.off.z);
+    }
+    /* --- 望む方向 --- */
+    _v1.subVectors(this.target,pos);
+    let l=_v1.length(); if(l<0.001){ _v1.set(Math.sin(this.yaw),0,Math.cos(this.yaw)); }
+    _v1.normalize();
+    /* --- 壁の回避 (内側へ / 外側の群れは水槽の足跡を避ける) --- */
+    _v2.set(0,0,0);
+    const m=P.wallM;
+    if(this.outer){
+      const mx=Math.max(0,(HW+m)-Math.abs(pos.x));
+      const mz=Math.max(0,(HD+m)-Math.abs(pos.z));
+      const sx=pos.x>=0?1:-1, sz=pos.z>=0?1:-1;
+      if(mx>0) _v2.x += sx*mx/m*(mz>0?0.7:1.0);
+      if(mz>0) _v2.z += sz*mz/m*(mx>0?0.7:1.0);
+    } else {
+      if(pos.x> HW-m) _v2.x -= (pos.x-(HW-m))/m;
+      if(pos.x<-HW+m) _v2.x += ((-HW+m)-pos.x)/m;
+      if(pos.z> HD-m) _v2.z -= (pos.z-(HD-m))/m;
+      if(pos.z<-HD+m) _v2.z += ((-HD+m)-pos.z)/m;
+    }
+    const ym=4;
+    if(pos.y < P.yMin+ym) _v2.y += ((P.yMin+ym)-pos.y)/ym;
+    if(pos.y > P.yMax-ym) _v2.y -= (pos.y-(P.yMax-ym))/ym;
+    /* --- 分離・他個体回避・ザメ回避 --- */
+    _v5.set(0,0,0); // sep/avoid 累積
+    const list=fishes;
+    for(let j=0;j<list.length;j++){
+      const o=list[j]; if(o===this) continue;
+      const dx=pos.x-o.pos.x, dz=pos.z-o.pos.z;
+      const qmax=((this.kind==='tuna'||this.kind==='manta')&&o.kind==='shark')?26:9;
+      if(dx>qmax||dx<-qmax||dz>qmax||dz<-qmax) continue;
+      const dy=pos.y-o.pos.y;
+      const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+      const rr2=(this.r+o.r)*0.9;
+      if(d<rr2 && d>0.001){
+        const k=(rr2-d)/rr2;
+        const w=2.6*P.sepW*k;
+        _v5.x+=dx/d*w; _v5.y+=dy/d*w*0.5; _v5.z+=dz/d*w;
+      }
+      if((this.kind==='tuna'||this.kind==='manta') && o.kind==='shark'){
+        const R=(this.kind==='tuna')?24:15;
+        if(d<R && d>0.001){
+          const k=(1-d/R);
+          _v5.x+=dx/d*k*3.0; _v5.z+=dz/d*k*3.0; _v5.y+=dy/d*k*0.6;
+          // 接線方向へ流れてサメを避ける (どちら側か維持)
+          const px=dz/d*this.avoidSide, pz=-dx/d*this.avoidSide;
+          _v5.x+=px*k*2.4; _v5.z+=pz*k*2.4;
+        }
+      }
+    }
+    /* --- 岩の回避 --- */
+    if(pos.y<10){
+      for(let k=0;k<ROCKS.length;k++){
+        const rk=ROCKS[k];
+        if(pos.y>rk.h+2.5) continue;
+        const dx=pos.x-rk.x, dz=pos.z-rk.z;
+        const dd=Math.sqrt(dx*dx+dz*dz);
+        const rr2=rk.r*0.85+2.5;
+        if(dd<rr2 && dd>0.001){
+          const w=(rr2-dd)/rr2*2.6;
+          _v5.x+=dx/dd*w; _v5.z+=dz/dd*w;
+        }
+      }
+    }
+    /* --- 合成 --- */
+    _v3.copy(_v1);
+    _v3.addScaledVector(_v2,2.8);
+    _v3.add(_v5);
+    if(this.kind==='tuna'){
+      // 群れの結合 (重心へ) — 求心力
+      _v4.subVectors(this.st.tunaC,pos);
+      const cd=_v4.length();
+      if(cd>2 && cd<70){ _v4.multiplyScalar(1/cd); _v3.addScaledVector(_v4,1.3); }
+    }
+    l=_v3.length();
+    let wx,wz,wy;
+    if(l>0.0001){ wx=_v3.x/l; wy=_v3.y/l; wz=_v3.z/l; }
+    else { wx=Math.sin(this.yaw); wy=0; wz=Math.cos(this.yaw); }
+    /* --- ヨー・ピッチ目標 --- */
+    const tYaw=Math.atan2(wx,wz);
+    const hz=Math.sqrt(wx*wx+wz*wz);
+    let bias=0;
+    if(this.kind==='manta') bias=Math.sin(t*0.22+this.phi)*0.28;
+    if(this.kind==='shark') bias=Math.sin(t*0.13+this.phi)*0.05;
+    let tPit=Math.atan2(wy+bias, Math.max(hz,0.001));
+    tPit=clamp(tPit, -P.pitchMax, P.pitchMax);
+    if(this.kind==='tuna'){
+      // 群れの整列 (平均進路へ寄せる)
+      const tY2=Math.atan2(this.st.tunaFx, this.st.tunaFz);
+      const yYaw=lerpAngle(tYaw,tY2,0.7);
+      const dY=wrapPI(yYaw-this.yaw);
+      this.yaw+=clamp(dY, -P.turn*dt*2, P.turn*dt*2);
+      this.yawVel=clamp(dY, -P.turn*dt*2, P.turn*dt*2)/Math.max(dt,0.001);
+    } else {
+      const dY=wrapPI(tYaw-this.yaw);
+      this.yaw+=clamp(dY, -P.turn*dt, P.turn*dt);
+      this.yawVel=clamp(dY, -P.turn*dt, P.turn*dt)/Math.max(dt,0.001);
+    }
+    const dP=wrapPI(tPit-this.pitch);
+    this.pitch+=clamp(dP, -P.pitchRate*dt, P.pitchRate*dt);
+    /* --- 速度 --- */
+    let spd;
+    if(this.kind==='shark'){
+      spd=P.cruise*(1+0.12*Math.sin(t*0.11+this.phi));
+    } else if(this.kind==='manta'){
+      spd=P.cruise*(0.85+0.6*Math.max(0,Math.sin(this.flap+0.5)));
+    } else {
+      this.bTimer-=dt;
+      if(this.bTimer<=0){ this.burst=rr(1.3,1.5); this.burstDur=rr(1.5,3.2); this.bTimer=rr(6,14); }
+      if(this.burstDur>0){ this.burstDur-=dt; } else { this.burst=1; }
+      const tf=Math.min(1,Math.abs(this.yawVel)/P.turn);
+      spd=P.cruise*this.burst*(1-0.35*tf);
+    }
+    /* --- 遊泳アニメ --- */
+    if(this.kind==='shark'){
+      this.ph+=(1.6+spd*0.6)*dt;
+      sharkSkin(this, Math.sin(this.ph-0.8)*0.06, Math.sin(this.ph-1.7)*0.115, Math.sin(this.ph-2.6)*0.22);
+      this.roll=lerp(this.roll, clamp(-this.yawVel*0.5,-0.1,0.1), 1-Math.exp(-dt*2));
+    } else if(this.kind==='tuna'){
+      this.ph+=(8.5+spd*1.35)*dt;
+      for(let k=0;k<this.nodes.length;k++){
+        const n=this.nodes[k];
+        n.g.rotation.y=Math.sin(this.ph-n.lag)*n.amp;
+      }
+      this.roll=lerp(this.roll, clamp(-this.yawVel*0.55,-0.55,0.55), 1-Math.exp(-dt*3));
+    } else {
+      this.flap+=(1.2+spd*0.55)*dt;
+      const f=Math.sin(this.flap);
+      for(let k=0;k<this.hinges.length;k++){
+        const h=this.hinges[k];
+        h.g.rotation.z = f*0.52*h.s;
+        h.g.rotation.y = -h.s*0.16*Math.sin(this.flap*0.5);
+      }
+      for(let k=0;k<this.wms.length;k++){
+        const w=this.wms[k];
+        w.g.rotation.z = Math.sin(this.flap-0.75)*0.24*w.s;
+      }
+      this.roll=lerp(this.roll, f*0.05 - clamp(this.yawVel*0.3,-0.2,0.2), 1-Math.exp(-dt*4));
+      // 滑空: 翼が下向き位相のときわずか沈む
+      this.pitch += Math.cos(this.flap)*0.06*dt*6;
+    }
+    /* --- 移動 --- */
+    const cp=Math.cos(this.pitch);
+    const fx=Math.sin(this.yaw)*cp, fy=Math.sin(this.pitch), fz=Math.cos(this.yaw)*cp;
+    pos.x+=fx*spd*dt; pos.y+=fy*spd*dt; pos.z+=fz*spd*dt;
+    /* ハードクランプ (絶対に壁を突き抜けない) */
+    const mv=this.len*0.4+1;
+    if(this.outer){
+      pos.x=clamp(pos.x,-this.BX,this.BX);
+      pos.z=clamp(pos.z,-this.BZ,this.BZ);
+      // 水槽の内部に入り込まない
+      if(Math.abs(pos.x)<HW+mv && Math.abs(pos.z)<HD+mv){
+        const ax=Math.abs(pos.x)/(HW+mv), az=Math.abs(pos.z)/(HD+mv);
+        if(ax>=az) pos.x=(pos.x>=0?1:-1)*(HW+mv);
+        else pos.z=(pos.z>=0?1:-1)*(HD+mv);
+      }
+    } else {
+      pos.x=clamp(pos.x,-(HW-mv),HW-mv);
+      pos.z=clamp(pos.z,-(HD-mv),HD-mv);
+    }
+    pos.y=clamp(pos.y, Math.max(2.2,P.yMin-1), Math.min(SURF-1.5,P.yMax+1));
+    /* --- 姿勢適用 --- */
+    this.root.position.copy(pos);
+    this.root.rotation.y=this.yaw;
+    this.root.rotation.x=-this.pitch;
+    this.root.rotation.z=this.roll;
+  }
+}
+
+/* 群れの統計 (水槽内 / 続きの海、それぞれの群れ) */
+function schoolStats(list, st){
+  let cx=0,cy=0,cz=0, fx=0,fz=0;
+  for(let i=0;i<list.length;i++){
+    const f=list[i];
+    cx+=f.pos.x; cy+=f.pos.y; cz+=f.pos.z;
+    fx+=Math.sin(f.yaw); fz+=Math.cos(f.yaw);
+  }
+  const n=Math.max(1,list.length);
+  st.tunaC.set(cx/n, cy/n, cz/n);
+  st.tunaFx=fx/n; st.tunaFz=fz/n;
+}
+const ctxI={ leader:new THREE.Vector3(), tunaC:new THREE.Vector3(), tunaFx:0, tunaFz:0 };
+const ctxO={ leader:new THREE.Vector3(), tunaC:new THREE.Vector3(), tunaFx:0, tunaFz:0 };
+
+/* ---------------- 出現 ---------------- */
+new Fish('shark', new THREE.Vector3(-30,12,10), {wi:1});
+new Fish('shark', new THREE.Vector3(45,16,-20), {wi:4});
+new Fish('manta', new THREE.Vector3(25,24,-8));
+new Fish('manta', new THREE.Vector3(-25,26,-18));
+new Fish('manta', new THREE.Vector3(60,26,18));
+new Fish('manta', new THREE.Vector3(-60,20,-28));
+for(let i=0;i<30;i++){
+  const p=new THREE.Vector3(rr(-22,22), rr(9,18), rr(6,24));
+  new Fish('tuna', p);
+}
+
+/* ---- 続きの海 (ガラスの外の遠景の生物) ---- */
+new Fish('shark', new THREE.Vector3(-210,14,70), {outer:true, wi:2});
+new Fish('shark', new THREE.Vector3(230,12,-95), {outer:true, wi:5});
+new Fish('manta', new THREE.Vector3(-185,16,45), {outer:true});
+new Fish('manta', new THREE.Vector3(205,20,-65), {outer:true});
+new Fish('manta', new THREE.Vector3(-45,18,125), {outer:true});
+for(let i=0;i<20;i++){
+  const a=rr(0,6.283);
+  const p=new THREE.Vector3(Math.cos(a)*rr(145,300), rr(8,18), Math.sin(a)*rr(75,170));
+  new Fish('tuna', p, {outer:true});
+}
+
+/* ---------------- 一人称カメラ ---------------- */
+const camState={ yaw:0, pitch:0, yawT:0, pitchT:0, vel:new THREE.Vector3(), keys:{}, drag:false };
+const hint=document.getElementById('hint');
+const glc=renderer.domElement;
+glc.addEventListener('click', ()=>{ glc.requestPointerLock(); });
+glc.addEventListener('mousedown', ()=>{ camState.drag=true; });
+addEventListener('mouseup', ()=>{ camState.drag=false; });
+document.addEventListener('pointerlockchange', ()=>{
+  const locked=document.pointerLockElement===glc;
+  hint.style.opacity=locked?0.25:0.9;
+  hint.textContent=locked?
+    'WASD：移動　Shift：高速　E：上昇　Q：下降（Space/Cも可）　ESC：ロック解除'
+    :'クリックで視点ロック　マウス：視線　WASD：移動　Shift：高速　E：上昇　Q：下降（Space/Cも可）　ESC：解除';
+});
+document.addEventListener('mousemove', (e)=>{
+  if(document.pointerLockElement!==glc && !camState.drag) return;
+  camState.yawT  -= e.movementX*0.0023;
+  camState.pitchT-= e.movementY*0.0023;
+  camState.pitchT=clamp(camState.pitchT,-1.35,1.35);
+});
+addEventListener('keydown', e=>{ camState.keys[e.code]=true; });
+addEventListener('keyup',    e=>{ camState.keys[e.code]=false; });
+addEventListener('blur', ()=>{ camState.keys={}; });
+
+const _wish=new THREE.Vector3(), _fwd=new THREE.Vector3(), _rgt=new THREE.Vector3();
+function updateCamera(dt){
+  const cy=camState.yaw, cp=camState.pitch;
+  _fwd.set(-Math.sin(cy)*Math.cos(cp), Math.sin(cp), -Math.cos(cy)*Math.cos(cp));
+  _rgt.set(Math.cos(cy), 0, -Math.sin(cy));
+  _wish.set(0,0,0);
+  const k=camState.keys;
+  const w=(k.KeyW?1:0)-(k.KeyS?1:0);
+  const s=(k.KeyD?1:0)-(k.KeyA?1:0);
+  const v=((k.Space||k.KeyE)?1:0)-((k.KeyC||k.KeyQ)?1:0);
+  _wish.addScaledVector(_fwd,w).addScaledVector(_rgt,s);
+  _wish.y+=v;
+  const fast=!!(k.ShiftLeft||k.ShiftRight);
+  const max=fast?30:9;
+  if(_wish.lengthSq()>0.0001){ _wish.normalize().multiplyScalar(max); }
+  const kk=1-Math.exp(-dt*(fast?4.5:6));
+  camState.vel.lerp(_wish,kk);
+  camera.position.addScaledVector(camState.vel,dt);
+  // 水槽内にクランプ
+  const p=camera.position;
+  p.x=clamp(p.x,-(HW-2.5),HW-2.5);
+  p.z=clamp(p.z,-(HD-2.5),HD-2.5);
+  p.y=clamp(p.y,1.5,44);
+  if(p.x<=-(HW-2.5)||p.x>=HW-2.5) camState.vel.x=0;
+  if(p.z<=-(HD-2.5)||p.z>=HD-2.5) camState.vel.z=0;
+  if(p.y<=1.5||p.y>=44) camState.vel.y=0;
+  // 視線のなめらか追従
+  const ka=1-Math.exp(-dt*11);
+  camState.yaw += wrapPI(camState.yawT-camState.yaw)*ka;
+  camState.pitch+= (camState.pitchT-camState.pitch)*ka;
+  camera.rotation.y=camState.yaw;
+  camera.rotation.x=camState.pitch;
+  const tf=fast?76:72;
+  if(Math.abs(camera.fov-tf)>0.1){
+    camera.fov=lerp(camera.fov,tf,1-Math.exp(-dt*4)); camera.updateProjectionMatrix();
+  }
+}
+
+/* ---------------- メインループ ---------------- */
+const clock=new THREE.Clock();
+let time=0, fpsAcc=0, fpsN=0;
+const fpsEl=document.getElementById('fps');
+
+function fogF(d, dens){ const q=dens*d; return 1-Math.exp(-(dens*d)*(dens*d)); }
+
+function animate(){
+  let dt=clock.getDelta(); if(dt>0.06) dt=0.06;
+  if(!(dt>0.00001)) dt=0.0167; // 時計が無効な環境 (headless等) のフォールバック
+  time+=dt;
+  // 群れのリーダー目标 (ゆっくり迷路のように動く: 内=水槽内 / 外=続きの海)
+  ctxI.leader.set(
+    Math.sin(time*0.04)*40,
+    9+Math.sin(time*0.034+1.3)*5,
+    Math.cos(time*0.04+0.6)*30);
+  ctxO.leader.set(
+    Math.sin(time*0.03)*230,
+    12+Math.sin(time*0.028+0.9)*5,
+    Math.cos(time*0.025+2.0)*140);
+  schoolStats(TUNAS, ctxI); schoolStats(TUNAS2, ctxO);
+  for(let i=0;i<fishes.length;i++){ fishes[i].update(dt,time); }
+  updateCamera(dt);
+  motes.update(dt,time); flakes.update(dt,time); motesOut.update(dt,time);
+  // 光柱
+  for(let i=0;i<shafts.length;i++){
+    const s=shafts[i];
+    const d=camera.position.distanceTo(s.m.position);
+    const f=1-Math.exp(-(FOGD*d)*(FOGD*d));
+    s.m.material.opacity=s.base*(0.55+0.45*Math.sin(time*0.5+s.ph))*(1-f);
+    s.m.rotation.z=s.tilt+Math.sin(time*0.4+s.ph)*0.05;
+  }
+  surfUniforms.uTime.value=time;
+  for(let i=0;i<caustShaders.length;i++){ caustShaders[i].uniforms.uTime.value=time; }
+  renderer.render(scene,camera);
+  fpsAcc+=dt; fpsN++;
+  if(fpsAcc>0.5){ fpsEl.textContent=(fpsN/fpsAcc).toFixed(0)+' fps / '+fishes.length+' fish'; fpsAcc=0; fpsN=0; }
+}
+let rafN=0, rafSeen=0;
+renderer.setAnimationLoop(function(){ rafN++; animate(); });
+setInterval(function(){ // rAFが停止した環境 (headless仮想時間/バックグラウンド) でもアニメを継続
+  if(rafN===rafSeen){ animate(); }
+  rafSeen=rafN;
+}, 50);
+})();
+</script>
+</body>
+</html>
