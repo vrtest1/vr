@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>TPS-L2風 ビューアー</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;background:#0f0f12;color:#eee;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;height:100dvh;overflow:hidden;display:flex;justify-content:center;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.wm-wrap{width:100%;max-width:430px;height:100dvh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;font-size:12px;letter-spacing:.1em;opacity:.9;flex:0 0 auto}
+.top-right{display:flex;align-items:center;gap:8px}
+#btn-lock{background:#1c1e26;color:#8a93a8;border:1px solid #333;border-radius:20px;padding:5px 10px;font-size:11px}
+#btn-lock.on{background:#0f5c22;color:#b8ffc8;border-color:#1f7a33}
+.pill{background:#222;color:#aaa;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700}
+.pill.play{background:#b87a00;color:#fff4d6}
+/* 本体：写真の紺＋右シルバー */
+.wm-real{flex:1 1 auto;display:flex;flex-direction:row;margin:0 10px;min-height:0;filter:drop-shadow(0 14px 28px rgba(0,0,0,.6))}
+.blue{flex:1 1 auto;position:relative;display:flex;flex-direction:column;align-items:center;background:linear-gradient(180deg,#2e558e 0%,#274a7f 20%,#203d6b 60%,#1b345e 100%);border-radius:6px 0 0 6px;border:1px solid #101f3a;border-right:none;overflow:hidden;min-height:0;padding:14px 0 8px}
+/* ザラつき */
+.blue::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1px);background-size:3px 3px;pointer-events:none}
+.orange-tab{position:absolute;top:-2px;left:22%;width:52px;height:14px;background:linear-gradient(180deg,#ffa63d,#e67e00);border:1px solid #7a4400;border-top:none;border-radius:0 0 3px 3px;z-index:3}
+.top-space{height:56px;flex:0 0 auto}
+.win-row{flex:1 1 auto;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:16px;min-height:0;width:100%;padding:0 12px;z-index:2}
+.win{width:min(38vw,138px);height:min(52dvh,380px);background:linear-gradient(180deg,rgba(55,55,60,.92),rgba(25,25,30,.96));border-radius:10px;border:2px solid #000;box-shadow:inset 0 0 0 2px #3a3e44,inset 0 6px 20px rgba(0,0,0,.7);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:12px 8px;flex:0 0 auto}
+.reels{display:flex;flex-direction:column;align-items:center;justify-content:space-between;height:100%;width:100%;position:relative;padding:2px 0}
+.reels::before{content:"";position:absolute;top:10%;bottom:10%;left:50%;width:4px;margin-left:-2px;background:rgba(0,0,0,.5)}
+.reel{width:60px;height:60px;flex:0 0 auto;border-radius:50%;background:transparent;position:relative;z-index:1}
+.reel-inner{position:absolute;inset:0;will-change:transform;z-index:2}
+.reel-inner::before{content:"";position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:conic-gradient(from -4deg,#f2f2f2 0 8deg,#0a0a0c 8deg 120deg,#f2f2f2 120deg 128deg,#0a0a0c 128deg 240deg,#f2f2f2 240deg 248deg,#0a0a0c 248deg 360deg);box-shadow:0 0 0 2px #9aa0a8,0 0 0 3px #222}
+.reel-inner::after{content:"";position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#0a0a0c}
+.tape-mid{width:58px;height:118px;background:#2a2c31;border:1px solid #2a2d33;border-radius:3px;flex:0 0 auto;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between}
+#tapeTop,#tapeBot{width:100%;background:#050505;flex:0 0 auto}
+#tapeTop{height:0px}#tapeBot{height:56px}
+.tape-mid::after{content:"";position:absolute;left:50%;top:6px;bottom:6px;width:2px;margin-left:-1px;background:rgba(230,230,230,.55)}
+.arrow{align-self:center;font-size:56px;line-height:1;color:transparent;-webkit-text-stroke:2px #e3e9f2;text-stroke:2px #e3e9f2;font-weight:400;transform:scaleY(2);transform-origin:center}
+.bottom-space{height:56px;flex:0 0 auto}
+.feet{display:flex;gap:120px;z-index:2}
+.feet i{display:block;width:16px;height:10px;background:#0a0a0a;border-radius:0 0 3px 3px}
+/* 右シルバー帯 */
+.silver{width:46px;flex:0 0 auto;background:linear-gradient(90deg,#c9ced5,#a8afb8 50%,#d5d9de);border:1px solid #6d747d;border-radius:0 6px 6px 0;position:relative}
+.silver::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.25) 0 1px,transparent 1px 4px)}
+.side-btn{position:absolute;right:-6px;top:18%;width:8px;height:70px;background:#222;border-radius:2px;border:1px solid #000}
+.hole{position:absolute;left:50%;bottom:22%;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#7a7f86;border:1px solid #555;box-shadow:inset 0 1px 2px #000}
+/* 操作：目立たせない */
+.ctrl{flex:0 0 auto;display:flex;gap:8px;padding:10px 12px calc(12px + env(safe-area-inset-bottom))}
+.ctrl button{flex:1;background:#1c1e26;color:#ddd;border:1px solid #333;border-radius:10px;padding:13px 0;font-size:15px}
+.ctrl button.on{background:#36568f;color:#fff}
+</style>
+</head>
+<body>
+<div class="wm-wrap">
+<div class="topbar"><span>TPS-L2風</span><span class="top-right"><button id="btn-lock" aria-pressed="false">☾ OFF</button><span id="stat" class="pill">STOP</span></span></div>
+<div class="wm-real">
+<div class="blue">
+<div class="orange-tab"></div>
+<div class="top-space"></div>
+<div class="win-row">
+<div class="win">
+<div class="reels">
+<div class="reel"><div id="reelL" class="reel-inner"></div></div>
+<div class="tape-mid"><div id="tapeTop"></div><div id="tapeBot"></div></div>
+<div class="reel"><div id="reelR" class="reel-inner"></div></div>
+</div>
+</div>
+<div class="arrow">⇧</div>
+</div>
+<div class="bottom-space"></div>
+<div class="feet"><i></i><i></i></div>
+</div>
+<div class="silver"><div class="side-btn"></div><div class="hole"></div></div>
+</div>
+<div class="ctrl">
+<button id="k-rew">◀◀</button>
+<button id="k-play">▶</button>
+<button id="k-ff">▶▶</button>
+<button id="k-stop">■</button>
+</div>
+<video id="nosleep" loop muted playsinline preload="auto" src="silent.mp4" style="position:fixed;width:2px;height:2px;opacity:.01;pointer-events:none;bottom:0;left:0"></video>
+</div>
+<script>
+const stat=document.getElementById('stat');
+const reelL=document.getElementById('reelL'),reelR=document.getElementById('reelR');
+const tapeTop=document.getElementById('tapeTop'),tapeBot=document.getElementById('tapeBot');
+let playing=false,speedMul=1,angL=0,angR=0,pos=0,lastT=performance.now();
+function updateTape(){const total=56,top=pos*total,bot=total-top;tapeTop.style.height=top+'px';tapeBot.style.height=bot+'px'}
+updateTape();
+function setStat(){stat.textContent=playing?(speedMul>1?'FF ▶▶':speedMul<-1?'REW ◀◀':'PLAY ▶'):'STOP';stat.classList.toggle('play',playing);
+document.querySelectorAll('.ctrl button').forEach(b=>b.classList.remove('on'));
+if(playing){(speedMul>1?document.getElementById('k-ff'):speedMul<-1?document.getElementById('k-rew'):document.getElementById('k-play')).classList.add('on')}else{document.getElementById('k-stop').classList.add('on')}}
+document.getElementById('k-play').onclick=()=>{playing=true;speedMul=1;setStat()};
+document.getElementById('k-stop').onclick=()=>{playing=false;speedMul=1;setStat()};
+document.getElementById('k-ff').onclick=()=>{playing=true;speedMul=6;setStat()};
+document.getElementById('k-rew').onclick=()=>{playing=true;speedMul=-6;setStat()};
+setStat();
+let wakeLock=null,wantLock=false;
+const lockBtn=document.getElementById('btn-lock');
+const nosleep=document.getElementById('nosleep');
+async function videoOn(){try{nosleep.muted=true;nosleep.setAttribute('muted','');await nosleep.play()}catch(e){}}
+function videoOff(){try{nosleep.pause()}catch(e){}}
+async function applyLock(){
+  const native='wakeLock' in navigator;
+  try{
+    if(wantLock){
+      if(native){try{wakeLock=await navigator.wakeLock.request('screen')}catch(e){wakeLock=null}}
+      await videoOn();
+    }else{
+      if(wakeLock){try{await wakeLock.release()}catch(e){}wakeLock=null}
+      videoOff();
+    }
+  }catch(e){}
+  lockBtn.textContent=wantLock?'☀ ON':'☾ OFF';
+  lockBtn.classList.toggle('on',wantLock);
+  lockBtn.setAttribute('aria-pressed',wantLock);
+}
+lockBtn.onclick=async()=>{wantLock=!wantLock;await applyLock()};
+document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState==='visible'&&wantLock){
+    if('wakeLock' in navigator){try{wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
+    await videoOn();
+  }
+});
+function loop(now){const dt=Math.min(0.05,(now-lastT)/1000);lastT=now;
+if(playing){const slow=Math.abs(speedMul)>1?1:0.0181;pos+=dt*0.02*slow*speedMul;
+if(pos>=1){pos=1;playing=false;speedMul=1;setStat()}
+if(pos<=0){pos=0;playing=false;speedMul=1;setStat()}
+const V=4.76,rTop=1.1+1.3*pos,rBot=2.4-1.3*pos,d2r=57.2958;
+const degTop=V/rTop*d2r,degBot=V/rBot*d2r;
+angL+=-degTop*speedMul*dt;angR+=-degBot*speedMul*dt;
+reelL.style.transform=`rotate(${angL}deg)`;reelR.style.transform=`rotate(${angR}deg)`;
+updateTape();}
+requestAnimationFrame(loop)}requestAnimationFrame(loop);
+</script>
+</body>
+</html>
