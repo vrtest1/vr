@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>VIRTUA風 3D格闘 - CPU対戦プロトタイプ</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<div id="game-container"></div>
+
+<div id="hud">
+  <div id="pad-panel">
+    <div id="pad-status">パッド未接続（キー可）</div>
+    <button id="music-btn">🔊 BGM ON</button>
+    <div id="pad-input">
+      <span data-pi="left">◀</span><span data-pi="up">▲</span><span data-pi="down">▼</span><span data-pi="right">▶</span><span data-pi="lb">LB</span><span data-pi="rb">RB</span><span data-pi="x">X</span><span data-pi="y">Y</span><span data-pi="a">A</span><span data-pi="b">B</span><span data-pi="lt">LT</span><span data-pi="rt">RT</span>
+    </div>
+  </div>
+  <div class="hp-row">
+    <div class="side left">
+      <div class="name">1P YOU</div>
+      <div class="hp-bar"><div id="hp1" class="hp-fill p1"></div><div id="chip1" class="hp-chip"></div></div>
+      <div id="wins1" class="wins">● ○</div>
+    </div>
+    <div id="timer">60</div>
+    <div class="side right">
+      <div class="name">CPU</div>
+      <div class="hp-bar"><div id="hp2" class="hp-fill p2"></div><div id="chip2" class="hp-chip"></div></div>
+      <div id="wins2" class="wins">● ○</div>
+    </div>
+  </div>
+  <div id="center-msg"></div>
+  <div id="sub-msg"></div>
+  <div id="move-name" class="hidden"></div>
+  <div id="taunt" class="hidden">10年早いんだよ！</div>
+</div>
+
+<div id="start-screen">
+  <h1>VIRTUA<span>風</span></h1>
+  <p>3D FIGHTING PROTOTYPE - CPU対戦</p>
+  <button id="start-btn">FIGHT START</button>
+  <div id="diff-btns">
+    <span>難易度</span>
+    <button data-diff="easy">1 やさしい</button>
+    <button data-diff="normal">2 ふつう</button>
+    <button data-diff="arcade">3 アーケード</button>
+  </div>
+  <div class="controls wide">
+    <div><b>A / D</b> 左右移動 <span class="pad">／スティック左右・十字左右</span></div>
+    <div><b>Q / E</b> 奥・手前 <span class="pad">／LB・RB</span></div>
+    <div><b>W</b> ジャンプ <span class="pad">／十字上・スティック上・▲</span></div>
+    <div><b>S</b> しゃがみ <span class="pad">／十字下・スティック下・▼</span></div>
+    <div><b>Space/F</b> 立ちガード <span class="pad">／RT・R長押し</span></div>
+    <div><b>J</b> ジャブ等 <span class="pad">／X(□)</span></div>
+    <div><b>K</b> ミドル等 <span class="pad">／A(×)</span></div>
+    <div><b>U</b> アッパー <span class="pad">／Y(△)</span></div>
+    <div><b>I</b> ロー <span class="pad">／LT・L</span></div>
+    <div><b>O</b> ハイ <span class="pad">／B(○)</span></div>
+    <div><b>T</b> 昇龍拳 <span class="pad">／前下前+X・画面昇</span></div>
+    <div><b>G</b> 竜巻旋風脚 <span class="pad">／下後+A・画面巻</span></div>
+    <div><b>B</b> 鉄山靠 <span class="pad">／前前+Y・画面鉄</span></div>
+  </div>
+  <p class="note">※ BGMあり（N or 右上ボタン） / H・M・画面「技」で技表 / スマホは📱で画面パッド / BTパッドは接続後ボタン押下で認識</p>
+</div>
+
+<div id="movelist" class="hidden">
+  <h3>技表（キー / パッド / 画面）</h3>
+  <table>
+    <tr><td>ジャブ</td><td><b>J / X / X</b></td><td>速い・上段</td></tr>
+    <tr><td>ストレート</td><td><b>前進+J / 前進+X</b></td><td>踏み込み</td></tr>
+    <tr><td>ボディ</td><td><b>屈+G / しゃがみ+X</b></td><td>削り大</td></tr>
+    <tr><td>アッパー</td><td><b>U / Y / Y</b></td><td>打上げ</td></tr>
+    <tr><td>ミドル</td><td><b>K / A / A</b></td><td>主力</td></tr>
+    <tr><td>ロー</td><td><b>I / LT / L</b></td><td>下段・削り大</td></tr>
+    <tr><td>ハイ</td><td><b>O / B / B</b></td><td>特大・しゃがみで回避可</td></tr>
+    <tr><td>足払い</td><td><b>屈+K / しゃがみ+A</b></td><td>転倒</td></tr>
+    <tr><td>空中</td><td><b>空中J/K</b></td><td>ジャンプ中</td></tr>
+    <tr><td>ステップ</td><td><b>Q/E・LB/RB・奥/手前</b></td><td>奥・手前</td></tr>
+    <tr><td>しゃがみ</td><td><b>S / 下・▼</b></td><td>上段回避・下段防御</td></tr>
+    <tr><td>立ガード</td><td><b>Space/F / RT・R</b></td><td>上中段防御</td></tr>
+    <tr><td>昇龍拳</td><td><b>T / 前下前+X / 昇</b></td><td>打上げ・無敵あり</td></tr>
+    <tr><td>竜巻旋風脚</td><td><b>G / 下後+A / 巻</b></td><td>3連脚・前進</td></tr>
+    <tr><td>鉄山靠</td><td><b>B / 前前+Y / 鉄</b></td><td>VF由来・ガード崩し</td></tr>
+  </table>
+</div>
+
+<div id="help">Sしゃがみ Space/Fガード｜J(X)/K(A)/U(Y)/I(LT)/O(B) T昇龍/G竜巻/B鉄山靠｜H技表 1・2・3難易度</div>
+<div id="toast" class="hidden"></div>
+
+<div id="touch-ui">
+  <div id="t-left">
+    <div class="t-row"><button data-t="up">▲</button></div>
+    <div class="t-row"><button data-t="left">◀</button><button data-t="down">▼</button><button data-t="right">▶</button></div>
+    <div class="t-row small"><button data-t="q">奥</button><button data-t="e">手前</button></div>
+  </div>
+  <div id="t-right">
+    <div class="t-row"><button data-t="upper" class="atk">Y</button></div>
+    <div class="t-row"><button data-t="jab" class="atk">X</button><button data-t="high" class="atk">B</button></div>
+    <div class="t-row"><button data-t="middle" class="atk">A</button></div>
+    <div class="t-row small"><button data-t="low">L</button><button data-t="guard">R</button><button data-t="select">技</button></div>
+    <div class="t-row small"><button data-t="shoryu">昇</button><button data-t="tatsu">巻</button><button data-t="tesshan">鉄</button></div>
+  </div>
+</div>
+<button id="touch-toggle">📱</button>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>
