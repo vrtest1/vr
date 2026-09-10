@@ -1,0 +1,1039 @@
+{
+  "schema_version": "0.3",
+  "prototype": false,
+  "title": "ヘルシオ定番・人気レシピ 詳細パック",
+  "description": "SHARP COCORO KITCHENの公式公開レシピを参考に、献立アプリで扱いやすい構造へ整理した詳細レシピパック。公式ページの人気指標（お気に入り・つくったよ）や、家庭で使いやすい定番性を参考に選定。",
+  "generated_date": "2026-09-10",
+  "important_notes": [
+    "機種によって棚位置、所要時間、付属品、画面操作、メニュー番号対応が異なる場合があります。実際の調理時は使用中のヘルシオ本体表示・取扱説明書・機種別COCORO KITCHENページを優先してください。",
+    "stepsはアプリ向けに公式公開情報を要約・再構成したものです。",
+    "time_minutesは主に公式ページの加熱時間目安です。漬け込み、下ごしらえ、予熱、休ませ時間などを含まない場合があります。",
+    "official_popularityは検索時点で公式ページに表示されていた値の参考記録で、変動します。",
+    "肉・魚・卵は中心まで十分に加熱してください。卵については各レシピの安全上の注意を守ってください。"
+  ],
+  "selection_policy": {
+    "basis": [
+      "COCORO KITCHENの「つくったよ」件数が多い定番",
+      "お気に入り件数",
+      "家庭での使いやすさ",
+      "ヘルシオ独自機能を活かせること"
+    ],
+    "high_popularity_examples": [
+      "トースト 約10万回",
+      "焼きいも 約9.2万回",
+      "鶏のから揚げ 約8.2万回",
+      "マカロニグラタン 約5.6万回",
+      "市販ピザ 約5.8万回",
+      "鶏の照り焼き 約5万回"
+    ]
+  },
+  "equipment_catalog": [
+    {
+      "name": "ウォーターオーブン ヘルシオ",
+      "type": "water_oven"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "wo_yakisoba_0553",
+      "name": "焼きそば",
+      "aliases": [
+        "やきそば",
+        "ヤキソバ",
+        "焼そば"
+      ],
+      "category": "和食",
+      "type": "麺",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "メニュー番号 0553",
+        "まかせて調理：炒める"
+      ],
+      "menu_number": "0553",
+      "time_minutes": 19,
+      "difficulty": 1,
+      "favorite": 4,
+      "servings": 4,
+      "calories_kcal": 487,
+      "salt_g": 3.9,
+      "required": [
+        "焼きそば用蒸しめん",
+        "もやし",
+        "キャベツ",
+        "ピーマン",
+        "にんじん",
+        "豚バラ薄切り肉"
+      ],
+      "optional": [],
+      "seasonings": [
+        "粉末ソース（蒸しめん付属）"
+      ],
+      "buy_if_missing": [
+        "焼きそば用蒸しめん",
+        "豚バラ薄切り肉"
+      ],
+      "healthy_tags": [
+        "野菜",
+        "豚肉"
+      ],
+      "ingredient_details": [
+        "焼きそば用蒸しめん（粉末ソース付き） 4玉（1玉150g）",
+        "もやし 100g",
+        "キャベツ 200g",
+        "ピーマン 2個（約60g）",
+        "にんじん 50g",
+        "豚バラ薄切り肉 150g",
+        "クッキングシート"
+      ],
+      "steps": [
+        "水タンクを水位1以上にする。",
+        "角皿にクッキングシートを敷く。",
+        "めんを置き、もやし、キャベツ、ピーマン、にんじんの順に平たく重ね、粉末ソースを全体に振る。",
+        "豚バラ肉を一番上に重ならないよう広げる。",
+        "角皿を指定棚位置に入れ、メニュー番号0553で加熱する。",
+        "加熱後、全体をよく混ぜて仕上げる。"
+      ],
+      "operation": {
+        "water_tank": "水位1以上",
+        "accessories": [
+          "角皿",
+          "クッキングシート"
+        ],
+        "rack_position": "上段（AX-N1B掲載手順）",
+        "auto_operation": "COCORO KITCHEN / メニュー番号0553 → スタート",
+        "makasete": "炒める",
+        "finish": "加熱後によく混ぜる"
+      },
+      "notes": "材料を重ねる順序と、平たく広げることがポイント。1～4人分の自動調理に対応する掲載例あり。",
+      "source_model": "AX-N1B",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-N1B/R0553",
+      "official_popularity": null
+    },
+    {
+      "id": "wo_chicken_teriyaki_0008",
+      "name": "鶏の照り焼き",
+      "aliases": [
+        "鶏照り焼き",
+        "てりやきチキン",
+        "照り焼きチキン"
+      ],
+      "category": "和食",
+      "type": "主菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "メニュー番号 0008"
+      ],
+      "menu_number": "0008",
+      "time_minutes": 22,
+      "difficulty": 1,
+      "favorite": 5,
+      "servings": 4,
+      "calories_kcal": 258,
+      "salt_g": 1.4,
+      "required": [
+        "鶏もも肉"
+      ],
+      "optional": [],
+      "seasonings": [
+        "しょうゆ",
+        "みりん",
+        "酒",
+        "砂糖"
+      ],
+      "buy_if_missing": [
+        "鶏もも肉"
+      ],
+      "healthy_tags": [
+        "鶏肉",
+        "高たんぱく"
+      ],
+      "ingredient_details": [
+        "鶏もも肉 2枚（500g）",
+        "しょうゆ 大さじ2",
+        "みりん 大さじ1",
+        "酒 小さじ2",
+        "砂糖 小さじ1"
+      ],
+      "steps": [
+        "水タンクを水位1以上にする。",
+        "鶏肉の皮にフォークで穴を開け、厚い部分を開いて厚みをそろえ、各枚を半分にする。",
+        "調味料と鶏肉を袋に入れ、上下を返しながら約30分漬ける。",
+        "角皿にアミをのせ、鶏肉を皮を上にして並べる。",
+        "AX-N1Bでは下段に入れ、メニュー番号0008を設定し、分量を選んでスタートする。"
+      ],
+      "operation": {
+        "water_tank": "水位1以上",
+        "accessories": [
+          "角皿",
+          "アミ"
+        ],
+        "rack_position": "下段（AX-N1B）",
+        "auto_operation": "COCORO KITCHENを2度押す → 0008 → 決定 → 分量選択 → スタート",
+        "prep_time_note": "たれに約30分漬ける"
+      },
+      "notes": "公式ページで「つくったよ」約5万件の定番。機種により棚位置・加熱時間が異なるため、本体表示を優先。",
+      "source_model": "AX-N1B",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-N1B/R0008",
+      "official_popularity": {
+        "favorites": 5012,
+        "cooked": 49959
+      }
+    },
+    {
+      "id": "wo_karaage_0540",
+      "name": "鶏のから揚げ",
+      "aliases": [
+        "唐揚げ",
+        "からあげ",
+        "鶏唐揚げ"
+      ],
+      "category": "和食",
+      "type": "主菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "自動：から揚げ（鶏もも肉）",
+        "まかせて調理：網焼き・揚げる対応例あり"
+      ],
+      "menu_number": "0540",
+      "time_minutes": 14,
+      "difficulty": 1,
+      "favorite": 5,
+      "servings": 4,
+      "calories_kcal": 282,
+      "salt_g": 0.8,
+      "required": [
+        "鶏もも肉",
+        "から揚げ粉"
+      ],
+      "optional": [],
+      "seasonings": [],
+      "buy_if_missing": [
+        "鶏もも肉",
+        "から揚げ粉"
+      ],
+      "healthy_tags": [
+        "鶏肉",
+        "ノンフライ"
+      ],
+      "ingredient_details": [
+        "鶏もも肉 2枚（500g）",
+        "市販のから揚げ粉 適量",
+        "油（アミに薄く塗る）"
+      ],
+      "steps": [
+        "水タンクを水位1以上にする。",
+        "鶏もも肉は1枚を8等分程度に切る。小さくしすぎない。",
+        "袋でから揚げ粉をまぶし、余分な粉を落とす。",
+        "油を薄く塗った調理網に、皮を上にして中央寄りに並べる。",
+        "角皿を上段に入れ、自動メニューの「から揚げ（鶏もも肉）」を選び、分量を設定してスタートする。"
+      ],
+      "operation": {
+        "water_tank": "水位1以上",
+        "accessories": [
+          "角皿",
+          "調理網"
+        ],
+        "rack_position": "上段（AX-XA20掲載例）",
+        "auto_operation": "カテゴリー → あぶり焼き・焼き物・ノンフライ → から揚げ（鶏もも肉） → 分量選択 → スタート",
+        "manual_fallback": "ウォーターグリル・予熱なしの掲載例あり（機種依存）"
+      },
+      "notes": "公式ページの利用実績が非常に多い人気メニュー。水で溶くタイプのから揚げ粉は、別の公式まかせて調理例では非推奨。",
+      "source_model": "AX-XA20",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-XA20/R0540",
+      "official_popularity": {
+        "favorites": 8770,
+        "cooked": 82184
+      }
+    },
+    {
+      "id": "wo_macaroni_gratin_0030",
+      "name": "マカロニグラタン",
+      "aliases": [
+        "グラタン",
+        "えびグラタン"
+      ],
+      "category": "洋食",
+      "type": "主菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "自動：マカロニグラタン"
+      ],
+      "menu_number": "0030",
+      "time_minutes": 20,
+      "difficulty": 3,
+      "favorite": 4,
+      "servings": 4,
+      "calories_kcal": 402,
+      "salt_g": 1.3,
+      "required": [
+        "マカロニ",
+        "えび",
+        "玉ねぎ",
+        "牛乳",
+        "薄力粉",
+        "バター",
+        "ピザ用チーズ"
+      ],
+      "optional": [
+        "マッシュルーム",
+        "パセリ"
+      ],
+      "seasonings": [
+        "塩",
+        "こしょう",
+        "白ワイン"
+      ],
+      "buy_if_missing": [
+        "マカロニ",
+        "牛乳",
+        "ピザ用チーズ"
+      ],
+      "healthy_tags": [
+        "乳製品"
+      ],
+      "ingredient_details": [
+        "薄力粉 30g",
+        "バター 30g＋具用20g",
+        "牛乳 2カップ",
+        "マカロニ 80g",
+        "えび 200g",
+        "玉ねぎ 1/2個（100g）",
+        "マッシュルーム 50g",
+        "白ワイン 大さじ2",
+        "ピザ用チーズ 80g",
+        "塩・こしょう 少々"
+      ],
+      "steps": [
+        "ホワイトソースを用意する。",
+        "えび、玉ねぎ、マッシュルーム、白ワイン、バターなどの具を耐熱容器に入れ、レンジ600Wで3～4分加熱する。",
+        "具から出た煮汁をホワイトソースに混ぜ、濃度を調整する。",
+        "ゆでたマカロニと具、ホワイトソースを合わせ、耐熱皿に分けてチーズをのせる。",
+        "ヘルシオのマカロニグラタン自動メニューで焼き上げる。"
+      ],
+      "operation": {
+        "water_tank": "機種の本体表示・公式手順に従う",
+        "accessories": [
+          "角皿",
+          "グラタン皿"
+        ],
+        "rack_position": "機種依存",
+        "auto_operation": "マカロニグラタンの自動メニュー",
+        "pre_operation": "具は庫内中央でレンジ600W・3～4分（AX-XA20掲載例）"
+      },
+      "notes": "「つくったよ」5万件超の定番。ホワイトソース作りを含むため手間はやや多い。",
+      "source_model": "AX-XA20",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-XA20/R0030",
+      "official_popularity": {
+        "favorites": 2903,
+        "cooked": 55900
+      }
+    },
+    {
+      "id": "wo_salted_salmon_mackerel_2323",
+      "name": "塩ざけ・塩さば",
+      "aliases": [
+        "塩鮭",
+        "鮭の塩焼き",
+        "さばの塩焼き",
+        "塩サバ"
+      ],
+      "category": "和食",
+      "type": "主菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "自動：塩ざけ・塩さば",
+        "減塩選択あり"
+      ],
+      "menu_number": "2323",
+      "time_minutes": 15,
+      "difficulty": 1,
+      "favorite": 4,
+      "servings": 4,
+      "required": [
+        "塩ざけ"
+      ],
+      "optional": [
+        "塩さば"
+      ],
+      "seasonings": [],
+      "buy_if_missing": [
+        "塩ざけ"
+      ],
+      "healthy_tags": [
+        "魚",
+        "減塩"
+      ],
+      "ingredient_details": [
+        "塩ざけ 4切れ（1切れ80g） または 塩さば 4切れ（1切れ100g）"
+      ],
+      "steps": [
+        "減塩する場合は水タンクを水位1以上にする。減塩しない場合は水を使わない掲載例がある。",
+        "角皿中央に油を薄く塗った調理網を置く。",
+        "魚の表側を上にして並べ、上段に入れる。",
+        "「塩ざけ・塩さば」を選択し、減塩の有無と分量を設定してスタートする。"
+      ],
+      "operation": {
+        "water_tank": "減塩する：水位1以上 / 減塩しない：水なし（AX-XA20）",
+        "accessories": [
+          "角皿",
+          "調理網"
+        ],
+        "rack_position": "上段（自動加熱）",
+        "auto_operation": "カテゴリー → あぶり焼き・焼き物・ノンフライ → 塩ざけ・塩さば → 減塩選択 → 分量選択 → スタート",
+        "manual_fallback": "減塩：ウォーターグリル、減塩なし：グリル（手動時は下段の掲載例）"
+      },
+      "notes": "魚を置いて自動加熱するだけの実用性が高い定番。公式「つくったよ」4万件超。",
+      "source_model": "AX-XA20",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-XA20/R2323",
+      "official_popularity": {
+        "favorites": 968,
+        "cooked": 41608
+      }
+    },
+    {
+      "id": "wo_baked_sweet_potato_0057",
+      "name": "焼きいも",
+      "aliases": [
+        "焼き芋",
+        "やきいも"
+      ],
+      "category": "和食",
+      "type": "副菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "メニュー番号 0057"
+      ],
+      "menu_number": "0057",
+      "time_minutes": 43,
+      "difficulty": 1,
+      "favorite": 5,
+      "servings": 4,
+      "calories_kcal": 318,
+      "salt_g": 0.3,
+      "required": [
+        "さつまいも"
+      ],
+      "optional": [],
+      "seasonings": [],
+      "buy_if_missing": [
+        "さつまいも"
+      ],
+      "healthy_tags": [
+        "野菜",
+        "食物繊維"
+      ],
+      "ingredient_details": [
+        "さつまいも 4本（1本250～300g）",
+        "アルミホイル（お手入れ用・任意）"
+      ],
+      "steps": [
+        "水タンクを水位1以上にする。",
+        "さつまいもを洗って水気を取り、フォークで数か所穴を開ける。",
+        "角皿に並べる。汚れ防止にアルミホイルを敷いてもよい。",
+        "下段に入れ、メニュー番号0057を選び、サイズを設定してスタートする。"
+      ],
+      "operation": {
+        "water_tank": "水位1以上",
+        "accessories": [
+          "角皿"
+        ],
+        "rack_position": "下段",
+        "auto_operation": "探す → メニュー番号 → 0057 → 決定 → サイズ選択 → スタート",
+        "quantity": "1～4本まで自動調理の掲載例"
+      },
+      "notes": "公式「つくったよ」9万件超。ヘルシオらしさが分かりやすい人気メニュー。",
+      "source_model": "AX-LSX3D",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/R0057",
+      "official_popularity": {
+        "favorites": 9347,
+        "cooked": 92481
+      }
+    },
+    {
+      "id": "wo_boiled_eggs_0089",
+      "name": "ゆで卵",
+      "aliases": [
+        "ゆでたまご",
+        "茹で卵"
+      ],
+      "category": "和食",
+      "type": "副菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "メニュー番号 0089",
+        "まかせて調理：蒸す・ゆでる"
+      ],
+      "menu_number": "0089",
+      "time_minutes": 20,
+      "difficulty": 1,
+      "favorite": 4,
+      "servings": 4,
+      "calories_kcal": 83,
+      "salt_g": 0.2,
+      "required": [
+        "卵"
+      ],
+      "optional": [],
+      "seasonings": [],
+      "buy_if_missing": [
+        "卵"
+      ],
+      "healthy_tags": [
+        "卵",
+        "高たんぱく"
+      ],
+      "ingredient_details": [
+        "冷蔵保存の卵 1～8個"
+      ],
+      "steps": [
+        "水タンクを水位2にする。",
+        "角皿に調理網をのせ、冷蔵の卵を中央寄りに並べる。",
+        "上段に入れ、メニュー番号0089でスタートする。",
+        "半熟にしたい場合は、対応機種ではスタート後30秒以内に「弱め」を選ぶ。",
+        "加熱後は必ず流水で十分に冷やしてから殻をむく。"
+      ],
+      "operation": {
+        "water_tank": "水位2",
+        "accessories": [
+          "角皿",
+          "調理網"
+        ],
+        "rack_position": "上段（AX-RA20等）",
+        "auto_operation": "COCORO KITCHEN → メニュー番号0089 → スタート",
+        "makasete": "蒸す・ゆでる",
+        "safety": "レンジ加熱でゆで卵を作らない。加熱後は流水で十分冷却。"
+      },
+      "notes": "公式「つくったよ」約4.7万件。機種によって卵をアルミホイルで包む手順・棚位置が異なるため、本体の機種別手順を優先。",
+      "source_model": "AX-RA20",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-RA20/R0089",
+      "official_popularity": {
+        "favorites": 4979,
+        "cooked": 46953
+      }
+    },
+    {
+      "id": "wo_french_fries_0547",
+      "name": "フライドポテト",
+      "aliases": [
+        "ポテトフライ",
+        "フレンチフライ"
+      ],
+      "category": "洋食",
+      "type": "副菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "メニュー番号 0547"
+      ],
+      "menu_number": "0547",
+      "time_minutes": 25,
+      "difficulty": 1,
+      "favorite": 5,
+      "servings": 4,
+      "calories_kcal": 85,
+      "salt_g": 0.8,
+      "required": [
+        "じゃがいも"
+      ],
+      "optional": [],
+      "seasonings": [
+        "サラダ油",
+        "塩"
+      ],
+      "buy_if_missing": [
+        "じゃがいも"
+      ],
+      "healthy_tags": [
+        "野菜",
+        "少量油"
+      ],
+      "ingredient_details": [
+        "じゃがいも 2個（300g）",
+        "サラダ油 小さじ2",
+        "塩 適量",
+        "アルミホイル"
+      ],
+      "steps": [
+        "水タンクを水位1以上にする。",
+        "じゃがいもをよく洗い、各1個を8等分のくし切りにする。",
+        "袋にじゃがいもとサラダ油を入れ、表面全体に油をからめる。",
+        "アルミホイルを敷いた角皿に重ならないよう並べる。",
+        "下段に入れ、メニュー番号0547で分量を選んでスタートする。",
+        "加熱後すぐに塩を振る。"
+      ],
+      "operation": {
+        "water_tank": "水位1以上",
+        "accessories": [
+          "角皿",
+          "アルミホイル"
+        ],
+        "rack_position": "下段",
+        "auto_operation": "探す → メニュー番号 → 0547 → 決定 → 分量選択 → スタート",
+        "manual_fallback": "ウォーターオーブン・予熱なし250℃の掲載例あり"
+      },
+      "notes": "油は小さじ2程度。公式「お気に入り」約5,900件。",
+      "source_model": "AX-XA30",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-XA30/R0547",
+      "official_popularity": {
+        "favorites": 5887,
+        "cooked": 37147
+      }
+    },
+    {
+      "id": "wo_baked_eggplant_0056",
+      "name": "焼きなす",
+      "aliases": [
+        "焼き茄子",
+        "やきなす"
+      ],
+      "category": "和食",
+      "type": "副菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "メニュー番号 0056"
+      ],
+      "menu_number": "0056",
+      "time_minutes": 25,
+      "difficulty": 1,
+      "favorite": 4,
+      "servings": 4,
+      "calories_kcal": 23,
+      "salt_g": 0.7,
+      "required": [
+        "なす"
+      ],
+      "optional": [
+        "おろししょうが"
+      ],
+      "seasonings": [
+        "しょうゆ"
+      ],
+      "buy_if_missing": [
+        "なす"
+      ],
+      "healthy_tags": [
+        "野菜",
+        "低カロリー"
+      ],
+      "ingredient_details": [
+        "なす 4本（1本100g）",
+        "おろししょうが 適量",
+        "しょうゆ 適量"
+      ],
+      "steps": [
+        "水タンクを水位1以上にする。",
+        "なすを洗って水気を取り、竹串で数か所穴を開ける。",
+        "角皿に並べて下段へ入れる。",
+        "メニュー番号0056でスタートする。",
+        "加熱後は水に取り、皮をむいて、しょうがとしょうゆを添える。"
+      ],
+      "operation": {
+        "water_tank": "水位1以上",
+        "accessories": [
+          "角皿"
+        ],
+        "rack_position": "下段",
+        "auto_operation": "COCORO KITCHEN → メニュー番号0056 → スタート",
+        "manual_fallback": "ウォーターオーブン・予熱なし250℃・25～28分（AX-HA20掲載例）"
+      },
+      "notes": "副菜として使いやすく、公式「つくったよ」約2.5万件。",
+      "source_model": "AX-HA20",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-HA20/R0056",
+      "official_popularity": {
+        "favorites": 2943,
+        "cooked": 24591
+      }
+    },
+    {
+      "id": "wo_roast_pork_0022",
+      "name": "焼き豚",
+      "aliases": [
+        "チャーシュー",
+        "焼豚"
+      ],
+      "category": "中華",
+      "type": "主菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "自動：焼き豚"
+      ],
+      "menu_number": "0022",
+      "time_minutes": 65,
+      "difficulty": 2,
+      "favorite": 4,
+      "servings": 6,
+      "calories_kcal": 292,
+      "salt_g": 2.9,
+      "required": [
+        "豚肩ロース肉"
+      ],
+      "optional": [
+        "ねぎ"
+      ],
+      "seasonings": [
+        "しょうゆ",
+        "砂糖",
+        "酒",
+        "おろししょうが",
+        "おろしにんにく"
+      ],
+      "buy_if_missing": [
+        "豚肩ロース肉"
+      ],
+      "healthy_tags": [
+        "豚肉"
+      ],
+      "ingredient_details": [
+        "豚肩ロースかたまり 600g",
+        "しょうゆ 1/2カップ",
+        "砂糖 大さじ3",
+        "酒 大さじ3",
+        "ねぎ 少々",
+        "おろししょうが 少々",
+        "おろしにんにく 少々",
+        "たこ糸"
+      ],
+      "steps": [
+        "水タンクを水位1以上にする。",
+        "豚肉をたこ糸で整え、厚さ6cm以下にする。",
+        "調味料と肉を袋に入れて空気を抜き、冷蔵庫で2～3時間漬ける。",
+        "角皿中央の調理網に、余分なたれを落とした肉をのせる。たれは残す。",
+        "下段に入れ、「焼き豚」の自動メニューで加熱する。",
+        "加熱後は庫内で約10分休ませ、中心まで火が通ったことを確認する。",
+        "残したたれは必ず加熱してから、薄切りにした肉へかける。"
+      ],
+      "operation": {
+        "water_tank": "水位1以上",
+        "accessories": [
+          "角皿",
+          "調理網",
+          "たこ糸"
+        ],
+        "rack_position": "下段",
+        "auto_operation": "カテゴリー → あぶり焼き・焼き物・ノンフライ → 焼き豚 → スタート",
+        "manual_fallback": "ウォーターオーブン・予熱なし1段170℃・約55分＋庫内約10分休ませる（AX-XA20掲載例）"
+      },
+      "notes": "漬け込み2～3時間は time_minutes に含めていない。中心まで十分に加熱する。",
+      "source_model": "AX-XA20",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-XA20/R0022",
+      "official_popularity": {
+        "favorites": 5512,
+        "cooked": 20842
+      }
+    },
+    {
+      "id": "wo_commercial_pizza_0248",
+      "name": "市販ピザ",
+      "aliases": [
+        "ピザ",
+        "冷凍ピザ",
+        "冷蔵ピザ"
+      ],
+      "category": "洋食",
+      "type": "主菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "メニュー番号 0248"
+      ],
+      "menu_number": "0248",
+      "time_minutes": 16,
+      "difficulty": 1,
+      "favorite": 4,
+      "servings": 1,
+      "required": [
+        "市販のピザ"
+      ],
+      "optional": [],
+      "seasonings": [],
+      "buy_if_missing": [
+        "市販のピザ"
+      ],
+      "healthy_tags": [],
+      "ingredient_details": [
+        "市販の冷蔵ピザ 直径約22cm 1枚 または 市販の冷凍ピザ 直径15cm 1枚"
+      ],
+      "steps": [
+        "水タンクを水位1以上にする。",
+        "角皿に市販ピザをのせる。",
+        "AX-N1Bでは上段に入れる。",
+        "メニュー番号0248を設定し、冷凍品の場合は冷凍設定を選んでスタートする。",
+        "メーカーや大きさで焼け方が変わるため、必要に応じて仕上がりを確認する。"
+      ],
+      "operation": {
+        "water_tank": "水位1以上",
+        "accessories": [
+          "角皿"
+        ],
+        "rack_position": "上段（AX-N1B）",
+        "auto_operation": "COCORO KITCHENを2度押す → 0248 → 決定 → 冷凍なら［冷凍］ → スタート"
+      },
+      "notes": "公式「つくったよ」約5.8万件。市販品を手軽に仕上げる用途。",
+      "source_model": "AX-N1B",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-N1B/R0248",
+      "official_popularity": {
+        "favorites": 1625,
+        "cooked": 58085
+      }
+    },
+    {
+      "id": "wo_lowtemp_steamed_vegetables_2255",
+      "name": "低温蒸し野菜",
+      "aliases": [
+        "蒸し野菜",
+        "温野菜"
+      ],
+      "category": "和食",
+      "type": "副菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "自動：低温蒸し野菜"
+      ],
+      "menu_number": "2255",
+      "time_minutes": 12,
+      "difficulty": 1,
+      "favorite": 4,
+      "servings": 4,
+      "required": [
+        "好みの野菜"
+      ],
+      "optional": [
+        "きのこ"
+      ],
+      "seasonings": [],
+      "buy_if_missing": [],
+      "healthy_tags": [
+        "野菜",
+        "低温調理"
+      ],
+      "ingredient_details": [
+        "ほうれん草、小松菜、チンゲン菜、水菜、アスパラガス、しめじ、エリンギなど 合計100～300g"
+      ],
+      "steps": [
+        "水タンクを水位2にする。",
+        "角皿中央に調理網を置き、野菜やきのこを並べる。量が多い場合は調理網を2枚使う。",
+        "上段に入れ、「低温蒸し野菜」を選んでスタートする。",
+        "葉物は加熱後すぐ水に取るなど、食材に応じた仕上げをする。"
+      ],
+      "operation": {
+        "water_tank": "水位2",
+        "accessories": [
+          "角皿",
+          "調理網"
+        ],
+        "rack_position": "上段",
+        "auto_operation": "カテゴリー → 蒸し物・低温調理 → 低温蒸し野菜 → スタート",
+        "quantity": "100～300g"
+      },
+      "notes": "副菜・作り置き用に便利。アプリの食材一致では「好みの野菜」をカテゴリ扱いするのが望ましい。",
+      "source_model": "AX-XA10",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-XA10/R2255",
+      "official_popularity": {
+        "favorites": 785,
+        "cooked": 10420
+      }
+    },
+    {
+      "id": "wo_chawanmushi_0090",
+      "name": "茶わん蒸し",
+      "aliases": [
+        "茶碗蒸し",
+        "ちゃわんむし"
+      ],
+      "category": "和食",
+      "type": "副菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "自動：茶わん蒸し"
+      ],
+      "menu_number": "0090",
+      "time_minutes": 35,
+      "difficulty": 2,
+      "favorite": 4,
+      "servings": 4,
+      "calories_kcal": 112,
+      "salt_g": 1.7,
+      "required": [
+        "卵",
+        "だし汁",
+        "鶏ささ身",
+        "えび"
+      ],
+      "optional": [
+        "干ししいたけ",
+        "かまぼこ",
+        "ぎんなん",
+        "みつ葉"
+      ],
+      "seasonings": [
+        "塩",
+        "薄口しょうゆ",
+        "みりん",
+        "酒",
+        "砂糖"
+      ],
+      "buy_if_missing": [
+        "卵",
+        "だし汁"
+      ],
+      "healthy_tags": [
+        "卵",
+        "蒸し料理"
+      ],
+      "ingredient_details": [
+        "卵 M2個",
+        "だし汁 2カップ",
+        "鶏ささ身 100g",
+        "えび 4尾",
+        "干ししいたけ 2枚",
+        "かまぼこ 4切れ",
+        "ぎんなん 8粒",
+        "薄口しょうゆ・みりん・塩など"
+      ],
+      "steps": [
+        "水タンクに水を入れる。",
+        "戻したしいたけは調味液とともに下ごしらえする。",
+        "ささ身、えび、かまぼこ、ぎんなん等を器へ分ける。",
+        "卵を溶き、だし汁と調味料を合わせて卵液を作り、器へ注ぐ。",
+        "ヘルシオの茶わん蒸し自動メニューで蒸す。",
+        "仕上げにみつ葉を添える。"
+      ],
+      "operation": {
+        "water_tank": "使用（機種別表示に従う）",
+        "accessories": [
+          "角皿",
+          "蒸し茶わん"
+        ],
+        "rack_position": "機種依存",
+        "auto_operation": "茶わん蒸しの自動メニュー",
+        "safety": "卵料理のため、レンジで殻付き卵を加熱しない。"
+      },
+      "notes": "公式「つくったよ」4万件超。具材が多いため、家庭向けには具材を簡略化した派生レシピを別登録してもよい。",
+      "source_model": "AX-UA20",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/AX-UA20/R0090",
+      "official_popularity": {
+        "favorites": 3889,
+        "cooked": 41493
+      }
+    },
+    {
+      "id": "wo_hamburg_set_0260",
+      "name": "ハンバーグ＆添え野菜＆ゆで卵",
+      "aliases": [
+        "ハンバーグ",
+        "ハンバーグセット"
+      ],
+      "category": "洋食",
+      "type": "主菜",
+      "equipment": [
+        "ウォーターオーブン ヘルシオ"
+      ],
+      "equipment_mode": [
+        "メニュー番号 0260",
+        "まかせて調理：焼く"
+      ],
+      "menu_number": "0260",
+      "time_minutes": 20,
+      "difficulty": 3,
+      "favorite": 4,
+      "servings": 4,
+      "calories_kcal": 460,
+      "salt_g": 1.7,
+      "required": [
+        "合びき肉",
+        "玉ねぎ",
+        "パン粉",
+        "牛乳",
+        "卵",
+        "じゃがいも",
+        "にんじん"
+      ],
+      "optional": [
+        "好みのソース"
+      ],
+      "seasonings": [
+        "塩",
+        "こしょう",
+        "ナツメグ",
+        "バター"
+      ],
+      "buy_if_missing": [
+        "合びき肉",
+        "卵"
+      ],
+      "healthy_tags": [
+        "肉",
+        "野菜",
+        "同時調理"
+      ],
+      "ingredient_details": [
+        "玉ねぎ 小1個（150g）",
+        "バター 15g",
+        "パン粉 30g",
+        "牛乳 大さじ3",
+        "合びき肉 400g",
+        "塩 小さじ2/3",
+        "溶き卵 M1/2個",
+        "こしょう・ナツメグ 少々",
+        "じゃがいも 200g",
+        "にんじん 80～100g",
+        "卵 4個",
+        "添え野菜用バター20g",
+        "アルミホイル"
+      ],
+      "steps": [
+        "玉ねぎとバターを耐熱容器に入れ、レンジ600Wで2分～2分30秒加熱し、混ぜて冷ます。",
+        "水タンクを水位1以上にする。パン粉は牛乳で湿らせる。",
+        "合びき肉と塩をよく練り、玉ねぎ、パン粉、溶き卵、こしょう、ナツメグを混ぜる。",
+        "4等分して空気を抜き、平たい丸形に整えて中央を少しくぼませる。",
+        "角皿中央にアルミホイルを敷き、薄く油を塗ってハンバーグを並べる。",
+        "じゃがいも・にんじんを切り、アルミホイルで区切った場所に入れてバター、塩、こしょうを加える。卵は機種別公式手順に従って配置する。",
+        "上段に入れ、メニュー番号0260でスタートする。",
+        "加熱後、卵は流水で十分に冷やしてから殻をむく。"
+      ],
+      "operation": {
+        "water_tank": "水位1以上",
+        "accessories": [
+          "角皿",
+          "アルミホイル"
+        ],
+        "rack_position": "上段",
+        "auto_operation": "探す → メニュー番号 → 0260 → 決定 → スタート",
+        "makasete": "焼く",
+        "pre_operation": "玉ねぎをレンジ600W・2分～2分30秒",
+        "safety": "加熱した卵は必ず十分冷却。レンジで殻付き卵を加熱しない。"
+      },
+      "notes": "主菜・野菜・卵を同時に作れるヘルシオらしいメニュー。公式ページでは1～4人分自動調理の掲載例あり。",
+      "source_model": "共通レシピページ",
+      "source_url": "https://cocoroplus.jp.sharp/kitchen/recipe/healsio/R0260",
+      "official_popularity": {
+        "favorites": 2275,
+        "cooked": 8388
+      }
+    }
+  ]
+}

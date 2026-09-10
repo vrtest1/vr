@@ -1,0 +1,177 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>料理DB管理</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f6f7f4;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}.wrap{max-width:1100px;margin:auto;padding:24px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}h1{margin:0}.panel{background:#fff;border:1px solid #e1e4de;border-radius:18px;padding:18px;margin-top:18px}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row input{flex:1;min-width:220px}input,textarea,select{width:100%;padding:10px;border:1px solid #cfd4cc;border-radius:9px;font:inherit}textarea{min-height:90px}
+button,.btn{border:0;border-radius:9px;padding:10px 13px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;background:#eceee8;color:#222}.primary{background:#222;color:#fff}.warn{background:#fff3cd}.danger{background:#fff0f0;color:#9d2020}
+table{width:100%;border-collapse:collapse;margin-top:14px}th,td{text-align:left;padding:10px 7px;border-bottom:1px solid #e8ebe5;vertical-align:top}th{font-size:13px;color:#666}.tag{display:inline-block;background:#eef1eb;border-radius:99px;padding:3px 7px;margin:2px;font-size:12px}.small{font-size:12px;color:#777}
+.modal{display:none;position:fixed;inset:0;background:#0008;padding:18px;overflow:auto}.modal.open{display:block}.dialog{max-width:760px;margin:20px auto;background:white;border-radius:18px;padding:22px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.full{grid-column:1/-1}label{display:block;font-size:13px;font-weight:700;margin-bottom:4px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.full{grid-column:auto}table,thead,tbody,tr,td{display:block}thead{display:none}tr{padding:10px 0}td{border:0;padding:4px 0}}
+
+/* Smartphone portrait usability */
+@media(max-width:700px){
+  body{-webkit-text-size-adjust:100%}
+  .wrap{padding:12px}
+  header{align-items:flex-start}
+  header h1{font-size:27px;line-height:1.15}
+  header>.btn{min-height:44px;display:inline-flex;align-items:center}
+  .panel{padding:12px;border-radius:15px;margin-top:12px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row>input#q{grid-column:1/-1;min-width:0}
+  .row>select#sort{grid-column:1/-1!important;width:100%!important;min-width:0!important}
+  #add{grid-column:1/-1;min-height:50px;font-size:16px}
+  #export,.row>label.btn{min-height:44px;display:flex;align-items:center;justify-content:center;font-size:13px}
+  input,textarea,select{font-size:16px;min-height:46px}
+  table{margin-top:10px}
+  table,tbody,tr,td{display:block;width:100%}
+  thead{display:none}
+  tr{
+    background:#fff;border:1px solid #e1e4de;border-radius:14px;
+    padding:12px;margin:0 0 10px;box-shadow:0 2px 8px rgba(0,0,0,.025)
+  }
+  td{display:grid;grid-template-columns:88px 1fr;gap:8px;border:0;padding:4px 0;align-items:start}
+  td::before{content:attr(data-label);font-size:12px;color:#777;font-weight:700;padding-top:2px}
+  td:first-child{display:block;padding-bottom:7px}
+  td:first-child::before{display:none}
+  td:first-child b{font-size:18px;line-height:1.35}
+  td:last-child{display:flex;gap:8px;padding-top:10px}
+  td:last-child::before{display:none}
+  td:last-child button{flex:1;min-height:46px;font-size:15px}
+  .tag{font-size:12px;padding:4px 7px}
+  .modal{padding:0;display:none;align-items:flex-end}
+  .modal.open{display:flex}
+  .dialog{
+    width:100%;max-width:none;max-height:92dvh;overflow:auto;margin:0;
+    border-radius:20px 20px 0 0;padding:18px 14px calc(20px + env(safe-area-inset-bottom))
+  }
+  .dialog h2{font-size:23px;margin:0 0 16px}
+  .grid{grid-template-columns:1fr;gap:12px}
+  .full{grid-column:auto}
+  label{font-size:14px}
+  textarea{min-height:110px;line-height:1.5}
+  #form>.row{position:sticky;bottom:-1px;background:#fff;padding:10px 0 0;margin-top:12px!important;grid-template-columns:1fr 1fr}
+  #form>.row button{min-height:50px}
+}
+
+</style></head><body><div class="wrap">
+<header><div><h1>料理データベース</h1><div class="small">このブラウザのレシピDBを管理します。最初は空で、手入力または標準レシピパックを追加できます。</div></div><a class="btn" href="index.html">← 献立検索</a></header>
+<div class="panel"><div class="row"><input id="q" placeholder="料理名・食材・カテゴリで検索"><select id="sort" style="width:auto;min-width:180px"><option value="name_asc">料理名 あいうえお順</option><option value="name_desc">料理名 逆順</option><option value="favorite_desc">お気に入り度 高い順</option><option value="favorite_asc">お気に入り度 低い順</option></select><button class="primary" id="add">＋料理を追加</button><button id="addStandard">標準レシピを追加</button><button id="export">レシピを保存</button><label class="btn">JSONから追加<input hidden type="file" id="import" accept=".json,application/json"></label><button class="danger" id="clearRecipes">レシピを空にする</button></div>
+<div id="count" class="small" style="margin-top:12px"></div><div class="small" style="margin-top:6px">※ レシピはこのブラウザの localStorage に保存されます。「レシピを保存」でJSONバックアップできます。</div><div style="overflow:auto"><table><thead><tr><th>料理</th><th>お気に入り</th><th>カテゴリ</th><th>機材</th><th>必須食材</th><th>時間</th><th>操作</th></tr></thead><tbody id="body"></tbody></table></div></div></div>
+<div class="modal" id="modal"><div class="dialog"><h2 id="title">料理を編集</h2><form id="form"><input type="hidden" id="oid"><div class="grid">
+<div><label>料理名 *</label><input id="name" required></div><div><label>カテゴリ</label><input id="cat" placeholder="例：和食、洋食、中華、韓国料理、エスニック、創作"></div><div><label>種類</label><select id="type"><option value="主菜">主菜</option><option value="副菜">副菜</option><option value="汁物">汁物</option><option value="ご飯・丼">ご飯・丼</option><option value="麺">麺</option><option value="鍋">鍋</option><option value="その他">その他</option></select></div><div><label>時間（分）</label><input id="time" type="number" min="1" value="30"></div>
+<div><label>難易度</label><select id="diff"><option>1</option><option selected>2</option><option>3</option></select></div><div><label>お気に入り度</label><select id="fav"><option value="1">★1</option><option value="2">★2</option><option value="3" selected>★3（標準）</option><option value="4">★4</option><option value="5">★5</option></select></div><div><label>調理機材 *</label><select id="eq" required><option value="ヘルシオ ホットクック">ヘルシオ ホットクック</option><option value="ウォーターオーブン ヘルシオ">ウォーターオーブン ヘルシオ</option><option value="フライパン">フライパン</option><option value="鍋">鍋</option><option value="炊飯器">炊飯器</option><option value="その他">その他</option></select></div>
+<div class="full"><label>機材モード</label><input id="mode"></div><div><label>ヘルシオ メニュー番号</label><input id="menuNumber" placeholder="例：0553"></div><div class="full"><label>別名・読み（aliases、区切り）</label><input id="aliases" placeholder="例：やきそば、焼そば"></div><div class="full"><label>必須食材 *（、区切り）</label><input id="req" required></div><div class="full"><label>任意食材（、区切り）</label><input id="opt"></div>
+<div class="full"><label>調味料（、区切り）</label><input id="season"></div><div class="full"><label>買い足し候補（、区切り）</label><input id="buy"></div><div class="full"><label>栄養タグ（、区切り）</label><input id="health"></div>
+<div class="full"><label>作り方 *（1行＝1工程）</label><textarea id="steps" required></textarea></div><div class="full"><label>メモ</label><textarea id="notes"></textarea></div></div>
+<div class="row" style="margin-top:16px"><button class="primary" type="submit">保存</button><button type="button" id="cancel">キャンセル</button></div></form></div></div>
+<script>
+const DB_URL='meal_db_prototype_healsio.json';let recipes=[];const $=x=>document.getElementById(x),split=v=>v.split(/[、,，\n]+/).map(x=>x.trim()).filter(Boolean),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toHiragana(s){return String(s||'').replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60))}
+function normSearch(s){return toHiragana(String(s||'').normalize('NFKC').toLowerCase()).replace(/[\s　・･._\-]/g,'')}
+const custom=()=>{try{const d=JSON.parse(localStorage.getItem('meal_user_recipes')||'[]');return Array.isArray(d)?d:[]}catch{return[]}};
+const saveRecipes=recipes=>localStorage.setItem('meal_user_recipes',JSON.stringify(recipes));
+
+const EQUIPMENT_CHOICES=['ヘルシオ ホットクック','ウォーターオーブン ヘルシオ','フライパン','鍋','炊飯器'];
+function editorEquipment(r){
+ const e=(r?.equipment||[])[0]||'';
+ return EQUIPMENT_CHOICES.includes(e)?e:'その他';
+}
+function rebuild(){recipes=custom();render()}
+function render(){
+ let q=normSearch($('q').value);
+ let list=recipes.filter(r=>!q||[r.name,...(r.aliases||[]),r.category,...(r.required||[]),...(r.optional||[])].some(x=>normSearch(x).includes(q)));
+ const sort=$('sort').value;
+ const jp=(a,b)=>String(a||'').localeCompare(String(b||''),'ja',{sensitivity:'base'});
+ list.sort((a,b)=>{
+   const fa=Number(a.favorite)||3,fb=Number(b.favorite)||3;
+   if(sort==='name_desc') return jp(b.name,a.name);
+   if(sort==='favorite_desc') return fb-fa || jp(a.name,b.name);
+   if(sort==='favorite_asc') return fa-fb || jp(a.name,b.name);
+   return jp(a.name,b.name);
+ });
+ $('count').textContent=`${list.length}件 / 全${recipes.length}件`;
+ $('body').innerHTML=list.map(r=>`<tr><td data-label="料理"><b>${esc(r.name)}</b><div class="small">${r.source_pack==='standard'?'標準レシピ':'マイレシピ'}</div></td><td data-label="お気に入り">★${Number(r.favorite)||3}</td><td data-label="カテゴリ">${esc(r.category||'')}</td><td data-label="機材">${(r.equipment||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</td><td data-label="必須食材">${(r.required||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</td><td data-label="時間">${r.time_minutes||''}分</td><td data-label="操作"><button class="warn" onclick="edit('${r.id}')">編集</button> <button class="danger" onclick="del('${r.id}')">削除</button></td></tr>`).join('')
+}
+function open(r){$('form').reset();$('time').value=30;$('diff').value=2;$('fav').value=3;$('type').value='主菜';$('oid').value=r?.id||'';$('title').textContent=r?'料理を編集':'料理を追加';if(r){$('name').value=r.name||'';$('cat').value=r.category||'';$('type').value=[...$('type').options].some(o=>o.value===(r.type||''))?(r.type||'主菜'):'その他';$('time').value=r.time_minutes||30;$('diff').value=r.difficulty||2;$('fav').value=r.favorite||3;$('eq').value=editorEquipment(r);$('mode').value=r.equipment_mode||'';$('menuNumber').value=r.menu_number||'';$('aliases').value=(r.aliases||[]).join('、');$('req').value=(r.required||[]).join('、');$('opt').value=(r.optional||[]).join('、');$('season').value=(r.seasonings||[]).join('、');$('buy').value=(r.buy_if_missing||[]).join('、');$('health').value=(r.healthy_tags||[]).join('、');$('steps').value=(r.steps||[]).join('\n');$('notes').value=r.notes||''}$('modal').classList.add('open')}
+function edit(id){open(recipes.find(x=>x.id===id))}
+function del(id){let r=recipes.find(x=>x.id===id);if(!r||!confirm(`「${r.name}」を削除しますか？`))return;saveRecipes(custom().filter(x=>x.id!==id));rebuild()}
+$('form').onsubmit=e=>{e.preventDefault();let id=$('oid').value||'user_'+Date.now();let old=recipes.find(x=>x.id===id);let r={id,name:$('name').value.trim(),category:$('cat').value.trim(),type:$('type').value.trim(),equipment:[$('eq').value],equipment_mode:$('mode').value.trim(),menu_number:$('menuNumber').value.trim(),aliases:split($('aliases').value),required:split($('req').value),optional:split($('opt').value),seasonings:split($('season').value),buy_if_missing:split($('buy').value),time_minutes:+$('time').value||30,difficulty:+$('diff').value||2,favorite:+$('fav').value||3,healthy_tags:split($('health').value),steps:$('steps').value.split('\n').map(x=>x.trim()).filter(Boolean),notes:$('notes').value.trim(),source_pack:old?.source_pack||'user'};let c=custom().filter(x=>x.id!==id);c.push(r);saveRecipes(c);$('modal').classList.remove('open');rebuild()};
+$('export').onclick=()=>{
+ const data={
+   schema_version:'1.0',
+   exported_at:new Date().toISOString(),
+   description:'献立アプリ レシピDB',
+   recipes:custom()
+ };
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);
+ a.download='meal_recipes.json';
+ a.click();
+ setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+
+function extractRecipesFromJson(d){
+ if(Array.isArray(d)) return d;
+ if(Array.isArray(d.recipes)) return d.recipes;
+ if(Array.isArray(d.user_recipes)) return d.user_recipes; // 旧バックアップ互換
+ return null;
+}
+function mergeIntoCurrent(incoming, sourcePack){
+ const current=custom();
+ const map=new Map(current.map(r=>[r.id,r]));
+ let added=0,skipped=0;
+ for(const raw of incoming){
+   if(!raw||!raw.name){skipped++;continue}
+   let r={...raw};
+   if(!r.id) r.id='import_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+   if(map.has(r.id)){skipped++;continue}
+   if(sourcePack && !r.source_pack) r.source_pack=sourcePack;
+   map.set(r.id,r);added++;
+ }
+ saveRecipes([...map.values()]);
+ rebuild();
+ return {added,skipped};
+}
+$('import').onchange=async e=>{
+ try{
+   const f=e.target.files&&e.target.files[0];
+   if(!f)return;
+   const d=JSON.parse(await f.text());
+   const incoming=extractRecipesFromJson(d);
+   if(!incoming)throw new Error('recipes not found');
+   const {added,skipped}=mergeIntoCurrent(incoming,'import');
+   alert(`${added}品を追加しました。現在 ${custom().length} 品です。${skipped?` ${skipped}品は重複または不正データのため追加しませんでした。`:''}`);
+ }catch(err){
+   console.error(err);
+   alert('レシピJSONを読み込めませんでした。');
+ }
+ e.target.value='';
+};
+
+$('addStandard').onclick=async()=>{
+ try{
+   const r=await fetch(DB_URL,{cache:'no-store'});
+   if(!r.ok)throw new Error('HTTP '+r.status);
+   const d=await r.json();
+   const incoming=extractRecipesFromJson(d);
+   if(!incoming)throw new Error('recipes not found');
+   const {added,skipped}=mergeIntoCurrent(incoming,'standard');
+   alert(`${added}品の標準レシピを追加しました。${skipped?` ${skipped}品はすでに登録済みです。`:''}`);
+ }catch(err){
+   console.error(err);
+   alert('標準レシピを読み込めませんでした。meal_db_prototype_healsio.json を同じフォルダに置いてください。');
+ }
+};
+
+$('clearRecipes').onclick=()=>{
+ const n=custom().length;
+ if(!n){alert('レシピはすでに空です。');return}
+ if(!confirm(`現在のレシピ ${n}品をすべて削除して空にしますか？\n必要なら先に「レシピを保存」でバックアップしてください。`))return;
+ localStorage.setItem('meal_user_recipes','[]');
+ localStorage.removeItem('meal_deleted_recipe_ids'); // 旧版の削除情報も掃除
+ rebuild();
+};
+$('q').oninput=render;$('sort').onchange=render;$('add').onclick=()=>open();$('cancel').onclick=()=>$('modal').classList.remove('open');$('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.remove('open')};
+rebuild();
+</script></body></html>

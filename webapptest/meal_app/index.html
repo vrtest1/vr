@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>今日なに作る？</title>
+<style>
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#222;background:#f6f7f4}
+*{box-sizing:border-box}body{margin:0}.wrap{max-width:1100px;margin:auto;padding:24px}.hero{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:18px}.hero h1{margin:0;font-size:clamp(28px,5vw,48px)}.hero p{margin:6px 0 0;color:#666}.panel{background:#fff;border:1px solid #ddd;border-radius:18px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.04);margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.label{font-weight:700;margin-bottom:8px}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{border:1px solid #bbb;background:#fafafa;border-radius:999px;padding:9px 12px;cursor:pointer}.chip input{margin-right:6px}.field,select{width:100%;padding:12px;border:1px solid #bbb;border-radius:12px;font-size:16px;background:#fff}.row{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer}.btn.primary{background:#222;color:#fff}.btn.random{background:#fff3cd;color:#6a4a00;border:1px solid #e8d38b}.btn.random:hover{background:#ffeaa0}.btn.sub{background:#eceee8}.status{color:#666;font-size:14px}.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.card{background:#fff;border:1px solid #ddd;border-radius:16px;padding:16px;cursor:pointer;transition:.15s}.card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.08)}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef0eb;font-size:12px;margin:0 6px 6px 0}.score{font-size:30px;font-weight:800}.muted{color:#6b6b6b}.missing{color:#a04b00}.ok{color:#176b35}.empty{padding:34px;text-align:center;color:#777;background:#fff;border:1px dashed #bbb;border-radius:16px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}.modal.open{display:flex}.sheet{background:#fff;max-width:760px;width:100%;height:min(760px,calc(100dvh - 40px));max-height:90dvh;overflow:hidden;border-radius:20px;padding:22px;display:flex;flex-direction:column}.sheet #detail{flex:1;min-height:0;overflow:auto;padding-right:4px}.modal-actions{flex:0 0 auto;position:relative;background:#fff;border-top:1px solid #e5e7e2;margin:14px -22px -22px;padding:12px 22px 16px}.modal-actions .btn{width:100%;min-height:50px;font-size:16px}.sheet h2{margin-top:0}.close{float:right;border:0;background:#eee;border-radius:10px;padding:8px 10px;cursor:pointer}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:700px){.two{grid-template-columns:1fr}.wrap{padding:14px}.hero{display:block}}
+ol{padding-left:22px}li{margin:7px 0}.hint{font-size:13px;color:#777;margin-top:6px}
+
+/* Smartphone portrait usability */
+@media(max-width:700px){
+  body{padding-bottom:92px;-webkit-text-size-adjust:100%}
+  .wrap{padding:12px}
+  .hero{display:block;margin-bottom:12px}
+  .hero h1{font-size:30px!important;line-height:1.15}
+  .hero>div>div{gap:8px!important;align-items:flex-start!important}
+  .hero a[href="database.html"]{
+    display:inline-flex;align-items:center;min-height:44px;padding:8px 11px;
+    background:#eceee8;border-radius:10px;font-size:14px
+  }
+  .hero p{font-size:14px;line-height:1.5;margin-top:8px}
+  .status{font-size:13px}
+  .panel{padding:14px;border-radius:15px;margin-bottom:14px}
+  .grid{display:block}
+  .grid>div{margin-bottom:16px}
+  .grid>div:last-child{margin-bottom:0}
+  .label{font-size:15px;margin-bottom:7px}
+  .field,select{font-size:16px;min-height:48px;padding:12px 13px}
+  .chips{gap:7px}
+  .chip{min-height:44px;padding:10px 12px;display:inline-flex;align-items:center;font-size:14px}
+  .chip input{width:18px;height:18px}
+  .panel>.row{
+    position:fixed;left:0;right:0;bottom:0;z-index:8;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    background:rgba(246,247,244,.96);backdrop-filter:blur(10px);
+    border-top:1px solid #dfe2dc;display:grid;grid-template-columns:1.25fr 1.55fr;
+    gap:8px
+  }
+  .panel>.row .btn{min-height:50px;padding:10px 8px;font-size:15px}
+  #randomBtn{order:1}
+  #searchBtn{order:2}
+  #clearBtn{order:3;grid-column:1/-1;min-height:38px!important;padding:7px!important;font-size:13px!important}
+  .results{grid-template-columns:1fr;gap:10px}
+  .card{padding:15px;border-radius:14px}
+  .card:hover{transform:none;box-shadow:none}
+  .card h3{font-size:19px;margin:6px 0 10px}
+  .score{font-size:25px}
+  .badge{font-size:12px;padding:5px 8px}
+  .modal{align-items:flex-end;padding:0}
+  .sheet{
+    max-width:none;width:100%;height:88dvh;max-height:88dvh;border-radius:20px 20px 0 0;
+    padding:18px 16px 0
+  }
+  .sheet #detail{padding-right:2px}
+  .modal-actions{
+    margin:12px -16px 0;padding:10px 16px calc(12px + env(safe-area-inset-bottom));
+    background:#fff;border-top:1px solid #e5e7e2
+  }
+  .modal-actions .btn{min-height:52px;font-size:16px}
+  .sheet .close{position:sticky;top:0;float:right;min-width:48px;min-height:44px;z-index:2}
+  .sheet h2{font-size:24px;padding-right:60px}
+  .two{grid-template-columns:1fr;gap:12px}
+  ol{padding-left:24px}
+  li{line-height:1.65}
+}
+
+
+.onboarding{margin:18px 0;padding:22px;border:1px solid #d8dee8;border-radius:18px;background:#fff;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.05)}
+.onboarding h2{margin:0 0 8px;font-size:1.35rem}.onboarding p{margin:0 auto 16px;max-width:620px;line-height:1.7;color:#566070}
+.onboarding-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.onboarding-actions button,.onboarding-actions a{min-height:46px;padding:11px 18px;border-radius:12px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+@media(max-width:700px){.onboarding{padding:18px 14px}.onboarding-actions{display:grid;grid-template-columns:1fr}.onboarding-actions button,.onboarding-actions a{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero"><div><div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+<h1 style="margin:0">今日なに作る？</h1>
+<a href="database.html" class="db-link" style="color:#555;text-decoration:none;font-weight:700;white-space:nowrap">料理DBを管理 ⚙️</a>
+</div>
+<p>選んだ機材と、入力した食材をすべて使える料理を探します。</p></div><div id="dbStatus" class="status">DB読込中…</div></div>
+
+  <section class="panel">
+    <div class="grid">
+      <div><div class="label">使いたい機材</div><div id="equipment" class="chips"></div></div>
+      <div><div class="label">料理名検索</div>
+<input class="field" id="dishSearch" placeholder="例：焼きそば / やきそば / ヤキソバ">
+<div class="hint">料理名・別名から検索。ひらがな/カタカナは同じものとして検索します。</div></div><div><div class="label">家にある食材</div><input id="ingredients" class="field" placeholder="例：豚肉, キャベツ, 玉ねぎ, 卵"><div class="hint">カンマ・読点・スペース区切りで入力できます。</div></div>
+      <div><div class="label">調理時間</div><select id="maxTime"><option value="999">指定なし</option><option value="15">15分以内</option><option value="30">30分以内</option><option value="45">45分以内</option><option value="60">60分以内</option></select></div>
+      <div><div class="label">買い足し</div><select id="missingLimit"><option value="99">何品でも可</option><option value="0">買い足しなし</option><option value="1">1品まで</option><option value="2">2品まで</option></select></div>
+    </div>
+    <div class="row" style="margin-top:16px"><button class="btn primary" id="searchBtn">おすすめを探す</button><button class="btn random" id="randomBtn">🎲 今日のおまかせ</button><button class="btn sub" id="clearBtn">条件をリセット</button></div>
+  </section>
+
+  <div id="summary" class="status" style="margin:4px 2px 12px"></div>
+  <div id="onboarding" class="onboarding" hidden>
+<h2>レシピを登録して始めましょう！</h2>
+<p>このアプリは、あなたが使う料理だけで献立を提案します。最初はレシピが空です。標準レシピをまとめて追加するか、料理DB管理から自分のレシピを登録してください。</p>
+<div class="onboarding-actions"><button class="primary" id="onboardingStandard" type="button">標準レシピから始める</button><a class="btn" href="database.html">自分でレシピを追加する</a></div>
+</div>
+<main id="results" class="results"></main>
+</div>
+
+<div id="modal" class="modal"><div class="sheet"><button id="closeBtn" class="close">閉じる</button><div id="detail"></div><div class="modal-actions"><button class="btn random" id="nextRandomBtn">🎲 別の料理にする</button></div></div></div>
+<script>
+const DB_URL='meal_db_prototype_healsio.json';
+let DB={recipes:[]};
+let [] /* legacy base disabled */=[];
+let lastRandomId=null;
+function toHiragana(s){return String(s||'').replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60))}
+const normalize=s=>toHiragana(String(s||'').normalize('NFKC').trim().toLowerCase()).replace(/[\s　・･._\-]/g,'');
+const STANDARD_EQUIPMENT=['ヘルシオ ホットクック','ウォーターオーブン ヘルシオ','フライパン','鍋','炊飯器'];
+function normalizeEquipmentName(name){
+ return STANDARD_EQUIPMENT.includes(name)?name:'その他';
+}
+function recipeEquipmentList(r){
+ return [...new Set((r.equipment||[]).map(normalizeEquipmentName))];
+}
+function dishNameMatch(r,q){
+ const nq=normalize(q);
+ if(!nq)return true;
+ return [r.name,...(r.aliases||[])].some(x=>normalize(x).includes(nq));
+}
+function splitIngredients(v){return [...new Set(v.split(/[、,，\s]+/).map(x=>normalize(x)).filter(Boolean))]}
+function ingredientMatch(have, need){const n=normalize(need);return have.some(h=>h===n||h.includes(n)||n.includes(h)||(n==='肉'&&/(豚|牛|鶏|ひき肉)/.test(h))||(n==='好みの野菜'&&have.length));}
+function loadUserDB(){
+ try{
+   const recipes=JSON.parse(localStorage.getItem('meal_user_recipes')||'[]');
+   DB.recipes=Array.isArray(recipes)?recipes:[];
+ }catch(e){
+   console.warn(e);
+   DB.recipes=[];
+ }
+ document.getElementById('dbStatus').textContent=`DB: ${DB.recipes.length}品`;
+ const onboarding=document.getElementById('onboarding');
+ if(onboarding) onboarding.hidden=DB.recipes.length!==0;
+}
+function loadDB(){
+ loadUserDB();
+ renderEquipment();
+ search();
+}
+function renderEquipment(){
+ const box=document.getElementById('equipment');
+ const previous=new Set([...box.querySelectorAll('input:checked')].map(x=>x.value));
+ box.innerHTML='';
+
+ const names=[...STANDARD_EQUIPMENT,'その他'];
+ names.forEach((name,i)=>{
+   const l=document.createElement('label');
+   l.className='chip';
+   // 初回は従来どおりホットクックとヘルシオを選択。
+   // その後の再描画では現在の選択を維持。
+   const checked=previous.size ? previous.has(name) : i<2;
+   l.innerHTML=`<input type="checkbox" value="${name}" ${checked?'checked':''}>${name}`;
+   box.appendChild(l);
+ });
+}
+function scoreRecipe(r, have, eqs){
+ const required=r.required||[];
+ const optional=r.optional||[];
+ const allIngredients=[...required,...optional];
+
+ // 入力した在庫食材はすべて、その料理で実際に使うことを必須にする。
+ const usesAllInput = have.length===0 || have.every(h=>allIngredients.some(x=>ingredientMatch([h],x)));
+
+ const missing=required.filter(x=>!ingredientMatch(have,x));
+ const matched=required.length-missing.length;
+ const recipeEquipment=recipeEquipmentList(r);
+ const eqMatch=!eqs.length || recipeEquipment.length===0 || recipeEquipment.some(e=>eqs.includes(e));
+
+ let score=0;
+ if(eqMatch) score+=40; else score-=100;
+ if(required.length) score+=Math.round(matched/required.length*45);
+ score-=missing.length*15;
+ if(missing.length===0) score+=20;
+ if((r.difficulty||2)===1) score+=5;
+
+ // お気に入り度3を中立として、1段階ごとに±5pt。
+ // ★1=-10pt / ★2=-5pt / ★3=±0 / ★4=+5pt / ★5=+10pt
+ const favorite=Math.min(5,Math.max(1,Number(r.favorite)||3));
+ score+=(favorite-3)*5;
+
+ return {score,missing,matched,eqMatch,usesAllInput,favorite};
+}
+function getCandidateRows(){
+ if(!DB)return {rows:[],have:[]};
+ const have=splitIngredients(document.getElementById('ingredients').value);
+ const dishSearch=document.getElementById('dishSearch').value.trim();
+ const eqs=[...document.querySelectorAll('#equipment input:checked')].map(x=>x.value);
+ const maxTime=+document.getElementById('maxTime').value;
+ const missingLimit=+document.getElementById('missingLimit').value;
+ const rows=DB.recipes
+  .map(r=>({r,...scoreRecipe(r,have,eqs)}))
+  .filter(x=>{
+    if(dishSearch) return dishNameMatch(x.r,dishSearch);
+    return x.eqMatch&&x.usesAllInput&&(x.r.time_minutes||0)<=maxTime&&x.missing.length<=missingLimit;
+   })
+  .sort((a,b)=>b.score-a.score||a.missing.length-b.missing.length||(a.r.time_minutes||0)-(b.r.time_minutes||0));
+ return {rows,have};
+}
+function search(){
+ if(!DB)return;
+ const {rows,have}=getCandidateRows();
+ const dishSearch=document.getElementById('dishSearch').value.trim();
+ document.getElementById('summary').textContent=`${rows.length}件見つかりました${dishSearch?` / 料理名「${dishSearch}」`:''}${have.length?` / 在庫入力 ${have.length}品`:''}`;
+ const out=document.getElementById('results');out.innerHTML='';
+ if(!rows.length){
+   out.innerHTML=dishSearch
+     ? '<div class="empty">その料理名はDBに見つかりませんでした。</div>'
+     : '<div class="empty">条件に合う料理がありません。機材・時間・買い足し条件を少し緩めてみてください。</div>';
+   return
+ }
+ rows.forEach(x=>{const c=document.createElement('article');c.className='card';const state=x.missing.length?`<span class="missing">買い足し ${x.missing.length}品</span>`:`<span class="ok">今ある材料で作れます</span>`;c.innerHTML=`<div class="score">${Math.max(0,x.score)}<span style="font-size:13px;font-weight:600"> pt</span></div><h3>${x.r.name}</h3><div><span class="badge">${x.r.category}</span><span class="badge">${x.r.time_minutes}分</span><span class="badge">難易度 ${x.r.difficulty}</span><span class="badge">お気に入り ★${x.favorite}</span></div><p>${state}</p>${x.missing.length?`<div class="muted">不足：${x.missing.join('、')}</div>`:''}<div class="muted" style="margin-top:8px">${recipeEquipmentList(x.r).join(' / ')}</div>`;c.onclick=()=>showDetail(x.r,x.missing);out.appendChild(c)})
+}
+function randomPick(){
+ if(!DB)return;
+ const {rows,have}=getCandidateRows();
+ if(!rows.length){
+   document.getElementById('summary').textContent='おまかせ候補がありません';
+   document.getElementById('results').innerHTML='<div class="empty">現在の条件では選べる料理がありません。機材・時間・買い足し条件を少し緩めてください。</div>';
+   return;
+ }
+
+ // 同じ料理が連続しないよう、候補が複数なら前回選出を除外。
+ let pool=rows.length>1 ? rows.filter(x=>x.r.id!==lastRandomId) : rows;
+ if(!pool.length) pool=rows;
+
+ // 高スコアの料理を少し選ばれやすくしつつ、毎回同じ上位料理には固定しない。
+ const minScore=Math.min(...pool.map(x=>x.score));
+ const weighted=pool.map(x=>({x,weight:Math.max(1,(x.score-minScore)+20)}));
+ const total=weighted.reduce((s,v)=>s+v.weight,0);
+ let n=Math.random()*total;
+ let chosen=weighted[weighted.length-1].x;
+ for(const item of weighted){
+   n-=item.weight;
+   if(n<=0){chosen=item.x;break;}
+ }
+ lastRandomId=chosen.r.id;
+ document.getElementById('summary').textContent=`🎲 今日のおまかせ：${chosen.r.name}${have.length?` / 入力食材をすべて使用`:''}`;
+ showDetail(chosen.r,chosen.missing);
+}
+function showDetail(r,missing){
+ const mode=Array.isArray(r.equipment_mode)?r.equipment_mode.join(' / '):(r.equipment_mode||'');
+ const menuNo=r.menu_number?`<br><b>ヘルシオ メニュー番号：</b>${r.menu_number}`:'';
+ document.getElementById('detail').innerHTML=`<h2>${r.name}</h2><div>${(r.healthy_tags||[]).map(x=>`<span class="badge">${x}</span>`).join('')}</div><p><b>機材：</b>${recipeEquipmentList(r).join(' / ')}<br><b>モード：</b>${mode}${menuNo}<br><b>目安：</b>${r.time_minutes}分</p><div class="two"><div><h3>材料</h3><p><b>必須：</b>${(r.required||[]).join('、')}</p><p><b>任意：</b>${(r.optional||[]).join('、')||'なし'}</p><p><b>調味料：</b>${(r.seasonings||[]).join('、')}</p>${missing.length?`<p class="missing"><b>不足：</b>${missing.join('、')}</p>`:'<p class="ok"><b>必須食材はそろっています</b></p>'}</div><div><h3>調理手順</h3><ol>${(r.steps||[]).map(s=>`<li>${s}</li>`).join('')}</ol></div></div>${r.notes?`<p class="muted"><b>メモ：</b>${r.notes}</p>`:''}`;
+ document.getElementById('modal').classList.add('open')
+}
+document.getElementById('searchBtn').onclick=search;
+document.getElementById('randomBtn').onclick=randomPick;
+document.getElementById('nextRandomBtn').onclick=randomPick;
+document.getElementById('clearBtn').onclick=()=>{document.getElementById('dishSearch').value='';document.getElementById('ingredients').value='';document.getElementById('maxTime').value='999';document.getElementById('missingLimit').value='99';document.querySelectorAll('#equipment input').forEach((x,i)=>x.checked=i<2);search()};
+document.getElementById('closeBtn').onclick=()=>document.getElementById('modal').classList.remove('open');
+document.getElementById('modal').onclick=e=>{if(e.target.id==='modal')e.currentTarget.classList.remove('open')};
+document.getElementById('ingredients').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+document.getElementById('dishSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();search();}});
+window.addEventListener('pageshow',()=>{
+ if(DB){
+   loadUserDB();
+   renderEquipment();
+   search();
+ }
+});
+window.addEventListener('storage',e=>{
+ if(e.key==='meal_user_recipes'||e.key==='meal_deleted_recipe_ids'){
+   loadUserDB();
+   renderEquipment();
+   search();
+ }
+});
+
+document.getElementById('onboardingStandard')?.addEventListener('click',async()=>{
+ const btn=document.getElementById('onboardingStandard'),oldText=btn.textContent;
+ btn.disabled=true;btn.textContent='追加中…';
+ try{
+  const res=await fetch('meal_db_prototype_healsio.json',{cache:'no-store'});
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  const data=await res.json();
+  const incoming=Array.isArray(data)?data:(Array.isArray(data.recipes)?data.recipes:[]);
+  if(!incoming.length)throw new Error('recipes not found');
+  let current=[];try{current=JSON.parse(localStorage.getItem('meal_user_recipes')||'[]')}catch{}
+  if(!Array.isArray(current))current=[];
+  const map=new Map(current.map(r=>[r.id,r]));let added=0;
+  for(const raw of incoming){
+   if(!raw||!raw.name)continue;
+   const r={...raw,source_pack:raw.source_pack||'standard'};
+   if(!r.id)r.id='standard_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+   if(map.has(r.id))continue;
+   map.set(r.id,r);added++;
+  }
+  localStorage.setItem('meal_user_recipes',JSON.stringify([...map.values()]));
+  loadUserDB();renderEquipment();search();
+  alert(`${added}品の標準レシピを追加しました！`);
+ }catch(err){
+  console.error(err);
+  alert('標準レシピを読み込めませんでした。meal_db_prototype_healsio.json を同じフォルダに置いてください。');
+ }finally{btn.disabled=false;btn.textContent=oldText}
+});
+
+loadDB();
+</script>
+</body></html>
