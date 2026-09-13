@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>AQUARIUM — 巨大水族館</title>
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; background:#041826; height:100%;
+    font-family:-apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+    -webkit-user-select:none; user-select:none; }
+  html, body, canvas, #touchUI, #touchUI *, #overlay, .panel { touch-action: none; }
+  canvas { display:block; }
+
+  #hud { position:fixed; top:10px; left:12px; color:#bfe6ff; font-size:12px;
+    text-shadow:0 1px 3px #001020; opacity:.85; pointer-events:none; line-height:1.5; z-index:5; }
+  #hud b { color:#fff; font-weight:600; }
+
+  #crosshair { position:fixed; left:50%; top:50%; width:14px; height:14px; transform:translate(-50%,-50%);
+    display:none; z-index:4; pointer-events:none; }
+  #crosshair::before, #crosshair::after { content:""; position:absolute; background:rgba(230,250,255,.55); }
+  #crosshair::before { left:6px; top:0; width:2px; height:14px; }
+  #crosshair::after  { top:6px; left:0; height:2px; width:14px; }
+
+  #overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(1200px 700px at 50% 40%, rgba(6,40,66,.55), rgba(2,12,22,.88));
+    z-index:10; cursor:pointer; }
+  #overlay.hidden { display:none; }
+  .panel { max-width:640px; margin:24px; padding:34px 40px; text-align:center; color:#d9f1ff;
+    background:rgba(4,26,44,.72); border:1px solid rgba(120,200,255,.25); border-radius:18px;
+    box-shadow:0 20px 80px rgba(0,0,0,.5); backdrop-filter:blur(8px); }
+  .panel h1 { margin:0 0 6px; font-size:34px; letter-spacing:.35em; font-weight:600; color:#fff;
+    text-shadow:0 0 24px rgba(80,190,255,.6); }
+  .panel .sub { margin:0 0 22px; font-size:13px; letter-spacing:.18em; color:#7fc4e8; }
+  .panel .keys { display:grid; grid-template-columns:auto 1fr; gap:6px 18px; text-align:left;
+    font-size:13.5px; color:#bfe2f5; margin:0 auto 20px; width:max-content; }
+  .panel .keys .k { color:#fff; font-weight:600; white-space:nowrap; }
+  .panel .go { font-size:15px; color:#aee2ff; animation:pulse 2.2s ease-in-out infinite; }
+  .panel .note { margin-top:14px; font-size:11.5px; color:#5f93b0; }
+  @keyframes pulse { 0%,100%{opacity:.45} 50%{opacity:1} }
+
+  /* ---- touch UI ---- */
+  #touchUI { position:fixed; inset:0; display:none; z-index:6; pointer-events:none; }
+  body.touch #touchUI {
+    display:flex; flex-direction:row; align-items:flex-end; justify-content:space-between;
+    padding: calc(env(safe-area-inset-bottom,0px) + 10px)
+             calc(env(safe-area-inset-right,0px) + 14px)
+             calc(env(safe-area-inset-bottom,0px) + 10px)
+             calc(env(safe-area-inset-left,0px) + 14px);
+  }
+  .stick { position:relative; width:clamp(88px, 28vh, 134px); height:clamp(88px, 28vh, 134px);
+    border-radius:50%; background:rgba(140,210,255,.07);
+    border:1.5px solid rgba(150,220,255,.28); pointer-events:auto; touch-action:none; }
+  .stick .knob { position:absolute; left:50%; top:50%; width:44%; height:44%;
+    margin-left:-22%; margin-top:-22%; border-radius:50%;
+    background:rgba(170,225,255,.22); border:1px solid rgba(190,235,255,.45); }
+  .rightGroup { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
+  .btnRow { display:flex; gap:10px; pointer-events:auto; }
+  .vbtn { width:clamp(42px, 13vh, 62px); height:clamp(42px, 13vh, 62px); border-radius:50%;
+    pointer-events:auto; background:rgba(60,180,255,.12); border:1.5px solid rgba(140,220,255,.35);
+    color:#d8f2ff; font-size:clamp(15px, 4.5vh, 20px); display:flex; align-items:center; justify-content:center; }
+  .vbtn.boost { width:auto; border-radius:calc(clamp(42px, 13vh, 62px) / 2);
+    padding:0 clamp(12px, 3.5vh, 22px); font-size:clamp(10px, 2.8vh, 13px); font-weight:700;
+    letter-spacing:.08em; background:rgba(60,180,255,.16); }
+  .vbtn.active { background:rgba(120,220,255,.38); }
+
+  #orientHint { position:fixed; top:calc(env(safe-area-inset-top,0px) + 46px); left:50%;
+    transform:translateX(-50%); z-index:7; display:none; pointer-events:none;
+    background:rgba(6,30,48,.88); color:#bfe6ff; font-size:13px; padding:8px 16px;
+    border-radius:12px; border:1px solid rgba(120,200,255,.3); transition:opacity 1.2s;
+    text-shadow:0 1px 2px #001020; }
+  @media (orientation:portrait) {
+    body.touch #orientHint { display:block; }
+  }
+</style>
+</head>
+<body>
+  <div id="hud"></div>
+  <div id="crosshair"></div>
+
+  <div id="overlay">
+    <div class="panel">
+      <h1>AQUARIUM</h1>
+      <p class="sub">GIANT OCEAN AQUARIUM — 250m × 120m × 50m</p>
+      <div class="keys">
+        <span class="k">マウス</span><span>視点移動（クリックでポインターロック）</span>
+        <span class="k">W A S D</span><span>移動 / Shift で高速移動</span>
+        <span class="k">Space / C</span><span>上昇・下降</span>
+        <span class="k">ゲームパッド</span><span>左スティック移動・右スティック視点・RT ダッシュ</span>
+        <span class="k">タッチ</span><span>左スティック移動・画面ドラッグ視点・BOOST</span>
+        <span class="k">Esc</span><span>説明の表示／非表示（押すたびにトグル・UIオフで鑑賞可）</span>
+      </div>
+      <div class="go" id="goText">— クリックして水槽に入る —</div>
+      <p class="note">ジンベエザメ×2・オニイトマキエイ×4・クロマグロ×30 が泳ぐ巨大水槽を自由に観察できます。</p>
+    </div>
+  </div>
+
+  <div id="touchUI">
+    <div class="stick" id="stickMove"><div class="knob"></div></div>
+    <div class="rightGroup">
+      <div class="btnRow">
+        <div class="vbtn" id="btnUp">▲</div>
+        <div class="vbtn" id="btnDown">▼</div>
+        <div class="vbtn boost" id="btnBoost">BOOST</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="orientHint">📱 横向きにすると迫力満点です</div>
+
+  <script type="importmap">
+  { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
