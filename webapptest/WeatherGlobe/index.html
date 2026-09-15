@@ -17,7 +17,7 @@ canvas{display:block}
 </head>
 <body>
 <div id="hud"><div class="panel">
-  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.8.6 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.8.7 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
   <div class="panelBody">
   <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
   <div class="controls">
@@ -675,10 +675,11 @@ function updateXRControllers(time){
     if(src.handedness==='left'){
       const xPressed=!!buttons[4]?.pressed;
       if(xPressed && !prev.x){
-        const nextNight = nightUniforms.enabled.value < 0.5;
-        nightUniforms.enabled.value = nextNight ? 1.0 : 0.0;
-        btnNight.textContent=`BLACK MARBLE ${nextNight?'ON':'OFF'}`;
+        blackMarbleEnabled=!blackMarbleEnabled;
+        nightUniforms.enabled.value=blackMarbleEnabled?1.0:0.0;
+        nightBtn.textContent=`🌃 BLACK MARBLE ${blackMarbleEnabled?'ON':'OFF'}`;
       }
+      // 例外が起きても押下状態が毎フレーム再発火しない構造にする
       prev.x=xPressed;
       continue;
     }
