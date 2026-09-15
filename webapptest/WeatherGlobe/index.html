@@ -17,7 +17,7 @@ canvas{display:block}
 </head>
 <body>
 <div id="hud"><div class="panel">
-  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.8.3 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.8.5 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
   <div class="panelBody">
   <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
   <div class="controls">
@@ -32,7 +32,7 @@ canvas{display:block}
     <button id="vrBtn" style="display:none">🥽 VR</button>
   </div>
   <div id="progress"><div id="bar"></div></div>
-  <div class="small">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFFできます。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
+  <div class="small">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFF、XでBLACK MARBLE ON/OFFできます。太陽光とBLACK MARBLEの昼夜境界は地球と一緒に追従します。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
   </div>
 </div></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
@@ -82,15 +82,22 @@ function updateRealtimeSun(force=false){
   lastSunUpdate=now;
   const p=solarPosition(new Date(now));
   sun.position.copy(lonLatToWorld(p.lon,p.lat,8));
-  nightUniforms.sunDir.value.copy(sun.position).normalize();
+  // nightUniforms は描画ループ側で globe の回転/移動後のワールド太陽方向へ同期する。
   window.__subsolar=p;
 }
 
 const controls=new OrbitControls(camera,renderer.domElement); controls.enableDamping=true; controls.enablePan=false; controls.minDistance=1.035; controls.maxDistance=6;
 
-scene.add(new THREE.AmbientLight(0xffffff,0.22)); const sun=new THREE.DirectionalLight(0xffffff,3.0); sun.position.set(3,1.5,4); scene.add(sun);
-
+scene.add(new THREE.AmbientLight(0xffffff,0.22));
 const globe=new THREE.Group(); scene.add(globe);
+
+// 太陽光は地球の子にする。
+// 地球をXRで回転・Grip移動しても、太陽方向とBLACK MARBLEの昼夜境界が地球表面に対してずれない。
+const sun=new THREE.DirectionalLight(0xffffff,3.0);
+sun.position.set(3,1.5,4);
+globe.add(sun);
+globe.add(sun.target);
+sun.target.position.set(0,0,0);
 
 // WebXR state. 通常ブラウザ表示には一切影響させず、XRセッション中だけ専用配置へ切替。
 let xrMode=null, xrSession=null, xrLastFrameChange=0, xrFrameIndex=0;
@@ -658,7 +665,25 @@ function updateXRControllers(time){
   // 実装差にも耐えるよう、4軸未満なら最後の2軸を利用する。
   for(const controller of xrControllers){
     const src=controller.userData.inputSource;
-    if(!src || src.handedness!=='right' || !src.gamepad)continue;
+    if(!src || !src.gamepad)continue;
+
+    const buttons=src.gamepad.buttons || [];
+    let prev=xrButtonPrev.get(controller);
+    if(!prev){prev={a:false,b:false,x:false};xrButtonPrev.set(controller,prev);}
+
+    // 左コントローラー X: BLACK MARBLE ON/OFF
+    if(src.handedness==='left'){
+      const xPressed=!!buttons[4]?.pressed;
+      if(xPressed && !prev.x){
+        nightOn=!nightOn;
+        nightUniforms.enabled.value=nightOn?1.0:0.0;
+        btnNight.textContent=`BLACK MARBLE ${nightOn?'ON':'OFF'}`;
+      }
+      prev.x=xPressed;
+      continue;
+    }
+    if(src.handedness!=='right')continue;
+
     const axes=src.gamepad.axes || [];
     let x=0;
     if(axes.length>=4) x=axes[2];
@@ -674,9 +699,6 @@ function updateXRControllers(time){
     // Quest Touch / xr-standard:
     // 右コントローラー buttons[4]=A, buttons[5]=B。
     // 押した瞬間だけトグルする（押しっぱなしで連打しない）。
-    const buttons=src.gamepad.buttons || [];
-    let prev=xrButtonPrev.get(controller);
-    if(!prev){prev={a:false,b:false};xrButtonPrev.set(controller,prev);}
     const aPressed=!!buttons[4]?.pressed;
     const bPressed=!!buttons[5]?.pressed;
 
@@ -689,6 +711,10 @@ function updateXRControllers(time){
       setEmphasis(!emphasisMode);
     }
     prev.a=aPressed;prev.b=bPressed;
+
+    // 左TouchのXボタンは xr-standard では通常 buttons[4]。
+    // 左コントローラー処理は下で行う。
+
   }
 }
 async function startXR(mode){
@@ -724,8 +750,17 @@ collapseBtn.onclick=()=>{
 };
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+const _sunWorld=new THREE.Vector3(), _globeWorld=new THREE.Vector3();
+function syncGlobeLockedSun(){
+  // DirectionalLightとBlack Marble shaderを同じ「地球ローカルの太陽方向」に固定。
+  globe.updateWorldMatrix(true,false);
+  sun.getWorldPosition(_sunWorld);
+  globe.getWorldPosition(_globeWorld);
+  nightUniforms.sunDir.value.copy(_sunWorld).sub(_globeWorld).normalize();
+}
+
 renderer.setAnimationLoop((time)=>{
-  controls.update();updateJapanLOD();updateXRControllers(time);
+  controls.update();updateJapanLOD();updateXRControllers(time);syncGlobeLockedSun();
   if(xrMode && frames.length){
     // XRでは1秒/フレームで最古→最新→最古…を永久ループ。
     if(time-xrLastFrameChange>=1000){
