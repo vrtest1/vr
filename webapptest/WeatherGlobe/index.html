@@ -17,7 +17,7 @@ canvas{display:block}
 </head>
 <body>
 <div id="hud"><div class="panel">
-  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.8.1 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.8.3 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
   <div class="panelBody">
   <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
   <div class="controls">
@@ -32,7 +32,7 @@ canvas{display:block}
     <button id="vrBtn" style="display:none">🥽 VR</button>
   </div>
   <div id="progress"><div id="bar"></div></div>
-  <div class="small">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示し、XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
+  <div class="small">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFFできます。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
   </div>
 </div></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
@@ -95,6 +95,30 @@ const globe=new THREE.Group(); scene.add(globe);
 // WebXR state. 通常ブラウザ表示には一切影響させず、XRセッション中だけ専用配置へ切替。
 let xrMode=null, xrSession=null, xrLastFrameChange=0, xrFrameIndex=0;
 const normalGlobe={position:new THREE.Vector3(),scale:new THREE.Vector3(1,1,1),rotation:new THREE.Euler()};
+
+// Quest Touch: 右スティックで地球回転 / Grip(中指)で掴んで移動。
+const xrControllers=[renderer.xr.getController(0),renderer.xr.getController(1)];
+xrControllers.forEach(c=>scene.add(c));
+let grabbedBy=null;
+let xrPrevTime=0;
+const xrButtonPrev=new WeakMap();
+function handednessOf(controller){
+  return controller.userData.inputSource?.handedness || '';
+}
+xrControllers.forEach(controller=>{
+  controller.addEventListener('connected',e=>{controller.userData.inputSource=e.data;});
+  controller.addEventListener('disconnected',()=>{controller.userData.inputSource=null;});
+  controller.addEventListener('squeezestart',()=>{
+    if(!xrMode || grabbedBy)return;
+    grabbedBy=controller;
+    controller.attach(globe); // world transformを保ったままコントローラへ追従
+  });
+  controller.addEventListener('squeezeend',()=>{
+    if(grabbedBy!==controller)return;
+    scene.attach(globe);      // 離した場所・向きを保ってワールドへ戻す
+    grabbedBy=null;
+  });
+});
 
 // Procedural fallback Earth, intentionally self-contained.
 const earthMat=new THREE.MeshStandardMaterial({color:0x184b73,roughness:.9,metalness:0});
@@ -533,6 +557,17 @@ emphasisBtn.onclick=()=>{
   emphasisBtn.textContent=`✨ 強調 ${emphasisMode?'ON':'OFF'}`;
 };
 
+function setEmphasis(on){
+  emphasisMode=!!on;
+  sun.visible=!emphasisMode;
+  earth.material=emphasisMode?earthBrightMat:earthMat;
+  japanLodMesh.material=emphasisMode?japanLodBrightMat:japanLodLitMat;
+  tokyoLodMesh.material=emphasisMode?tokyoLodBrightMat:tokyoLodLitMat;
+  satUniforms.emphasis.value=emphasisMode?1.0:0.0;
+  satUniforms.opacity.value=emphasisMode?1.0:.82;
+  emphasisBtn.textContent=`✨ 強調 ${emphasisMode?'ON':'OFF'}`;
+}
+
 document.getElementById('uprightBtn').onclick=()=>{
   // 起動時のカメラ位置・向き・ズームへ完全リセット。
   controls.target.set(0,0,0);
@@ -600,17 +635,61 @@ function enterXRScene(mode){
     globe.position.set(0,1.25,-2.20);
     scene.background=new THREE.Color(0x02060d);renderer.setClearAlpha(1);
   }
-  xrFrameIndex=0;xrLastFrameChange=performance.now();
+  xrFrameIndex=0;xrLastFrameChange=performance.now();xrPrevTime=0;
   if(frames.length) show(0); // 常時タイムラプス: 最古フレームから開始
   status.innerHTML=`${mode.toUpperCase()} / TIME LAPSE LOOP / Himawari-9`;
 }
 function leaveXRScene(){
+  if(grabbedBy){scene.attach(globe);grabbedBy=null;}
   xrMode=null;xrSession=null;
   globe.position.copy(normalGlobe.position);globe.scale.copy(normalGlobe.scale);globe.rotation.copy(normalGlobe.rotation);
   scene.background=new THREE.Color(0x02060d);renderer.setClearAlpha(1);
   controls.enabled=true;setXRLockedUI(false);
   earth.material=emphasisMode?earthBrightMat:earthMat;
   if(frames.length) show(frames.length-1);
+}
+
+function updateXRControllers(time){
+  if(!xrMode)return;
+  const dt=xrPrevTime?Math.min((time-xrPrevTime)/1000,0.05):0;
+  xrPrevTime=time;
+
+  // WebXR "xr-standard" gamepadではQuest Touchのthumbstickは通常 axes[2]/[3]。
+  // 実装差にも耐えるよう、4軸未満なら最後の2軸を利用する。
+  for(const controller of xrControllers){
+    const src=controller.userData.inputSource;
+    if(!src || src.handedness!=='right' || !src.gamepad)continue;
+    const axes=src.gamepad.axes || [];
+    let x=0;
+    if(axes.length>=4) x=axes[2];
+    else if(axes.length>=2) x=axes[axes.length-2];
+    if(Math.abs(x)<0.14)x=0; // stick drift deadzone
+
+    // 掴んでいる間も回転可能。約1.8 rad/sで滑らかに回す。
+    if(x && dt){
+      // controllerの子になっている時も、見た目の「地球の自転軸」方向へ回す。
+      globe.rotateY(-x*1.8*dt);
+    }
+
+    // Quest Touch / xr-standard:
+    // 右コントローラー buttons[4]=A, buttons[5]=B。
+    // 押した瞬間だけトグルする（押しっぱなしで連打しない）。
+    const buttons=src.gamepad.buttons || [];
+    let prev=xrButtonPrev.get(controller);
+    if(!prev){prev={a:false,b:false};xrButtonPrev.set(controller,prev);}
+    const aPressed=!!buttons[4]?.pressed;
+    const bPressed=!!buttons[5]?.pressed;
+
+    if(aPressed && !prev.a){
+      cloudsOn=!cloudsOn;
+      sat.visible=cloudsOn;
+      btnClouds.textContent=`衛星画像 ${cloudsOn?'ON':'OFF'}`;
+    }
+    if(bPressed && !prev.b){
+      setEmphasis(!emphasisMode);
+    }
+    prev.a=aPressed;prev.b=bPressed;
+  }
 }
 async function startXR(mode){
   if(!navigator.xr || xrSession)return;
@@ -646,7 +725,7 @@ collapseBtn.onclick=()=>{
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 renderer.setAnimationLoop((time)=>{
-  controls.update();updateJapanLOD();
+  controls.update();updateJapanLOD();updateXRControllers(time);
   if(xrMode && frames.length){
     // XRでは1秒/フレームで最古→最新→最古…を永久ループ。
     if(time-xrLastFrameChange>=1000){
