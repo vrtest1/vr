@@ -17,7 +17,7 @@ canvas{display:block}
 </head>
 <body>
 <div id="hud"><div class="panel">
-  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.8.9 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.9.0 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
   <div class="panelBody">
   <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
   <div class="controls">
@@ -365,7 +365,13 @@ const satMat=new THREE.ShaderMaterial({
     float dataAlpha=t.a*mix(opacity,1.0,emphasis);
     // 見栄えモード: 暗部ほど透明にするが閾値で切らないため、薄い/細い雲も極力残す。
     float L=dot(t.rgb,vec3(0.299,0.587,0.114));
-    float prettyAlpha=t.a*mix(0.055,0.97,pow(clamp(L,0.0,1.0),0.72));
+
+    // 見栄えモード v2:
+    // まず中間調のコントラストを少し上げて雲を立たせ、
+    // その後alpha化。最低alphaも上げ、薄い/細い雲を以前より残す。
+    float contrastL=clamp((L-0.50)*1.28+0.50,0.0,1.0);
+    float cloudSignal=max(L,contrastL);
+    float prettyAlpha=t.a*mix(0.14,0.98,pow(cloudSignal,0.58));
     float a=mix(dataAlpha,prettyAlpha,visualMode);
     if(a<0.001)discard;
     gl_FragColor=vec4(c,a);
