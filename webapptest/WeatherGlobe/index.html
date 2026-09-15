@@ -17,7 +17,7 @@ canvas{display:block}
 </head>
 <body>
 <div id="hud"><div class="panel">
-  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.9.0 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.9.2 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
   <div class="panelBody">
   <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
   <div class="controls">
@@ -231,7 +231,7 @@ const japanLodBrightMat=new THREE.MeshBasicMaterial({
   polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1
 });
 const japanLodMesh=new THREE.Mesh(makeGeoPatch(JAPAN_LOD.west,JAPAN_LOD.east,JAPAN_LOD.south,JAPAN_LOD.north),japanLodLitMat);
-japanLodMesh.visible=false;globe.add(japanLodMesh);
+japanLodMesh.visible=false;japanLodMesh.renderOrder=5;globe.add(japanLodMesh);
 
 function loadJapanLOD(){
   if(japanLodLoaded||japanLodLoading)return;
@@ -259,7 +259,7 @@ const tokyoLodMesh=new THREE.Mesh(
   makeGeoPatch(TOKYO_LOD.west,TOKYO_LOD.east,TOKYO_LOD.south,TOKYO_LOD.north,1.0011,72,56),
   tokyoLodLitMat
 );
-tokyoLodMesh.visible=false;globe.add(tokyoLodMesh);
+tokyoLodMesh.visible=false;tokyoLodMesh.renderOrder=6;globe.add(tokyoLodMesh);
 
 function loadTokyoLOD(){
   if(tokyoLodLoaded||tokyoLodLoading)return;
@@ -333,7 +333,13 @@ const nightMat=new THREE.ShaderMaterial({
  float darkness=1.0-smoothstep(-0.21,-0.05,nd);float lum=max(c.r,max(c.g,c.b));
  float a=smoothstep(0.035,0.28,lum)*darkness*enabled;gl_FragColor=vec4(c*vec3(1.18,1.03,0.80)*1.5,a);}`
 });
-const nightMesh=new THREE.Mesh(new THREE.SphereGeometry(1.004,96,64),nightMat);globe.add(nightMesh);
+const nightMesh=new THREE.Mesh(new THREE.SphereGeometry(1.004,96,64),nightMat);
+// Black Marble must be composited after the high-resolution ground LOD patches.
+// depthTest=false avoids the regional Japan/Tokyo patches occluding the city-light shell
+// at very close zoom; the night-side shader still controls where lights are visible.
+nightMat.depthTest=false;
+nightMesh.renderOrder=15;
+globe.add(nightMesh);
 updateRealtimeSun(true);
 function blackMarbleURL(){
  const q=new URLSearchParams({SERVICE:'WMS',REQUEST:'GetMap',VERSION:'1.1.1',LAYERS:'VIIRS_CityLights_2012',STYLES:'',
@@ -369,9 +375,13 @@ const satMat=new THREE.ShaderMaterial({
     // 見栄えモード v2:
     // まず中間調のコントラストを少し上げて雲を立たせ、
     // その後alpha化。最低alphaも上げ、薄い/細い雲を以前より残す。
-    float contrastL=clamp((L-0.50)*1.28+0.50,0.0,1.0);
+    float contrastL=clamp((L-0.42)*1.18+0.42,0.0,1.0);
     float cloudSignal=max(L,contrastL);
-    float prettyAlpha=t.a*mix(0.14,0.98,pow(cloudSignal,0.58));
+
+    // Soft-mask: 暗部も完全には消さず、薄い雲・雲の縁をかなり残す。
+    // 低輝度域を持ち上げるガンマと高めのfloorで、元データ表示との中間を狙う。
+    float cloudLift=pow(clamp(cloudSignal,0.0,1.0),0.42);
+    float prettyAlpha=t.a*mix(0.27,0.99,cloudLift);
     float a=mix(dataAlpha,prettyAlpha,visualMode);
     if(a<0.001)discard;
     gl_FragColor=vec4(c,a);
