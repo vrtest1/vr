@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<title>LIVE EARTH XR — Prototype</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02060d;color:#eef6ff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
+canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;padding:calc(12px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom));box-sizing:border-box}
+.panel{pointer-events:auto;position:absolute;left:14px;top:calc(14px + env(safe-area-inset-top));background:#07101ccc;border:1px solid #ffffff1c;backdrop-filter:blur(12px);border-radius:16px;padding:12px 14px;box-shadow:0 12px 35px #0008;max-width:min(390px,calc(100vw - 28px))}
+.title{font-weight:800;letter-spacing:.13em;font-size:14px;display:flex;align-items:center;justify-content:space-between;gap:12px}#collapseBtn{padding:4px 8px;min-width:34px;font-size:16px;line-height:1}.panel.collapsed .panelBody{display:none}.panel.collapsed{padding:9px 10px}.status{font-size:12px;margin-top:6px;color:#a9c7e7}.live{color:#67ffad;font-weight:800}.warn{color:#ffd37a}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}button{appearance:none;border:1px solid #ffffff22;background:#10243be6;color:#eef6ff;padding:9px 12px;border-radius:11px;font-weight:700}button:active{transform:scale(.98)}button:disabled{opacity:.45}.small{font-size:11px;color:#92aac4;margin-top:8px;line-height:1.4}
+#progress{display:none;margin-top:9px;height:5px;background:#ffffff16;border-radius:99px;overflow:hidden}#bar{height:100%;width:0;background:#8bc8ff}
+.badge{display:inline-block;padding:2px 6px;border-radius:99px;background:#ffffff12;margin-left:5px}
+</style>
+</head>
+<body>
+<div id="hud"><div class="panel">
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.8.1 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
+  <div class="panelBody">
+  <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
+  <div class="controls">
+    <button id="timelapse" disabled>▶ TIME LAPSE</button>
+    <button id="live">LIVEへ戻る</button>
+    <button id="clouds">衛星画像 ON</button>
+    <button id="nightBtn">🌃 BLACK MARBLE OFF</button>
+    <button id="emphasisBtn">✨ 強調 OFF</button>
+    <button id="uprightBtn">↺ 初期位置リセット</button>
+    <button id="locBtn">📍 現在位置</button>
+    <button id="arBtn" style="display:none">🥽 AR</button>
+    <button id="vrBtn" style="display:none">🥽 VR</button>
+  </div>
+  <div id="progress"><div id="bar"></div></div>
+  <div class="small">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示し、XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
+  </div>
+</div></div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x02060d);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.003,100); camera.position.set(0,.15,3.2);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); renderer.outputColorSpace=THREE.SRGBColorSpace; document.body.prepend(renderer.domElement);
+renderer.xr.enabled=true;
+renderer.xr.setReferenceSpaceType('local-floor');
+
+// 現在日時から太陽直下点を近似し、太陽光の向きをリアルタイム更新。
+// NOAA系の近似式（均時差 + 太陽赤緯）を使うので、昼夜境界はUTC時刻・季節に追従する。
+function solarPosition(date=new Date()){
+  const rad=Math.PI/180;
+  const start=Date.UTC(date.getUTCFullYear(),0,1);
+  const day=(date.getTime()-start)/86400000 + 1;
+  const utc=date.getUTCHours()+date.getUTCMinutes()/60+date.getUTCSeconds()/3600;
+  const gamma=2*Math.PI/365*(day-1+(utc-12)/24);
+  const eqtime=229.18*(0.000075+0.001868*Math.cos(gamma)-0.032077*Math.sin(gamma)
+                    -0.014615*Math.cos(2*gamma)-0.040849*Math.sin(2*gamma));
+  const decl=0.006918-0.399912*Math.cos(gamma)+0.070257*Math.sin(gamma)
+             -0.006758*Math.cos(2*gamma)+0.000907*Math.sin(2*gamma)
+             -0.002697*Math.cos(3*gamma)+0.00148*Math.sin(3*gamma);
+  // 太陽直下点の経度。東経を正とする。
+  const subsolarLon=(720-(utc*60+eqtime))/4;
+  return {lat:decl/rad, lon:((subsolarLon+540)%360)-180};
+}
+function lonLatToWorld(lon,lat,r=8){
+  // THREE.SphereGeometry の標準UV:
+  // u=0 は +X 側、経度はテクスチャ上で西(-180)→東(+180)。
+  // 地理経度 lon=0° は球の -X 側に対応するため theta=lon+180°。
+  const phi=(90-lat)*Math.PI/180;
+  const theta=(lon+180)*Math.PI/180;
+  return new THREE.Vector3(
+    -r*Math.cos(theta)*Math.sin(phi),
+     r*Math.cos(phi),
+     r*Math.sin(theta)*Math.sin(phi)
+  );
+}
+let lastSunUpdate=0;
+function updateRealtimeSun(force=false){
+  const now=Date.now();
+  if(!force && now-lastSunUpdate<1000) return;
+  lastSunUpdate=now;
+  const p=solarPosition(new Date(now));
+  sun.position.copy(lonLatToWorld(p.lon,p.lat,8));
+  nightUniforms.sunDir.value.copy(sun.position).normalize();
+  window.__subsolar=p;
+}
+
+const controls=new OrbitControls(camera,renderer.domElement); controls.enableDamping=true; controls.enablePan=false; controls.minDistance=1.035; controls.maxDistance=6;
+
+scene.add(new THREE.AmbientLight(0xffffff,0.22)); const sun=new THREE.DirectionalLight(0xffffff,3.0); sun.position.set(3,1.5,4); scene.add(sun);
+
+const globe=new THREE.Group(); scene.add(globe);
+
+// WebXR state. 通常ブラウザ表示には一切影響させず、XRセッション中だけ専用配置へ切替。
+let xrMode=null, xrSession=null, xrLastFrameChange=0, xrFrameIndex=0;
+const normalGlobe={position:new THREE.Vector3(),scale:new THREE.Vector3(1,1,1),rotation:new THREE.Euler()};
+
+// Procedural fallback Earth, intentionally self-contained.
+const earthMat=new THREE.MeshStandardMaterial({color:0x184b73,roughness:.9,metalness:0});
+const earthBrightMat=new THREE.MeshBasicMaterial({color:0x184b73});
+const earth=new THREE.Mesh(new THREE.SphereGeometry(1,128,80),earthMat); globe.add(earth);
+
+// NASA Blue Marble Next Generation を高解像度ベース地球として使用。
+// モバイルはメモリ節約のため3072x1536、PC/Macは4096x2048。
+// 元データは500m級。全球を巨大な86Kテクスチャとして保持せず、モバイルでも安定するサイズに抑える。
+const BASE_WMS='https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+const IS_MOBILE=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const BASE_W=IS_MOBILE?3072:4096;
+const BASE_H=BASE_W/2;
+function baseEarthURL(w=BASE_W,h=BASE_H){
+  const q=new URLSearchParams({
+    SERVICE:'WMS',REQUEST:'GetMap',VERSION:'1.1.1',
+    LAYERS:'BlueMarble_NextGeneration',STYLES:'',
+    FORMAT:'image/jpeg',TRANSPARENT:'FALSE',
+    WIDTH:String(w),HEIGHT:String(h),SRS:'EPSG:4326',BBOX:'-180,-90,180,90'
+  });
+  return `${BASE_WMS}?${q.toString()}`;
+}
+function loadBaseEarth(){
+  new THREE.TextureLoader().load(baseEarthURL(),tex=>{
+    tex.colorSpace=THREE.SRGBColorSpace;
+    tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+    tex.minFilter=THREE.LinearMipmapLinearFilter;
+    tex.magFilter=THREE.LinearFilter;
+    earthMat.map=tex;
+    earthMat.color.set(0xffffff);
+    earthMat.needsUpdate=true;
+    earthBrightMat.map=tex;
+    earthBrightMat.color.set(0xffffff);
+    earthBrightMat.needsUpdate=true;
+    console.info(`Blue Marble Next Generation ${BASE_W}x${BASE_H} loaded (${IS_MOBILE?'mobile':'desktop'})`);
+  },undefined,()=>{
+    // 念のため旧Blue Marble 2048へフォールバック。
+    const q=new URLSearchParams({
+      SERVICE:'WMS',REQUEST:'GetMap',VERSION:'1.1.1',
+      LAYERS:'BlueMarble_ShadedRelief_Bathymetry',STYLES:'',
+      FORMAT:'image/jpeg',TRANSPARENT:'FALSE',
+      WIDTH:'2048',HEIGHT:'1024',SRS:'EPSG:4326',BBOX:'-180,-90,180,90'
+    });
+    new THREE.TextureLoader().load(`${BASE_WMS}?${q.toString()}`,tex=>{
+      tex.colorSpace=THREE.SRGBColorSpace; earthMat.map=tex;
+      earthMat.color.set(0xffffff); earthMat.needsUpdate=true;
+      earthBrightMat.map=tex; earthBrightMat.color.set(0xffffff); earthBrightMat.needsUpdate=true;
+    },undefined,()=>console.warn('Blue Marble base texture could not be loaded; using fallback.'));
+  });
+}
+
+loadBaseEarth();
+
+// --- Japan regional surface LOD -------------------------------------------------
+// 全球テクスチャを巨大化せず、日本付近へ接近した時だけ地域WMSを読む。
+// 118E–158E / 18N–50N を球面パッチ化。衛星雲レイヤー(1.008)より下の1.002に置く。
+const JAPAN_LOD={west:118,east:158,south:18,north:50};
+const JAPAN_LOD_W=IS_MOBILE?1536:2048;
+const JAPAN_LOD_H=Math.round(JAPAN_LOD_W*(JAPAN_LOD.north-JAPAN_LOD.south)/(JAPAN_LOD.east-JAPAN_LOD.west));
+// さらに接近した時の第2段LOD。関東中心の狭い範囲へ同程度以上の画素数を集中させる。
+const TOKYO_LOD={west:134,east:144,south:32.5,north:39.5};
+const TOKYO_LOD_W=IS_MOBILE?2048:3072;
+const TOKYO_LOD_H=Math.round(TOKYO_LOD_W*(TOKYO_LOD.north-TOKYO_LOD.south)/(TOKYO_LOD.east-TOKYO_LOD.west));
+let tokyoLodLoaded=false,tokyoLodLoading=false,tokyoLodVisible=false;
+
+let japanLodLoaded=false,japanLodLoading=false,japanLodVisible=false,emphasisMode=false;
+
+function regionalEarthURL(box,w,h){
+  const q=new URLSearchParams({
+    SERVICE:'WMS',REQUEST:'GetMap',VERSION:'1.1.1',
+    LAYERS:'BlueMarble_ShadedRelief_Bathymetry',STYLES:'',
+    FORMAT:'image/jpeg',TRANSPARENT:'FALSE',
+    WIDTH:String(w),HEIGHT:String(h),SRS:'EPSG:4326',
+    BBOX:`${box.west},${box.south},${box.east},${box.north}`
+  });
+  return `${BASE_WMS}?${q.toString()}`;
+}
+function makeGeoPatch(west,east,south,north,r=1.0006,nx=64,ny=52){
+  const pos=[],uv=[],idx=[];
+  for(let y=0;y<=ny;y++){
+    const v=y/ny,lat=north+(south-north)*v;
+    for(let x=0;x<=nx;x++){
+      const u=x/nx,lon=west+(east-west)*u;
+      const p=lonLatToWorld(lon,lat,r); pos.push(p.x,p.y,p.z); uv.push(u,1-v);
+    }
+  }
+  for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){
+    const a=y*(nx+1)+x,b=a+1,c=a+(nx+1),d=c+1;
+    idx.push(a,c,b,b,c,d);
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(idx);g.computeVertexNormals();return g;
+}
+const japanLodLitMat=new THREE.MeshStandardMaterial({
+  roughness:.92,metalness:0,transparent:true,opacity:0,
+  polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1
+});
+const japanLodBrightMat=new THREE.MeshBasicMaterial({
+  transparent:true,opacity:0,
+  polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1
+});
+const japanLodMesh=new THREE.Mesh(makeGeoPatch(JAPAN_LOD.west,JAPAN_LOD.east,JAPAN_LOD.south,JAPAN_LOD.north),japanLodLitMat);
+japanLodMesh.visible=false;globe.add(japanLodMesh);
+
+function loadJapanLOD(){
+  if(japanLodLoaded||japanLodLoading)return;
+  japanLodLoading=true;
+  new THREE.TextureLoader().load(regionalEarthURL(JAPAN_LOD,JAPAN_LOD_W,JAPAN_LOD_H),tex=>{
+    tex.colorSpace=THREE.SRGBColorSpace;
+    tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+    tex.minFilter=THREE.LinearMipmapLinearFilter;tex.magFilter=THREE.LinearFilter;
+    japanLodLitMat.map=tex;japanLodLitMat.color.set(0xffffff);japanLodLitMat.needsUpdate=true;
+    japanLodBrightMat.map=tex;japanLodBrightMat.color.set(0xffffff);japanLodBrightMat.needsUpdate=true;
+    japanLodLoaded=true;japanLodLoading=false;
+    console.info(`Japan LOD ${JAPAN_LOD_W}x${JAPAN_LOD_H} loaded`);
+  },undefined,()=>{japanLodLoading=false;console.warn('Japan regional LOD could not be loaded.');});
+}
+
+const tokyoLodLitMat=new THREE.MeshStandardMaterial({
+  roughness:.92,metalness:0,transparent:true,opacity:0,
+  polygonOffset:true,polygonOffsetFactor:0,polygonOffsetUnits:0
+});
+const tokyoLodBrightMat=new THREE.MeshBasicMaterial({
+  transparent:true,opacity:0,
+  polygonOffset:true,polygonOffsetFactor:0,polygonOffsetUnits:0
+});
+const tokyoLodMesh=new THREE.Mesh(
+  makeGeoPatch(TOKYO_LOD.west,TOKYO_LOD.east,TOKYO_LOD.south,TOKYO_LOD.north,1.0011,72,56),
+  tokyoLodLitMat
+);
+tokyoLodMesh.visible=false;globe.add(tokyoLodMesh);
+
+function loadTokyoLOD(){
+  if(tokyoLodLoaded||tokyoLodLoading)return;
+  tokyoLodLoading=true;
+  new THREE.TextureLoader().load(regionalEarthURL(TOKYO_LOD,TOKYO_LOD_W,TOKYO_LOD_H),tex=>{
+    tex.colorSpace=THREE.SRGBColorSpace;
+    tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+    tex.minFilter=THREE.LinearMipmapLinearFilter;tex.magFilter=THREE.LinearFilter;
+    tokyoLodLitMat.map=tex;tokyoLodLitMat.color.set(0xffffff);tokyoLodLitMat.needsUpdate=true;
+    tokyoLodBrightMat.map=tex;tokyoLodBrightMat.color.set(0xffffff);tokyoLodBrightMat.needsUpdate=true;
+    tokyoLodLoaded=true;tokyoLodLoading=false;
+    console.info(`Tokyo LOD2 ${TOKYO_LOD_W}x${TOKYO_LOD_H} loaded`);
+  },undefined,()=>{tokyoLodLoading=false;console.warn('Tokyo regional LOD2 could not be loaded.');});
+}
+
+function updateJapanLOD(){
+  if(xrMode){
+    japanLodVisible=false;tokyoLodVisible=false;
+    japanLodMesh.visible=false;tokyoLodMesh.visible=false;
+    return;
+  }
+  const dist=camera.position.distanceTo(controls.target);
+  const camDir=camera.position.clone().normalize();
+  const japanDir=lonLatToWorld(138,36,1).normalize();
+  const facing=camDir.dot(japanDir);
+
+  // ONは近距離だけ。東京が画面いっぱいになる近接ズームまで維持し、ズームアウトしたら明確にOFF。
+  // ヒステリシス: ON <1.92 / OFF >2.18 で境界付近のちらつきを防ぐ。
+  if(japanLodVisible){
+    if(dist>2.18 || facing<0.25) japanLodVisible=false;
+  }else{
+    if(dist<1.92 && facing>0.48) japanLodVisible=true;
+  }
+
+  if(japanLodVisible && !japanLodLoaded) loadJapanLOD();
+
+  // 第2段LODはかなり接近した時だけ。離れたら明確にOFF。
+  if(tokyoLodVisible){
+    if(dist>1.32 || facing<0.42) tokyoLodVisible=false;
+  }else{
+    if(dist<1.22 && facing>0.58) tokyoLodVisible=true;
+  }
+  if(tokyoLodVisible && !tokyoLodLoaded) loadTokyoLOD();
+
+  const active=japanLodVisible && japanLodLoaded;
+  japanLodMesh.visible=active;
+  japanLodLitMat.opacity=active?1:0;
+  japanLodBrightMat.opacity=active?1:0;
+
+  const tokyoActive=tokyoLodVisible && tokyoLodLoaded;
+  tokyoLodMesh.visible=tokyoActive;
+  tokyoLodLitMat.opacity=tokyoActive?1:0;
+  tokyoLodBrightMat.opacity=tokyoActive?1:0;
+
+  // ズームするほどドラッグ回転を遅くする。遠景は従来相当、東京近接では精密操作。
+  const near=Math.max(0,Math.min(1,(2.4-dist)/(2.4-1.035)));
+  controls.rotateSpeed=0.72-(0.56*near);
+}
+
+// simple continent-ish visual via wireless shader-free points, hidden beneath satellite imagery
+const grid=new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(1.001,24,16)),new THREE.LineBasicMaterial({color:0x2c7294,transparent:true,opacity:.10})); globe.add(grid);
+
+
+let blackMarbleEnabled=false;
+const nightUniforms={nightMap:{value:null},sunDir:{value:new THREE.Vector3(1,0,0)},enabled:{value:0.0}};
+const nightMat=new THREE.ShaderMaterial({
+ transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:nightUniforms,
+ vertexShader:`varying vec2 vUv;varying vec3 vN;void main(){vUv=uv;vN=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+ fragmentShader:`uniform sampler2D nightMap;uniform vec3 sunDir;uniform float enabled;varying vec2 vUv;varying vec3 vN;
+ void main(){vec3 c=texture2D(nightMap,vUv).rgb;float nd=dot(normalize(vN),normalize(sunDir));
+ float darkness=1.0-smoothstep(-0.21,-0.05,nd);float lum=max(c.r,max(c.g,c.b));
+ float a=smoothstep(0.035,0.28,lum)*darkness*enabled;gl_FragColor=vec4(c*vec3(1.18,1.03,0.80)*1.5,a);}`
+});
+const nightMesh=new THREE.Mesh(new THREE.SphereGeometry(1.004,96,64),nightMat);globe.add(nightMesh);
+updateRealtimeSun(true);
+function blackMarbleURL(){
+ const q=new URLSearchParams({SERVICE:'WMS',REQUEST:'GetMap',VERSION:'1.1.1',LAYERS:'VIIRS_CityLights_2012',STYLES:'',
+ FORMAT:'image/jpeg',TRANSPARENT:'FALSE',WIDTH:'2048',HEIGHT:'1024',SRS:'EPSG:4326',BBOX:'-180,-90,180,90'});
+ return `${BASE_WMS}?${q.toString()}`;
+}
+new THREE.TextureLoader().load(blackMarbleURL(),tex=>{
+ tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());nightUniforms.nightMap.value=tex;
+},undefined,()=>console.warn('Black Marble texture could not be loaded.'));
+
+const satUniforms={
+  map:{value:null},
+  opacity:{value:.82},
+  emphasis:{value:0.0}
+};
+const satMat=new THREE.ShaderMaterial({
+  transparent:true,depthWrite:false,
+  uniforms:satUniforms,
+  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  fragmentShader:`uniform sampler2D map;uniform float opacity;uniform float emphasis;varying vec2 vUv;
+  void main(){
+    vec4 t=texture2D(map,vUv);
+    // 強調時は雲の中間調を持ち上げ、白を少し強める。透明部分は維持。
+    vec3 normal=t.rgb;
+    vec3 lifted=pow(max(t.rgb,vec3(0.0)),vec3(0.72))*1.34+vec3(0.045);
+    lifted=mix(lifted,vec3(1.0),0.10);
+    vec3 c=mix(normal,clamp(lifted,0.0,1.0),emphasis);
+    float a=t.a*mix(opacity,1.0,emphasis);
+    if(a<0.001)discard;
+    gl_FragColor=vec4(c,a);
+  }`
+});
+const sat=new THREE.Mesh(new THREE.SphereGeometry(1.008,96,64),satMat); sat.renderOrder=20; globe.add(sat);
+const atmMat=new THREE.ShaderMaterial({transparent:true,side:THREE.BackSide,blending:THREE.AdditiveBlending,depthWrite:false,uniforms:{c:{value:new THREE.Color(0x4ba6ff)}},vertexShader:`varying vec3 n;varying vec3 v;void main(){vec4 w=modelMatrix*vec4(position,1.);n=normalize(mat3(modelMatrix)*normal);v=normalize(cameraPosition-w.xyz);gl_Position=projectionMatrix*viewMatrix*w;}`,fragmentShader:`uniform vec3 c;varying vec3 n;varying vec3 v;void main(){float f=pow(1.-max(dot(n,v),0.),3.);gl_FragColor=vec4(c,f*.55);}`});
+const atm=new THREE.Mesh(new THREE.SphereGeometry(1.055,96,64),atmMat); globe.add(atm);
+atm.visible=false; // 青い大気圏ハローを非表示
+
+const starsGeo=new THREE.BufferGeometry(); const a=[]; for(let i=0;i<1400;i++){const r=15+Math.random()*25,t=Math.random()*Math.PI*2,p=Math.acos(2*Math.random()-1);a.push(r*Math.sin(p)*Math.cos(t),r*Math.cos(p),r*Math.sin(p)*Math.sin(t));} starsGeo.setAttribute('position',new THREE.Float32BufferAttribute(a,3)); scene.add(new THREE.Points(starsGeo,new THREE.PointsMaterial({size:.025,color:0xbcd8ff,sizeAttenuation:true})));
+
+const status=document.querySelector('#status'), btnTL=document.querySelector('#timelapse'),btnLive=document.querySelector('#live'),btnClouds=document.querySelector('#clouds'),progress=document.querySelector('#progress'),bar=document.querySelector('#bar');
+const loader=new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
+const SATELLITES=[
+  {name:'Himawari-9', layer:'Himawari_AHI_Band3_Red_Visible_1km', lon:140.7},
+  {name:'GOES-West', layer:'GOES-West_ABI_Band2_Red_Visible_1km', lon:-137.2},
+  {name:'GOES-East', layer:'GOES-East_ABI_Band2_Red_Visible_1km', lon:-75.2}
+];
+// 欧州・アフリカ側の静止衛星空白を埋めるNASA/EUMETSATの
+// Geostationary Ring。3時間更新なので、10分観測3機より低優先度の補完専用。
+const RING={name:'Meteosat/Ring',layer:'EUMETSAT_RING_Natural_Color_RGB'};
+// NASA GIBS WMSから3機の静止気象衛星を同じ全球キャンバスへ合成。
+const WMS='https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+const W=2048, H=1024;
+let frames=[], current=0, playing=false, cloudsOn=true;
+
+const floor10=d=>new Date(Math.floor(d.getTime()/600000)*600000);
+const iso=d=>d.toISOString().replace('.000Z','Z');
+const label=d=>new Intl.DateTimeFormat('ja-JP',{
+  timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',
+  month:'numeric',day:'numeric'
+}).format(d)+' JST';
+
+function imageURL(d,layer){
+  const q=new URLSearchParams({
+    SERVICE:'WMS',REQUEST:'GetMap',VERSION:'1.1.1',LAYERS:layer,STYLES:'',
+    FORMAT:'image/png',TRANSPARENT:'TRUE',WIDTH:String(W),HEIGHT:String(H),
+    SRS:'EPSG:4326',BBOX:'-180,-90,180,90',TIME:iso(d)
+  });
+  return `${WMS}?${q.toString()}`;
+}
+
+function loadImage(url){
+  return new Promise((resolve,reject)=>{
+    const im=new Image(); im.crossOrigin='anonymous';
+    im.onload=()=> im.naturalWidth<256||im.naturalHeight<128
+      ? reject(new Error('invalid WMS image')) : resolve(im);
+    im.onerror=()=>reject(new Error('WMS image load failed'));
+    im.src=url;
+  });
+}
+
+function usableImageData(data){
+  let valid=0,samples=0,sum=0,sum2=0;
+  const step=16;
+  for(let y=0;y<H;y+=step) for(let x=0;x<W;x+=step){
+    const k=(y*W+x)*4; samples++;
+    if(data[k+3]>16){
+      valid++;
+      const lum=(data[k]+data[k+1]+data[k+2])/3;
+      sum+=lum; sum2+=lum*lum;
+    }
+  }
+  const coverage=valid/Math.max(samples,1);
+  const mean=valid?sum/valid:0;
+  const variance=valid?Math.max(0,sum2/valid-mean*mean):0;
+  return coverage>=0.01 && !(coverage>0.90 && variance<1.0);
+}
+
+async function satelliteImage(d,satInfo){
+  const im=await loadImage(imageURL(d,satInfo.layer));
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d',{willReadFrequently:true});
+  ctx.clearRect(0,0,W,H); ctx.drawImage(im,0,0,W,H);
+  const img=ctx.getImageData(0,0,W,H);
+  if(!usableImageData(img.data)) throw new Error(`${satInfo.name} empty frame`);
+  return {sat:satInfo,img};
+}
+
+async function satelliteImageWithFallback(d,satInfo,maxBack=3){
+  // 指定時刻が欠損なら、10分ずつ過去へ戻って直近の実画像を使う。
+  // これによりHimawariの一時的な欠損でタイムラプスが点滅しない。
+  let t=new Date(d);
+  let lastErr=null;
+  for(let i=0;i<=maxBack;i++){
+    try{
+      const r=await satelliteImage(t,satInfo);
+      r.actualDate=new Date(t);
+      r.fallbackSteps=i;
+      return r;
+    }catch(e){ lastErr=e; }
+    t=new Date(t.getTime()-600000);
+  }
+  throw lastErr||new Error(`${satInfo.name} unavailable`);
+}
+
+async function buildFrame(d){
+  // Himawari-9だけを厳密に使用。指定時刻の画像が空ならその時刻は不採用。
+  const him=await satelliteImage(d,SATELLITES[0]);
+
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d',{willReadFrequently:true});
+  const out=ctx.createImageData(W,H), op=out.data;
+  const p=him.img.data, DEG=Math.PI/180, satLon=140.7*DEG;
+
+  for(let y=0;y<H;y++){
+    const lat=(90-(y+.5)*180/H)*DEG, cl=Math.cos(lat);
+    for(let x=0;x<W;x++){
+      const k=(y*W+x)*4;
+      const lon=(-180+(x+.5)*360/W)*DEG;
+      const cg=cl*Math.cos(lon-satLon);
+      if(cg<=0.015 || p[k+3]<5) continue;
+      const edge=smooth01((cg-0.015)/0.165);
+      if(edge<=0.001) continue;
+      op[k]=p[k]; op[k+1]=p[k+1]; op[k+2]=p[k+2];
+      op[k+3]=Math.round(p[k+3]*edge);
+    }
+  }
+  ctx.putImageData(out,0,0);
+  const tex=new THREE.CanvasTexture(cv);
+  tex.colorSpace=THREE.SRGBColorSpace;
+  tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  return {date:new Date(d),tex,sources:['Himawari-9']};
+}
+function smooth01(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);}
+async function initFrames(){
+  status.innerHTML='<span class="live">● LIVE</span> 最新のHimawari雲画像を探索中…';
+
+  let latest=null, latestDate=null;
+  // まず現在に近い候補を探索し、見つかった瞬間に表示する。
+  // NASA GIBS反映遅延を見込み20分前から開始。
+  let probe=floor10(new Date(Date.now()-20*60000));
+  for(let k=0;k<36;k++){
+    try{
+      latest=await buildFrame(probe);
+      latestDate=new Date(probe);
+      break;
+    }catch(e){
+      probe=new Date(probe.getTime()-600000);
+    }
+  }
+  if(!latest){
+    status.innerHTML='<span class="warn">衛星画像を取得できませんでした</span> — ConsoleでWMSエラーを確認してください';
+    return;
+  }
+
+  // 最初の1枚を即表示。履歴ロード完了を待たない。
+  frames=[latest];
+  satUniforms.map.value=latest.tex; current=0;
+  status.innerHTML=`<span class="live">● LIVE</span> ${label(latestDate)} / Himawari-9 / 履歴を読込中 1/11`;
+  btnTL.disabled=true;
+
+  // その後バックグラウンド的に過去10枚を順次取得。
+  // 欠損枠はスキップし、成功した画像だけ集める。
+  const history=[];
+  let historyProbe=new Date(latestDate.getTime()-600000);
+  const MAX_HISTORY_PROBES=72;
+  for(let k=0;k<MAX_HISTORY_PROBES && history.length<10;k++){
+    try{
+      const frame=await buildFrame(historyProbe);
+      history.push(frame);
+      status.innerHTML=`<span class="live">● LIVE</span> ${label(latestDate)} / Himawari-9 / 履歴を読込中 ${history.length+1}/11`;
+    }catch(e){
+      console.info('Global frame missing; skip:',iso(historyProbe));
+    }
+    historyProbe=new Date(historyProbe.getTime()-600000);
+    // UI/描画へ制御を返す
+    await new Promise(r=>setTimeout(r,0));
+  }
+
+  frames=[...history.reverse(),latest];
+  current=frames.length-1;
+  satUniforms.map.value=latest.tex;
+  btnTL.disabled=frames.length<2;
+  status.innerHTML=`<span class="live">● LIVE</span> ${label(latestDate)} / Himawari-9 / 履歴 ${frames.length}/11`;
+}
+function show(i){
+  if(!frames[i])return;
+  current=i;
+  satUniforms.map.value=frames[i].tex;
+  status.innerHTML=`${i===frames.length-1?'<span class="live">● LIVE</span>':'TIME LAPSE'} ${label(frames[i].date)} / Himawari-9`;
+  bar.style.width=`${frames.length>1?i/(frames.length-1)*100:100}%`;
+}
+async function play(){if(playing)return;playing=true;btnTL.disabled=true;progress.style.display='block'; const ids=frames.map((f,i)=>f?i:-1).filter(i=>i>=0); for(const i of ids){if(!playing)break;show(i);await new Promise(r=>setTimeout(r,1000));} playing=false;show(frames.length-1);btnTL.disabled=false;setTimeout(()=>progress.style.display='none',500);}
+btnTL.onclick=play;
+btnLive.onclick=()=>{playing=false;if(frames.length)show(frames.length-1)};
+btnClouds.onclick=()=>{cloudsOn=!cloudsOn;sat.visible=cloudsOn;btnClouds.textContent=`衛星画像 ${cloudsOn?'ON':'OFF'}`};
+const nightBtn=document.getElementById('nightBtn');
+nightBtn.onclick=()=>{blackMarbleEnabled=!blackMarbleEnabled;nightUniforms.enabled.value=blackMarbleEnabled?1:0;nightBtn.textContent=`🌃 BLACK MARBLE ${blackMarbleEnabled?'ON':'OFF'}`;};
+
+const emphasisBtn=document.getElementById('emphasisBtn');
+emphasisBtn.onclick=()=>{
+  emphasisMode=!emphasisMode;
+  // 強調ON: DirectionalLightを止め、テクスチャそのものの明るさで表示。
+  sun.visible=!emphasisMode;
+  earth.material=emphasisMode?earthBrightMat:earthMat;
+  japanLodMesh.material=emphasisMode?japanLodBrightMat:japanLodLitMat;
+  tokyoLodMesh.material=emphasisMode?tokyoLodBrightMat:tokyoLodLitMat;
+  satUniforms.emphasis.value=emphasisMode?1.0:0.0;
+  satUniforms.opacity.value=emphasisMode?1.0:.82;
+  emphasisBtn.textContent=`✨ 強調 ${emphasisMode?'ON':'OFF'}`;
+};
+
+document.getElementById('uprightBtn').onclick=()=>{
+  // 起動時のカメラ位置・向き・ズームへ完全リセット。
+  controls.target.set(0,0,0);
+  camera.position.set(0,.15,3.2);
+  camera.up.set(0,1,0);
+  camera.lookAt(controls.target);
+  controls.update();
+};
+
+function centerOnLonLat(lon,lat){
+ const dist=camera.position.distanceTo(controls.target);
+ const dir=lonLatToWorld(lon,lat,1).normalize();
+ camera.position.copy(dir.multiplyScalar(dist));camera.up.set(0,1,0);controls.target.set(0,0,0);camera.lookAt(controls.target);controls.update();
+}
+const locBtn=document.getElementById('locBtn');
+locBtn.onclick=()=>{
+ if(!navigator.geolocation){alert('このブラウザでは位置情報を利用できません。');return;}
+ locBtn.disabled=true;locBtn.textContent='📍 位置取得中…';
+ navigator.geolocation.getCurrentPosition(p=>{
+  centerOnLonLat(p.coords.longitude,p.coords.latitude);locBtn.disabled=false;locBtn.textContent='📍 現在位置';
+ },e=>{
+  console.warn(e);alert('現在位置を取得できませんでした。位置情報の許可とHTTPS/localhostを確認してください。');
+  locBtn.disabled=false;locBtn.textContent='📍 現在位置';
+ },{enableHighAccuracy:false,timeout:10000,maximumAge:300000});
+};
+
+
+
+// --- WebXR AR / VR -------------------------------------------------------------
+const arBtn=document.getElementById('arBtn'), vrBtn=document.getElementById('vrBtn');
+const uprightBtn=document.getElementById('uprightBtn');
+
+async function detectXR(){
+  if(!navigator.xr || !window.isSecureContext) return;
+  try{ if(await navigator.xr.isSessionSupported('immersive-ar')) arBtn.style.display='inline-block'; }catch{}
+  try{ if(await navigator.xr.isSessionSupported('immersive-vr')) vrBtn.style.display='inline-block'; }catch{}
+}
+function setXRLockedUI(on){
+  btnTL.disabled=on || frames.length<2;
+  btnLive.disabled=on; btnClouds.disabled=on; nightBtn.disabled=on;
+  emphasisBtn.disabled=on; uprightBtn.disabled=on; locBtn.disabled=on;
+}
+function forceXRVisuals(){
+  // XRは軽量・安定優先: 地表LODを完全OFF、全球初期テクスチャ固定、雲ON、Black Marble ON。
+  japanLodVisible=false;tokyoLodVisible=false;
+  japanLodMesh.visible=false;tokyoLodMesh.visible=false;
+  cloudsOn=true;sat.visible=true;btnClouds.textContent='衛星画像 ON';
+  blackMarbleEnabled=true;nightUniforms.enabled.value=1;nightBtn.textContent='🌃 BLACK MARBLE ON';
+  // XRでは昼夜に関係なく地球を読みやすくする。雲の強調は通常設定を維持。
+  earth.material=earthBrightMat;
+}
+function enterXRScene(mode){
+  xrMode=mode; playing=false; forceXRVisuals(); setXRLockedUI(true);
+  controls.enabled=false;
+  normalGlobe.position.copy(globe.position);normalGlobe.scale.copy(globe.scale);normalGlobe.rotation.copy(globe.rotation);
+  globe.rotation.set(0,0,0);
+  if(mode==='ar'){
+    // WebXRの単位はm。直径約40cmの卓上地球を約90cm前方へ。
+    globe.scale.setScalar(0.20);
+    globe.position.set(0,1.15,-0.90);
+    scene.background=null; renderer.setClearAlpha(0);
+  }else{
+    // VRでは直径約1.5m、目線より少し下・約2.2m前方。
+    globe.scale.setScalar(0.75);
+    globe.position.set(0,1.25,-2.20);
+    scene.background=new THREE.Color(0x02060d);renderer.setClearAlpha(1);
+  }
+  xrFrameIndex=0;xrLastFrameChange=performance.now();
+  if(frames.length) show(0); // 常時タイムラプス: 最古フレームから開始
+  status.innerHTML=`${mode.toUpperCase()} / TIME LAPSE LOOP / Himawari-9`;
+}
+function leaveXRScene(){
+  xrMode=null;xrSession=null;
+  globe.position.copy(normalGlobe.position);globe.scale.copy(normalGlobe.scale);globe.rotation.copy(normalGlobe.rotation);
+  scene.background=new THREE.Color(0x02060d);renderer.setClearAlpha(1);
+  controls.enabled=true;setXRLockedUI(false);
+  earth.material=emphasisMode?earthBrightMat:earthMat;
+  if(frames.length) show(frames.length-1);
+}
+async function startXR(mode){
+  if(!navigator.xr || xrSession)return;
+  try{
+    const sessionMode=mode==='ar'?'immersive-ar':'immersive-vr';
+    const init=mode==='ar'
+      ? {optionalFeatures:['local-floor','dom-overlay'],domOverlay:{root:document.body}}
+      : {optionalFeatures:['local-floor']};
+    const session=await navigator.xr.requestSession(sessionMode,init);
+    xrSession=session;
+    session.addEventListener('end',leaveXRScene,{once:true});
+    await renderer.xr.setSession(session);
+    enterXRScene(mode);
+  }catch(e){
+    console.error('WebXR start failed:',e);
+    alert(`${mode.toUpperCase()}モードを開始できませんでした。HTTPSとWebXR対応状況を確認してください。`);
+  }
+}
+arBtn.onclick=()=>startXR('ar');
+vrBtn.onclick=()=>startXR('vr');
+detectXR();
+
+// update actual latest imagery every 5 minutes; normal mode stays pinned to LIVE.
+setInterval(async()=>{if(!frames.length||playing||xrMode)return; const last=frames[frames.length-1]; const candidate=floor10(new Date(Date.now()-20*60000)); if(candidate<=last.date)return; try{const f=await buildFrame(candidate); if(frames.length>=11)frames.shift(); frames.push(f);show(frames.length-1);}catch{}},300000);
+
+const panel=document.querySelector('.panel');
+const collapseBtn=document.getElementById('collapseBtn');
+collapseBtn.onclick=()=>{
+  const collapsed=panel.classList.toggle('collapsed');
+  collapseBtn.textContent=collapsed?'＋':'−';
+  collapseBtn.title=collapsed?'パネルを開く':'パネルを畳む';
+};
+
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+renderer.setAnimationLoop((time)=>{
+  controls.update();updateJapanLOD();
+  if(xrMode && frames.length){
+    // XRでは1秒/フレームで最古→最新→最古…を永久ループ。
+    if(time-xrLastFrameChange>=1000){
+      xrFrameIndex=(xrFrameIndex+1)%frames.length;
+      satUniforms.map.value=frames[xrFrameIndex].tex;
+      xrLastFrameChange=time;
+    }
+  }
+  renderer.render(scene,camera);
+});
+initFrames();
+</script>
+</body></html>
