@@ -17,13 +17,14 @@ canvas{display:block}
 </head>
 <body>
 <div id="hud"><div class="panel">
-  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.8.7 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.8.9 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
   <div class="panelBody">
   <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
   <div class="controls">
     <button id="timelapse" disabled>▶ TIME LAPSE</button>
     <button id="live">LIVEへ戻る</button>
     <button id="clouds">衛星画像 ON</button>
+    <button id="cloudVisualBtn">☁️ 雲表示 データ</button>
     <button id="nightBtn">🌃 BLACK MARBLE OFF</button>
     <button id="emphasisBtn">✨ 強調 OFF</button>
     <button id="uprightBtn">↺ 初期位置リセット</button>
@@ -32,7 +33,7 @@ canvas{display:block}
     <button id="vrBtn" style="display:none">🥽 VR</button>
   </div>
   <div id="progress"><div id="bar"></div></div>
-  <div class="small">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFF、XでBLACK MARBLE ON/OFFできます。太陽光とBLACK MARBLEの昼夜境界は地球と一緒に追従します。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
+  <div class="small">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFF、XでBLACK MARBLE ON/OFF、Yで雲表示「データ/見栄え」を切り替えできます。太陽光とBLACK MARBLEの昼夜境界は地球と一緒に追従します。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
   </div>
 </div></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
@@ -346,13 +347,14 @@ new THREE.TextureLoader().load(blackMarbleURL(),tex=>{
 const satUniforms={
   map:{value:null},
   opacity:{value:.82},
-  emphasis:{value:0.0}
+  emphasis:{value:0.0},
+  visualMode:{value:0.0}
 };
 const satMat=new THREE.ShaderMaterial({
   transparent:true,depthWrite:false,
   uniforms:satUniforms,
   vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-  fragmentShader:`uniform sampler2D map;uniform float opacity;uniform float emphasis;varying vec2 vUv;
+  fragmentShader:`uniform sampler2D map;uniform float opacity;uniform float emphasis;uniform float visualMode;varying vec2 vUv;
   void main(){
     vec4 t=texture2D(map,vUv);
     // 強調時は雲の中間調を持ち上げ、白を少し強める。透明部分は維持。
@@ -360,7 +362,11 @@ const satMat=new THREE.ShaderMaterial({
     vec3 lifted=pow(max(t.rgb,vec3(0.0)),vec3(0.72))*1.34+vec3(0.045);
     lifted=mix(lifted,vec3(1.0),0.10);
     vec3 c=mix(normal,clamp(lifted,0.0,1.0),emphasis);
-    float a=t.a*mix(opacity,1.0,emphasis);
+    float dataAlpha=t.a*mix(opacity,1.0,emphasis);
+    // 見栄えモード: 暗部ほど透明にするが閾値で切らないため、薄い/細い雲も極力残す。
+    float L=dot(t.rgb,vec3(0.299,0.587,0.114));
+    float prettyAlpha=t.a*mix(0.055,0.97,pow(clamp(L,0.0,1.0),0.72));
+    float a=mix(dataAlpha,prettyAlpha,visualMode);
     if(a<0.001)discard;
     gl_FragColor=vec4(c,a);
   }`
@@ -548,6 +554,13 @@ async function play(){if(playing)return;playing=true;btnTL.disabled=true;progres
 btnTL.onclick=play;
 btnLive.onclick=()=>{playing=false;if(frames.length)show(frames.length-1)};
 btnClouds.onclick=()=>{cloudsOn=!cloudsOn;sat.visible=cloudsOn;btnClouds.textContent=`衛星画像 ${cloudsOn?'ON':'OFF'}`};
+const cloudVisualBtn=document.getElementById('cloudVisualBtn');
+let cloudVisualPretty=false;
+cloudVisualBtn.onclick=()=>{
+  cloudVisualPretty=!cloudVisualPretty;
+  satUniforms.visualMode.value=cloudVisualPretty?1.0:0.0;
+  cloudVisualBtn.textContent=`☁️ 雲表示 ${cloudVisualPretty?'見栄え':'データ'}`;
+};
 const nightBtn=document.getElementById('nightBtn');
 nightBtn.onclick=()=>{blackMarbleEnabled=!blackMarbleEnabled;nightUniforms.enabled.value=blackMarbleEnabled?1:0;nightBtn.textContent=`🌃 BLACK MARBLE ${blackMarbleEnabled?'ON':'OFF'}`;};
 
@@ -669,18 +682,26 @@ function updateXRControllers(time){
 
     const buttons=src.gamepad.buttons || [];
     let prev=xrButtonPrev.get(controller);
-    if(!prev){prev={a:false,b:false,x:false};xrButtonPrev.set(controller,prev);}
+    if(!prev){prev={a:false,b:false,x:false,y:false};xrButtonPrev.set(controller,prev);}
 
     // 左コントローラー X: BLACK MARBLE ON/OFF
     if(src.handedness==='left'){
       const xPressed=!!buttons[4]?.pressed;
+      const yPressed=!!buttons[5]?.pressed;
+
       if(xPressed && !prev.x){
         blackMarbleEnabled=!blackMarbleEnabled;
         nightUniforms.enabled.value=blackMarbleEnabled?1.0:0.0;
         nightBtn.textContent=`🌃 BLACK MARBLE ${blackMarbleEnabled?'ON':'OFF'}`;
       }
-      // 例外が起きても押下状態が毎フレーム再発火しない構造にする
+      if(yPressed && !prev.y){
+        cloudVisualPretty=!cloudVisualPretty;
+        satUniforms.visualMode.value=cloudVisualPretty?1.0:0.0;
+        cloudVisualBtn.textContent=`☁️ 雲表示 ${cloudVisualPretty?'見栄え':'データ'}`;
+      }
+
       prev.x=xPressed;
+      prev.y=yPressed;
       continue;
     }
     if(src.handedness!=='right')continue;
