@@ -17,7 +17,7 @@ canvas{display:block}
 </head>
 <body>
 <div id="hud"><div class="panel">
-  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.9.2 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.9.8 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
   <div class="panelBody">
   <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
   <div class="controls">
@@ -33,7 +33,7 @@ canvas{display:block}
     <button id="vrBtn" style="display:none">🥽 VR</button>
   </div>
   <div id="progress"><div id="bar"></div></div>
-  <div class="small">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFF、XでBLACK MARBLE ON/OFF、Yで雲表示「データ/見栄え」を切り替えできます。太陽光とBLACK MARBLEの昼夜境界は地球と一緒に追従します。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
+  <div class="small">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。昼側はBand 3可視、夜側はBand 13赤外を使い、昼夜境界で滑らかに自動合成。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFF、XでBLACK MARBLE ON/OFF、Yで雲表示「データ/見栄え」を切り替えできます。太陽光とBLACK MARBLEの昼夜境界は地球と一緒に追従します。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
   </div>
 </div></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
@@ -352,37 +352,85 @@ new THREE.TextureLoader().load(blackMarbleURL(),tex=>{
 
 const satUniforms={
   map:{value:null},
+  irMap:{value:null},
   opacity:{value:.82},
   emphasis:{value:0.0},
-  visualMode:{value:0.0}
+  visualMode:{value:0.0},
+  sunDir:{value:new THREE.Vector3(1,0,0)}
 };
 const satMat=new THREE.ShaderMaterial({
   transparent:true,depthWrite:false,
   uniforms:satUniforms,
-  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-  fragmentShader:`uniform sampler2D map;uniform float opacity;uniform float emphasis;uniform float visualMode;varying vec2 vUv;
+  vertexShader:`varying vec2 vUv;varying vec3 vN;
   void main(){
-    vec4 t=texture2D(map,vUv);
-    // 強調時は雲の中間調を持ち上げ、白を少し強める。透明部分は維持。
-    vec3 normal=t.rgb;
-    vec3 lifted=pow(max(t.rgb,vec3(0.0)),vec3(0.72))*1.34+vec3(0.045);
-    lifted=mix(lifted,vec3(1.0),0.10);
-    vec3 c=mix(normal,clamp(lifted,0.0,1.0),emphasis);
-    float dataAlpha=t.a*mix(opacity,1.0,emphasis);
-    // 見栄えモード: 暗部ほど透明にするが閾値で切らないため、薄い/細い雲も極力残す。
-    float L=dot(t.rgb,vec3(0.299,0.587,0.114));
+    vUv=uv;
+    // sunDir is world-space, so the surface normal must also be world-space.
+    // v0.9.3 used normalMatrix (view-space), which made the day/night mask
+    // depend on the camera and could hide the IR night layer.
+    vN=normalize(mat3(modelMatrix)*normal);
+    gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+  }`,
+  fragmentShader:`uniform sampler2D map;
+  uniform sampler2D irMap;
+  uniform float opacity;
+  uniform float emphasis;
+  uniform float visualMode;
+  uniform vec3 sunDir;
+  varying vec2 vUv;
+  varying vec3 vN;
+  void main(){
+    vec4 vis=texture2D(map,vUv);
+    vec4 ir=texture2D(irMap,vUv);
 
-    // 見栄えモード v2:
-    // まず中間調のコントラストを少し上げて雲を立たせ、
-    // その後alpha化。最低alphaも上げ、薄い/細い雲を以前より残す。
+    // Day cloud: existing Band 3 appearance.
+    vec3 normal=vis.rgb;
+    vec3 lifted=pow(max(vis.rgb,vec3(0.0)),vec3(0.72))*1.34+vec3(0.045);
+    lifted=mix(lifted,vec3(1.0),0.10);
+    vec3 dayColor=mix(normal,clamp(lifted,0.0,1.0),emphasis);
+
+    float L=dot(vis.rgb,vec3(0.299,0.587,0.114));
     float contrastL=clamp((L-0.42)*1.18+0.42,0.0,1.0);
     float cloudSignal=max(L,contrastL);
-
-    // Soft-mask: 暗部も完全には消さず、薄い雲・雲の縁をかなり残す。
-    // 低輝度域を持ち上げるガンマと高めのfloorで、元データ表示との中間を狙う。
     float cloudLift=pow(clamp(cloudSignal,0.0,1.0),0.42);
-    float prettyAlpha=t.a*mix(0.27,0.99,cloudLift);
-    float a=mix(dataAlpha,prettyAlpha,visualMode);
+    float dayPretty=vis.a*mix(0.27,0.99,cloudLift);
+    float dayData=vis.a*mix(opacity,1.0,emphasis);
+    float dayA=mix(dayData,dayPretty,visualMode);
+
+    // Night cloud: Band 13 clean infrared. Keep it neutral-white so Black Marble
+    // remains readable underneath. Bright/cold cloud tops become stronger.
+    float irL=dot(ir.rgb,vec3(0.299,0.587,0.114));
+    float irSignal=pow(clamp(irL,0.0,1.0),0.58);
+    vec3 irColor=mix(vec3(0.62),vec3(1.0),irSignal);
+
+    // Band 13 DATA mode remains unchanged.
+    float irDataA=ir.a*mix(0.24,0.84,irSignal);
+
+    // Band 13 見栄え mode (night side only):
+    // Aim for the NICT-style presentation: preserve cloud structures while
+    // making the warm surface/ocean background almost transparent.
+    // No whitening/color lift is applied; only alpha is reshaped.
+    //
+    // A broad soft knee retains low/mid-level and thin cloud detail.
+    float irMask=smoothstep(0.18,0.58,irL);
+    float irThin=pow(clamp(irL,0.0,1.0),0.62);
+    float irCloudMask=max(irMask,irThin*0.72);
+
+    // Very dark background is nearly clear, but never hard-clipped.
+    // Slightly more transparent than v0.9.6: preserve the cloud mask/detail,
+    // but reduce only its compositing strength so the globe/Black Marble reads through.
+    float irPrettyA=ir.a*(0.015 + 0.78*irCloudMask);
+
+    float irA=mix(irDataA,irPrettyA,visualMode);
+    // Keep the original Band 13 tone in both modes.  This avoids the
+    // white veil seen in v0.9.5.
+    irA*=mix(0.92,1.08,emphasis);
+
+    // Per-pixel solar blend. Broad twilight band avoids a hard terminator seam.
+    float nd=dot(normalize(vN),normalize(sunDir));
+    float daylight=smoothstep(-0.10,0.14,nd);
+    vec3 c=mix(irColor,dayColor,daylight);
+    float a=mix(irA,dayA,daylight);
+
     if(a<0.001)discard;
     gl_FragColor=vec4(c,a);
   }`
@@ -397,7 +445,7 @@ const starsGeo=new THREE.BufferGeometry(); const a=[]; for(let i=0;i<1400;i++){c
 const status=document.querySelector('#status'), btnTL=document.querySelector('#timelapse'),btnLive=document.querySelector('#live'),btnClouds=document.querySelector('#clouds'),progress=document.querySelector('#progress'),bar=document.querySelector('#bar');
 const loader=new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
 const SATELLITES=[
-  {name:'Himawari-9', layer:'Himawari_AHI_Band3_Red_Visible_1km', lon:140.7},
+  {name:'Himawari-9', layer:'Himawari_AHI_Band3_Red_Visible_1km', irLayer:'Himawari_AHI_Band13_Clean_Infrared', lon:140.7},
   {name:'GOES-West', layer:'GOES-West_ABI_Band2_Red_Visible_1km', lon:-137.2},
   {name:'GOES-East', layer:'GOES-East_ABI_Band2_Red_Visible_1km', lon:-75.2}
 ];
@@ -480,32 +528,55 @@ async function satelliteImageWithFallback(d,satInfo,maxBack=3){
 }
 
 async function buildFrame(d){
-  // Himawari-9だけを厳密に使用。指定時刻の画像が空ならその時刻は不採用。
-  const him=await satelliteImage(d,SATELLITES[0]);
+  // Same Himawari observation time: Band 3 for daylight + Band 13 IR for night.
+  const satInfo=SATELLITES[0];
+  const [him,irHim]=await Promise.all([
+    satelliteImage(d,satInfo),
+    satelliteImage(d,{name:'Himawari-9 IR',layer:satInfo.irLayer,lon:satInfo.lon})
+  ]);
 
-  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
-  const ctx=cv.getContext('2d',{willReadFrequently:true});
-  const out=ctx.createImageData(W,H), op=out.data;
-  const p=him.img.data, DEG=Math.PI/180, satLon=140.7*DEG;
+  function makeDiskTexture(srcData,rejectWhiteNoData=false){
+    const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+    const ctx=cv.getContext('2d',{willReadFrequently:true});
+    const out=ctx.createImageData(W,H), op=out.data;
+    const p=srcData, DEG=Math.PI/180, satLon=140.7*DEG;
 
-  for(let y=0;y<H;y++){
-    const lat=(90-(y+.5)*180/H)*DEG, cl=Math.cos(lat);
-    for(let x=0;x<W;x++){
-      const k=(y*W+x)*4;
-      const lon=(-180+(x+.5)*360/W)*DEG;
-      const cg=cl*Math.cos(lon-satLon);
-      if(cg<=0.015 || p[k+3]<5) continue;
-      const edge=smooth01((cg-0.015)/0.165);
-      if(edge<=0.001) continue;
-      op[k]=p[k]; op[k+1]=p[k+1]; op[k+2]=p[k+2];
-      op[k+3]=Math.round(p[k+3]*edge);
+    for(let y=0;y<H;y++){
+      const lat=(90-(y+.5)*180/H)*DEG, cl=Math.cos(lat);
+      for(let x=0;x<W;x++){
+        const k=(y*W+x)*4;
+        const lon=(-180+(x+.5)*360/W)*DEG;
+        const cg=cl*Math.cos(lon-satLon);
+        if(cg<=0.015 || p[k+3]<5) continue;
+        const edge=smooth01((cg-0.015)/0.165);
+        if(edge<=0.001) continue;
+
+        // GIBS Band 13 can return white / near-white rectangular NoData fill.
+        // Reject only neutral, nearly saturated pixels; genuine cloud structure
+        // normally retains tonal variation and is not a flat RGB=white fill.
+        if(rejectWhiteNoData){
+          const r=p[k],g=p[k+1],b=p[k+2];
+          const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+          if(mx>=248 && mn>=248 && (mx-mn)<=3) continue;
+        }
+
+        op[k]=p[k]; op[k+1]=p[k+1]; op[k+2]=p[k+2];
+        op[k+3]=Math.round(p[k+3]*edge);
+      }
     }
+    ctx.putImageData(out,0,0);
+    const tex=new THREE.CanvasTexture(cv);
+    tex.colorSpace=THREE.SRGBColorSpace;
+    tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+    return tex;
   }
-  ctx.putImageData(out,0,0);
-  const tex=new THREE.CanvasTexture(cv);
-  tex.colorSpace=THREE.SRGBColorSpace;
-  tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
-  return {date:new Date(d),tex,sources:['Himawari-9']};
+
+  return {
+    date:new Date(d),
+    tex:makeDiskTexture(him.img.data,false),
+    irTex:makeDiskTexture(irHim.img.data,true),
+    sources:['Himawari-9 Band 3','Himawari-9 Band 13']
+  };
 }
 function smooth01(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);}
 async function initFrames(){
@@ -531,7 +602,7 @@ async function initFrames(){
 
   // 最初の1枚を即表示。履歴ロード完了を待たない。
   frames=[latest];
-  satUniforms.map.value=latest.tex; current=0;
+  satUniforms.map.value=latest.tex; satUniforms.irMap.value=latest.irTex; current=0;
   status.innerHTML=`<span class="live">● LIVE</span> ${label(latestDate)} / Himawari-9 / 履歴を読込中 1/11`;
   btnTL.disabled=true;
 
@@ -556,6 +627,7 @@ async function initFrames(){
   frames=[...history.reverse(),latest];
   current=frames.length-1;
   satUniforms.map.value=latest.tex;
+  satUniforms.irMap.value=latest.irTex;
   btnTL.disabled=frames.length<2;
   status.innerHTML=`<span class="live">● LIVE</span> ${label(latestDate)} / Himawari-9 / 履歴 ${frames.length}/11`;
 }
@@ -563,6 +635,7 @@ function show(i){
   if(!frames[i])return;
   current=i;
   satUniforms.map.value=frames[i].tex;
+  satUniforms.irMap.value=frames[i].irTex;
   status.innerHTML=`${i===frames.length-1?'<span class="live">● LIVE</span>':'TIME LAPSE'} ${label(frames[i].date)} / Himawari-9`;
   bar.style.width=`${frames.length>1?i/(frames.length-1)*100:100}%`;
 }
@@ -795,6 +868,7 @@ function syncGlobeLockedSun(){
   sun.getWorldPosition(_sunWorld);
   globe.getWorldPosition(_globeWorld);
   nightUniforms.sunDir.value.copy(_sunWorld).sub(_globeWorld).normalize();
+  satUniforms.sunDir.value.copy(nightUniforms.sunDir.value);
 }
 
 renderer.setAnimationLoop((time)=>{
@@ -804,6 +878,7 @@ renderer.setAnimationLoop((time)=>{
     if(time-xrLastFrameChange>=1000){
       xrFrameIndex=(xrFrameIndex+1)%frames.length;
       satUniforms.map.value=frames[xrFrameIndex].tex;
+      satUniforms.irMap.value=frames[xrFrameIndex].irTex;
       xrLastFrameChange=time;
     }
   }
