@@ -67,10 +67,10 @@ button.livebtn{border-color:#52e9a0}
       OBS frames are generated in-browser from the EUMETSAT EUMETView global composite. GLOBAL uses the IR 10.8 µm nominal time as its reference; Dust RGB and Natural Colour RGB are used only when the same nominal time is advertised.
       If the latest EUMETSAT composite is behind real time, 3-hour HYBRID frames are generated up to the latest completed 3-hour slot. They extrapolate motion from the two newest OBS cloud-alpha frames and use NOAA GFS total-cloud-cover guidance obtained through the Open-Meteo API. HYBRID is a forecast-assisted estimate, not a satellite observation.
       The surface uses NASA Blue Marble and city lights use NASA Black Marble. All displayed frame times use this device’s local time zone. Sun position, day/night shading, and city lights are synchronized to the selected frame time. Manual frame selection and TIME LAPSE use the same frame-rendering path.
-      Drag: rotate / Wheel or pinch: zoom. SUN OFF disables solar day/night shading and lights the whole globe uniformly for easier viewing. v0.15 keeps the adaptive drag behavior and adds regional NASA Blue Marble surface LOD. When you zoom in, a higher-resolution WMS patch is loaded only around the current view center, with soft feathered edges and a small LRU texture cache. SUN OFF remains a uniform full-globe viewing mode. In XR, use the right stick to rotate and Grip to grab and move the globe.
+      Drag: rotate / Wheel or pinch: zoom. SUN OFF disables solar day/night shading and lights the whole globe uniformly for easier viewing. v0.15 keeps the adaptive drag behavior and adds regional NASA Blue Marble surface LOD. When you zoom in, a higher-resolution WMS patch is loaded only around the current view center, with soft feathered edges and a small LRU texture cache. SUN OFF remains a uniform full-globe viewing mode. In XR, use the right stick to rotate around Earth's own north-south axis. Grip moves the globe by translation only, so grabbing and moving it no longer tilts the planetary axis.
     </div>
   </div>
-  <div class="title"><span class="titleMain">EARTH WEATHER XR <span class="badge">v0.15 SURFACE LOD</span><span id="titleFrameTime" class="frameStamp">--/-- --:--</span></span><button id="collapse">−</button></div>
+  <div class="title"><span class="titleMain">EARTH WEATHER XR <span class="badge">v0.16 XR AXIS LOCK</span><span id="titleFrameTime" class="frameStamp">--/-- --:--</span></span><button id="collapse">−</button></div>
 </div></div>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
@@ -874,7 +874,11 @@ locationBtn.onclick=()=>{
   );
 };
 
-let xrSession=null,xrMode=null,grabber=null,preXRState=null;const ctrls=[],grips=[];
+let xrSession=null,xrMode=null,grabber=null,preXRState=null;
+const ctrls=[],grips=[];
+const xrGrabControllerWorld=new THREE.Vector3();
+const xrGrabOffsetWorld=new THREE.Vector3();
+const xrGrabCurrentWorld=new THREE.Vector3();
 async function detectXR(){
   if(!navigator.xr||!isSecureContext)return;
   try{if(await navigator.xr.isSessionSupported('immersive-ar'))arBtn.classList.remove('hidden')}catch{}
@@ -885,8 +889,17 @@ function setupXRControllers(){
     const c=renderer.xr.getController(i),g=renderer.xr.getControllerGrip(i);scene.add(c,g);ctrls.push(c);grips.push(g);
     c.addEventListener('connected',e=>{c.userData.inputSource=e.data;});
     c.addEventListener('disconnected',()=>{c.userData.inputSource=null;});
-    c.addEventListener('squeezestart',()=>{if(!grabber){grabber=c;c.attach(globe)}});
-    c.addEventListener('squeezeend',()=>{if(grabber===c){scene.attach(globe);grabber=null}});
+    c.addEventListener('squeezestart',()=>{
+      if(grabber)return;
+      grabber=c;
+      // Translation-only grab: keep the globe parented to scene and preserve its quaternion.
+      // This prevents controller wrist rotation from tilting Earth's north-south axis.
+      c.getWorldPosition(xrGrabControllerWorld);
+      xrGrabOffsetWorld.copy(globe.position).sub(xrGrabControllerWorld);
+    });
+    c.addEventListener('squeezeend',()=>{
+      if(grabber===c)grabber=null;
+    });
   }
 }
 setupXRControllers();
@@ -901,7 +914,6 @@ async function startXR(mode){
     globe.rotation.set(0,THREE.MathUtils.degToRad(139),0);
     scene.background=mode==='ar'?null:new THREE.Color(0x01040a);
     xrSession.addEventListener('end',()=>{
-      if(grabber)scene.attach(globe);
       grabber=null;xrSession=null;xrMode=null;
       if(preXRState){globe.position.copy(preXRState.position);globe.quaternion.copy(preXRState.quaternion);globe.scale.copy(preXRState.scale);preXRState=null;}
       scene.background=new THREE.Color(0x01040a);controls.enabled=true;
@@ -911,10 +923,20 @@ async function startXR(mode){
 arBtn.onclick=()=>startXR('ar');vrBtn.onclick=()=>startXR('vr');detectXR();
 
 function updateXR(){
-  if(!xrMode||grabber)return;
+  if(!xrMode)return;
+
+  // Grip follows controller position only. Never copy controller orientation into globe.
+  if(grabber){
+    grabber.getWorldPosition(xrGrabCurrentWorld);
+    globe.position.copy(xrGrabCurrentWorld).add(xrGrabOffsetWorld);
+  }
+
+  // Rotate around the globe's LOCAL Y axis (geographic north-south axis).
+  // Using rotateY keeps the axis intrinsic to Earth even after the globe has been moved.
   for(const c of ctrls){
     const gp=c.userData.inputSource?.gamepad;if(!gp)continue;
-    const x=gp.axes?.[2]??gp.axes?.[0]??0;if(Math.abs(x)>.16)globe.rotation.y-=x*.025;
+    const x=gp.axes?.[2]??gp.axes?.[0]??0;
+    if(Math.abs(x)>.16)globe.rotateY(-x*.025);
   }
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
