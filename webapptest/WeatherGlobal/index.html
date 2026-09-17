@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>EARTH WEATHER XR — EUMET Global Prototype</title>
+<style>
+:root{color-scheme:dark}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#01040a;color:#eef6ff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
+canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;padding:calc(10px + env(safe-area-inset-top)) 12px calc(10px + env(safe-area-inset-bottom));box-sizing:border-box}
+.panel{pointer-events:auto;position:absolute;left:12px;bottom:calc(10px + env(safe-area-inset-bottom));width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));display:flex;flex-direction:column;overflow:hidden;background:rgba(4,12,25,.80);border:1px solid rgba(150,205,255,.22);border-radius:15px;backdrop-filter:blur(14px);box-shadow:0 14px 42px rgba(0,0,0,.34)}
+.body{min-height:0;overflow:auto;padding:11px 12px 8px;-webkit-overflow-scrolling:touch}
+.title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-top:1px solid rgba(150,205,255,.15);font-weight:700;letter-spacing:.03em;flex:0 0 auto}
+.badge{font-size:10px;font-weight:700;padding:2px 6px;border:1px solid rgba(126,203,255,.28);border-radius:999px;color:#a8ddff}
+.titleMain{display:flex;align-items:center;gap:7px;min-width:0;white-space:nowrap}
+.frameStamp{font-size:10px;font-weight:700;letter-spacing:0;padding:2px 6px;border:1px solid rgba(126,203,255,.20);border-radius:999px;color:#b7d8ee;background:rgba(255,255,255,.035)}
+.frameStamp.hybrid{color:#ffd477;border-color:rgba(255,201,93,.38);background:rgba(125,80,10,.18)}
+@media(max-width:430px){.badge{display:none}.frameStamp{font-size:9px;padding:2px 5px}}
+.status{font-size:12px;line-height:1.45;color:#cfe9ff;margin:0 0 8px}
+.live{color:#63ffae;font-weight:800}
+.warn{color:#ffd17a}
+.hybridStatus{color:#ffcf72;font-weight:800}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}
+button{appearance:none;border:1px solid rgba(137,200,255,.28);background:rgba(20,60,95,.58);color:#eff8ff;border-radius:10px;padding:9px 10px;font-size:12px;font-weight:650;cursor:pointer}
+button:hover{background:rgba(28,78,120,.72)}
+button:disabled{opacity:.38;cursor:default}
+button.on{border-color:#64d8ff;background:rgba(14,104,148,.72)}
+button.livebtn{border-color:#52e9a0}
+#collapse{padding:5px 11px;min-width:42px}
+.small{font-size:11px;line-height:1.5;color:#9fc3dc}
+#progress{height:3px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin:7px 0}
+#bar{height:100%;width:0;background:#72d9ff;transition:width .2s}
+#timeStrip{display:flex;gap:4px;overflow-x:auto;padding:3px 0 1px;scrollbar-width:thin}
+.tick{flex:0 0 auto;font-size:9px;padding:3px 5px;border-radius:7px;border:1px solid rgba(140,195,230,.16);color:#89abc0}
+.tick.observed{border-color:rgba(99,216,255,.28)}
+.tick.hybrid{color:#d9b86f;border-color:rgba(255,201,93,.32);background:rgba(125,80,10,.14)}
+.tick.active{color:#fff;border-color:#63d8ff;background:rgba(30,110,145,.5)}
+.tick.hybrid.active{border-color:#ffd06d;background:rgba(140,91,15,.42)}
+.hidden{display:none!important}
+@media(max-width:600px){.panel{left:8px;width:calc(100vw - 16px);bottom:calc(7px + env(safe-area-inset-bottom));max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}.body{padding:9px 10px 7px}.grid{gap:6px}button{padding:8px 8px}}
+</style>
+</head>
+<body>
+<div id="hud"><div class="panel" id="panel">
+  <div class="body" id="panelBody">
+    <div class="status" id="status"><span class="live">● GLOBAL</span> Initializing…</div>
+    <div id="progress"><div id="bar"></div></div>
+    <div class="grid">
+      <button id="cloudBtn" class="on">☁ CLOUDS ON</button>
+      <button id="nightBtn" class="on">🌃 CITY LIGHTS ON</button>
+      <button id="tlBtn" disabled>▶ TIME LAPSE</button>
+      <button id="liveBtn" class="livebtn">● LATEST</button>
+      <button id="resetBtn">⌂ INITIAL VIEW</button>
+      <button id="locationBtn">⌖ CURRENT LOCATION</button>
+      <button id="sunBtn" class="on">☀ SUN ON</button>
+      <button id="infoBtn">ℹ INFO</button>
+    </div>
+    <div class="grid">
+      <button id="arBtn" class="hidden">🥽 AR</button>
+      <button id="vrBtn" class="hidden">🥽 VR</button>
+    </div>
+    <div id="sourceTimes" class="small"></div>
+    <div id="lodStatus" class="small">Surface detail: GLOBAL 4K</div>
+    <div id="timeStrip"></div>
+    <div id="info" class="small hidden">
+      OBS frames are generated in-browser from the EUMETSAT EUMETView global composite. GLOBAL uses the IR 10.8 µm nominal time as its reference; Dust RGB and Natural Colour RGB are used only when the same nominal time is advertised.
+      If the latest EUMETSAT composite is behind real time, 3-hour HYBRID frames are generated up to the latest completed 3-hour slot. They extrapolate motion from the two newest OBS cloud-alpha frames and use NOAA GFS total-cloud-cover guidance obtained through the Open-Meteo API. HYBRID is a forecast-assisted estimate, not a satellite observation.
+      The surface uses NASA Blue Marble and city lights use NASA Black Marble. All displayed frame times use this device’s local time zone. Sun position, day/night shading, and city lights are synchronized to the selected frame time. Manual frame selection and TIME LAPSE use the same frame-rendering path.
+      Drag: rotate / Wheel or pinch: zoom. SUN OFF disables solar day/night shading and lights the whole globe uniformly for easier viewing. v0.15 keeps the adaptive drag behavior and adds regional NASA Blue Marble surface LOD. When you zoom in, a higher-resolution WMS patch is loaded only around the current view center, with soft feathered edges and a small LRU texture cache. SUN OFF remains a uniform full-globe viewing mode. In XR, use the right stick to rotate and Grip to grab and move the globe.
+    </div>
+  </div>
+  <div class="title"><span class="titleMain">EARTH WEATHER XR <span class="badge">v0.15 SURFACE LOD</span><span id="titleFrameTime" class="frameStamp">--/-- --:--</span></span><button id="collapse">−</button></div>
+</div></div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+const EUMET='https://view.eumetsat.int/geoserver/ows';
+const GIBS='https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+const OPEN_METEO='https://api.open-meteo.com/v1/forecast';
+const LAYERS={
+  ir:'mumi:worldcloudmap_ir108',
+  dust:'mumi:wideareacoverage_rgb_dust',
+  natural:'mumi:wideareacoverage_rgb_natural'
+};
+const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const CLOUD_W=isMobile?1024:2048, CLOUD_H=CLOUD_W/2;
+const SURFACE_W=isMobile?2048:4096, SURFACE_H=SURFACE_W/2;
+// Regional surface LOD: keep the 4K/2K global map as a permanent fallback and
+// fetch only the area around the current view when the camera is close.
+const SURFACE_LOD_LEVELS={
+  L1:{id:'L1',maxDistance:2.15,lonSpan:70,latSpan:42,width:isMobile?1536:2048,snapLon:12,snapLat:8},
+  L2:{id:'L2',maxDistance:1.55,lonSpan:30,latSpan:18,width:isMobile?2048:3072,snapLon:5,snapLat:3}
+};
+const MAX_LOD_CACHE=isMobile?2:3;
+const MAX_OBS_FRAMES=10, SEARCH_SLOTS=24;
+const HYBRID_STEP_MS=3*3600e3, MAX_HYBRID_HOURS=24, GFS_GRID_STEP=15, GFS_BATCH=48;
+
+const statusEl=document.getElementById('status'), bar=document.getElementById('bar');
+const cloudBtn=document.getElementById('cloudBtn'), nightBtn=document.getElementById('nightBtn');
+const tlBtn=document.getElementById('tlBtn'), liveBtn=document.getElementById('liveBtn'), resetBtn=document.getElementById('resetBtn');
+const locationBtn=document.getElementById('locationBtn'), sunBtn=document.getElementById('sunBtn');
+const infoBtn=document.getElementById('infoBtn'), info=document.getElementById('info'), strip=document.getElementById('timeStrip'), sourceTimes=document.getElementById('sourceTimes'), lodStatus=document.getElementById('lodStatus');
+const titleFrameTime=document.getElementById('titleFrameTime');
+const arBtn=document.getElementById('arBtn'),vrBtn=document.getElementById('vrBtn');
+document.getElementById('collapse').onclick=()=>{
+  const b=document.getElementById('panelBody'); b.classList.toggle('hidden');
+  document.getElementById('collapse').textContent=b.classList.contains('hidden')?'+':'−';
+};
+infoBtn.onclick=()=>info.classList.toggle('hidden');
+
+function setStatus(msg,kind='global'){
+  if(kind===true)kind='warn';
+  const cls=kind==='warn'?'warn':kind==='hybrid'?'hybridStatus':'live';
+  const label=kind==='warn'?'▲':kind==='hybrid'?'◆ HYBRID':'● GLOBAL';
+  statusEl.innerHTML=`<span class="${cls}">${label}</span> ${msg}`;
+}
+function setProgress(x){bar.style.width=`${Math.max(0,Math.min(100,x))}%`;}
+function smooth(a,b,x){x=Math.max(0,Math.min(1,(x-a)/(b-a)));return x*x*(3-2*x);}
+function clamp01(x){return Math.max(0,Math.min(1,x));}
+function localShort(s){
+  const d=new Date(s);
+  return new Intl.DateTimeFormat(undefined,{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(d);
+}
+function localZoneLabel(){
+  try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'Local time';}catch(e){return 'Local time';}
+}
+function isoShort(s){return `${localShort(s)} local`;}
+
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,isMobile?1.6:2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.AgXToneMapping;
+renderer.toneMappingExposure=1.15;
+renderer.xr.enabled=true;
+document.body.prepend(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x01040a);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.01,100);
+camera.position.set(-2.40,.12,-2.10);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=.055;controls.minDistance=1.28;controls.maxDistance=8;
+controls.target.set(0,0,0);
+
+// OrbitControls normally rotates by a fixed angle per screen pixel, regardless of zoom.
+// That feels far too sensitive near the surface because the visible geographic area is much smaller.
+// Scale mouse/touch rotation by camera-to-surface gap, preserving the familiar speed near the initial view.
+const INITIAL_CAMERA_DISTANCE=camera.position.distanceTo(controls.target);
+const INITIAL_SURFACE_GAP=Math.max(.001,INITIAL_CAMERA_DISTANCE-1.0);
+function updateAdaptiveRotateSpeed(){
+  const d=camera.position.distanceTo(controls.target);
+  const gap=Math.max(.001,d-1.0);
+  const zoomScale=THREE.MathUtils.clamp(gap/INITIAL_SURFACE_GAP,.10,1.0);
+  // Slight easing keeps medium zoom responsive while making very close inspection precise.
+  controls.rotateSpeed=.92*Math.pow(zoomScale,.82);
+}
+updateAdaptiveRotateSpeed();
+
+// WMS/GIBS are north-up west-to-east. The verified v0.3+ orientation keeps U as-is and flips only V when sampling textures.
+const globe=new THREE.Group();scene.add(globe);
+const sphereGeo=new THREE.SphereGeometry(1,160,96);
+const cloudGeo=new THREE.SphereGeometry(1.0012,160,96);
+const atmGeo=new THREE.SphereGeometry(1.018,160,96);
+
+const dummyWhite=new THREE.DataTexture(new Uint8Array([255,255,255,255]),1,1);dummyWhite.needsUpdate=true;dummyWhite.colorSpace=THREE.SRGBColorSpace;
+const dummyBlack=new THREE.DataTexture(new Uint8Array([0,0,0,255]),1,1);dummyBlack.needsUpdate=true;dummyBlack.colorSpace=THREE.SRGBColorSpace;
+const dummyAlpha=new THREE.DataTexture(new Uint8Array([0]),1,1,THREE.RedFormat);dummyAlpha.needsUpdate=true;dummyAlpha.colorSpace=THREE.NoColorSpace;
+
+const surfaceUniforms={
+  baseMap:{value:dummyWhite}, nightMap:{value:dummyBlack}, cloudAlpha:{value:dummyAlpha},
+  sunDir:{value:new THREE.Vector3(1,0,0)}, nightOn:{value:1.0}, cloudShadowOn:{value:1.0},
+  cloudRadius:{value:1.0012}, fullBright:{value:0.0}
+};
+const surfaceMat=new THREE.ShaderMaterial({
+  uniforms:surfaceUniforms,
+  vertexShader:`varying vec2 vUv;varying vec3 vPos;varying vec3 vN;
+  void main(){vUv=uv;vPos=position;vN=normalize(normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`precision highp float;
+  uniform sampler2D baseMap,nightMap,cloudAlpha;uniform vec3 sunDir;uniform float nightOn,cloudShadowOn,cloudRadius,fullBright;
+  varying vec2 vUv;varying vec3 vPos;varying vec3 vN;
+  const float PI=3.14159265359;
+  vec2 fixUV(vec2 uv){return vec2(uv.x,1.-uv.y);}
+  // Convert a local-space sphere point directly to the same WMS sampling coordinates
+  // used by mapUv. SphereGeometry's U is phi/(2PI); WMS V is north-to-south.
+  vec2 sphereMapUV(vec3 p){p=normalize(p);float phi=atan(p.z,-p.x);float lat=asin(clamp(p.y,-1.,1.));return vec2(fract(phi/(2.*PI)+1.),.5-lat/PI);}
+  void main(){
+    vec3 n=normalize(vN),s=normalize(sunDir);float mu=dot(n,s);
+    vec2 mapUv=fixUV(vUv);
+    vec3 a=texture2D(baseMap,mapUv).rgb;
+    float day=mix(max(mu,0.),1.0,fullBright);
+    float sky=0.055+0.085*pow(max(0.,1.-abs(mu)),1.7);
+    float sh=0.;
+    if(cloudShadowOn>.5 && fullBright<.5 && mu>0.02){
+      vec3 p=normalize(vPos);float b=dot(p,s);float c=dot(p,p)-cloudRadius*cloudRadius;
+      float disc=max(0.,b*b-c);float t=-b+sqrt(disc);
+      vec3 q=p+t*s;sh=texture2D(cloudAlpha,sphereMapUV(q)).r;
+    }
+    float T=1.-.42*sh;
+    // Brighter photographic rendering. Blue Marble is sampled in linear light, so a
+    // stronger diffuse scale plus AgX exposure is needed to match the apparent
+    // brightness of the source imagery without clipping highlights.
+    float surfaceLight=mix(0.10,0.18,fullBright)+1.42*day*T;
+    float uniformBoost=mix(1.0,1.18,fullBright);
+    vec3 diffuse=a*surfaceLight*uniformBoost;
+    // modest ocean/sky lift inferred from dark blue base pixels; no hard ocean replacement
+    float blueDom=max(0.,a.b-max(a.r,a.g));float dark=1.-smoothstep(.08,.32,dot(a,vec3(.2126,.7152,.0722)));
+    vec3 oceanLift=vec3(.0045,.015,.038)*(0.25+1.5*blueDom)*dark*(.35+.65*day)*uniformBoost;
+    vec3 city=texture2D(nightMap,mapUv).rgb;
+    float night=(1.-fullBright)*(1.-smoothstep(-.10,.03,mu));
+    vec3 color=diffuse+oceanLift+city*(1.35*night*nightOn);
+    // ShaderMaterial does not automatically append the built-in material output stage.
+    // Keep lighting in linear HDR, then apply the renderer's AgX tone mapping and
+    // linear -> output (sRGB) conversion exactly once. Without these chunks the
+    // linear values are sent directly to the display and midtones look far too dark.
+    gl_FragColor=vec4(color,1.);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }`
+});
+const earth=new THREE.Mesh(sphereGeo,surfaceMat);globe.add(earth);
+
+const cloudUniforms={cloudAlpha:{value:dummyAlpha},sunDir:{value:new THREE.Vector3(1,0,0)},opacity:{value:1.0},fullBright:{value:0.0}};
+const cloudMat=new THREE.ShaderMaterial({
+  uniforms:cloudUniforms,transparent:true,depthWrite:false,side:THREE.FrontSide,premultipliedAlpha:true,
+  vertexShader:`varying vec2 vUv;varying vec3 vN;void main(){vUv=uv;vN=normalize(normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`uniform sampler2D cloudAlpha;uniform vec3 sunDir;uniform float opacity,fullBright;varying vec2 vUv;varying vec3 vN;
+  void main(){vec2 mapUv=vec2(vUv.x,1.-vUv.y);float a=texture2D(cloudAlpha,mapUv).r*opacity;if(a<.008)discard;float mu=dot(normalize(vN),normalize(sunDir));
+  float lit=mix(.10+1.05*max(mu,0.),1.18,fullBright);float twilight=(1.-fullBright)*.15*(1.-smoothstep(-.12,.10,mu));vec3 c=vec3(1.0,.985,.95)*(lit+twilight);
+  gl_FragColor=vec4(c*a,a);}`
+});
+const clouds=new THREE.Mesh(cloudGeo,cloudMat);clouds.renderOrder=4;globe.add(clouds);
+
+const atmUniforms={sunDir:{value:new THREE.Vector3(1,0,0)}};
+const atmMat=new THREE.ShaderMaterial({
+  uniforms:atmUniforms,transparent:true,depthWrite:false,side:THREE.BackSide,blending:THREE.AdditiveBlending,
+  vertexShader:`varying vec3 vN;varying vec3 vV;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`uniform vec3 sunDir;varying vec3 vN;varying vec3 vV;void main(){
+    float rim=pow(1.-max(0.,dot(normalize(vN),normalize(vV))),3.1);
+    // view-space sun approximation is intentionally mild; avoid a uniform blue ring
+    float a=.20*rim;vec3 c=vec3(.18,.48,.95)*a;gl_FragColor=vec4(c,a);}`
+});
+const atmosphere=new THREE.Mesh(atmGeo,atmMat);atmosphere.renderOrder=5;globe.add(atmosphere);
+
+function solarPosition(date=new Date()){
+  const rad=Math.PI/180,start=Date.UTC(date.getUTCFullYear(),0,1);
+  const day=(date.getTime()-start)/86400000+1;
+  const utc=date.getUTCHours()+date.getUTCMinutes()/60+date.getUTCSeconds()/3600;
+  const gamma=2*Math.PI/365*(day-1+(utc-12)/24);
+  const eq=229.18*(.000075+.001868*Math.cos(gamma)-.032077*Math.sin(gamma)-.014615*Math.cos(2*gamma)-.040849*Math.sin(2*gamma));
+  const decl=.006918-.399912*Math.cos(gamma)+.070257*Math.sin(gamma)-.006758*Math.cos(2*gamma)+.000907*Math.sin(2*gamma)-.002697*Math.cos(3*gamma)+.00148*Math.sin(3*gamma);
+  const lon=(720-(utc*60+eq))/4;
+  return {lat:decl/rad,lon:((lon+540)%360)-180};
+}
+function lonLatVec(lon,lat){
+  const phi=(90-lat)*Math.PI/180,theta=(lon+180)*Math.PI/180;
+  return new THREE.Vector3(-Math.cos(theta)*Math.sin(phi),Math.cos(phi),Math.sin(theta)*Math.sin(phi)).normalize();
+}
+function updateSun(date=new Date()){
+  const p=solarPosition(date);
+  // sunDir lives in globe-local/geographic coordinates, exactly like the shader normals and maps.
+  // Do NOT counter-rotate it by globe.quaternion: user/XR rotation is only a viewing transform.
+  // Counter-rotation would make day/night slide across countries when the globe is turned.
+  const local=lonLatVec(p.lon,p.lat);
+  surfaceUniforms.sunDir.value.copy(local);
+  cloudUniforms.sunDir.value.copy(local);
+  atmUniforms.sunDir.value.copy(local);
+}
+updateSun();
+
+async function fetchBitmap(url,timeoutMs=20000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const r=await fetch(url,{mode:'cors',cache:'default',signal:controller.signal});
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    const ct=(r.headers.get('content-type')||'').toLowerCase();
+    if(!ct.startsWith('image/')){const t=await r.text();throw new Error(`Not an image: ${ct} ${t.slice(0,80)}`);}
+    const blob=await r.blob();return await createImageBitmap(blob);
+  }finally{clearTimeout(timer);}
+}
+async function textureFromURL(url,colorSpace=THREE.SRGBColorSpace){
+  const bmp=await fetchBitmap(url);const tex=new THREE.Texture(bmp);tex.needsUpdate=true;tex.colorSpace=colorSpace;
+  tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.ClampToEdgeWrapping;tex.minFilter=THREE.LinearMipmapLinearFilter;tex.magFilter=THREE.LinearFilter;
+  tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return tex;
+}
+function gibsURL(layer,format='image/jpeg'){
+  const p=new URLSearchParams({SERVICE:'WMS',REQUEST:'GetMap',VERSION:'1.1.1',LAYERS:layer,STYLES:'',FORMAT:format,
+    WIDTH:String(SURFACE_W),HEIGHT:String(SURFACE_H),SRS:'EPSG:4326',BBOX:'-180,-90,180,90',TRANSPARENT:format==='image/png'?'TRUE':'FALSE'});
+  return `${GIBS}?${p}`;
+}
+async function loadStaticMaps(){
+  setStatus('Loading NASA surface and city lights…');setProgress(4);
+  const [base,night]=await Promise.all([
+    textureFromURL(gibsURL('BlueMarble_NextGeneration','image/jpeg')),
+    textureFromURL(gibsURL('VIIRS_CityLights_2012','image/jpeg'))
+  ]);
+  surfaceUniforms.baseMap.value=base;surfaceUniforms.nightMap.value=night;setProgress(12);
+}
+
+
+// ----- Regional NASA Blue Marble surface LOD ---------------------------------
+// The base globe always remains available. A small spherical patch sits only
+// 0.035% above it, so clouds (radius 1.0012) still render cleanly above the LOD.
+const lodUniforms={
+  lodMap:{value:dummyWhite},
+  nightMap:surfaceUniforms.nightMap,
+  cloudAlpha:surfaceUniforms.cloudAlpha,
+  sunDir:surfaceUniforms.sunDir,
+  nightOn:surfaceUniforms.nightOn,
+  cloudShadowOn:surfaceUniforms.cloudShadowOn,
+  cloudRadius:surfaceUniforms.cloudRadius,
+  fullBright:surfaceUniforms.fullBright
+};
+const lodMat=new THREE.ShaderMaterial({
+  uniforms:lodUniforms,transparent:true,depthWrite:false,side:THREE.FrontSide,
+  vertexShader:`varying vec2 vUv;varying vec3 vPos;varying vec3 vN;
+  void main(){vUv=uv;vPos=position;vN=normalize(normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`precision highp float;
+  uniform sampler2D lodMap,nightMap,cloudAlpha;uniform vec3 sunDir;uniform float nightOn,cloudShadowOn,cloudRadius,fullBright;
+  varying vec2 vUv;varying vec3 vPos;varying vec3 vN;
+  const float PI=3.14159265359;
+  vec2 sphereMapUV(vec3 p){p=normalize(p);float phi=atan(p.z,-p.x);float lat=asin(clamp(p.y,-1.,1.));return vec2(fract(phi/(2.*PI)+1.),.5-lat/PI);}
+  void main(){
+    vec3 n=normalize(vN),s=normalize(sunDir);float mu=dot(n,s);
+    // Patch geometry UV: west->east and south->north. WMS image rows are north->south.
+    vec2 patchUv=vec2(vUv.x,1.-vUv.y);
+    vec2 globalUv=sphereMapUV(vPos);
+    vec3 a=texture2D(lodMap,patchUv).rgb;
+    float day=mix(max(mu,0.),1.0,fullBright);
+    float sh=0.;
+    if(cloudShadowOn>.5 && fullBright<.5 && mu>0.02){
+      vec3 p=normalize(vPos);float b=dot(p,s);float c=dot(p,p)-cloudRadius*cloudRadius;
+      float disc=max(0.,b*b-c);float t=-b+sqrt(disc);vec3 q=p+t*s;
+      sh=texture2D(cloudAlpha,sphereMapUV(q)).r;
+    }
+    float T=1.-.42*sh;
+    float surfaceLight=mix(0.10,0.18,fullBright)+1.42*day*T;
+    float uniformBoost=mix(1.0,1.18,fullBright);
+    vec3 diffuse=a*surfaceLight*uniformBoost;
+    float blueDom=max(0.,a.b-max(a.r,a.g));float dark=1.-smoothstep(.08,.32,dot(a,vec3(.2126,.7152,.0722)));
+    vec3 oceanLift=vec3(.0045,.015,.038)*(0.25+1.5*blueDom)*dark*(.35+.65*day)*uniformBoost;
+    vec3 city=texture2D(nightMap,globalUv).rgb;
+    float night=(1.-fullBright)*(1.-smoothstep(-.10,.03,mu));
+    vec3 color=diffuse+oceanLift+city*(1.35*night*nightOn);
+    // Feather all four borders so the high-resolution patch merges into the global map.
+    float edge=min(min(vUv.x,1.-vUv.x),min(vUv.y,1.-vUv.y));
+    float fade=smoothstep(0.0,0.075,edge);
+    gl_FragColor=vec4(color,fade);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }`
+});
+const lodPatch=new THREE.Mesh(new THREE.BufferGeometry(),lodMat);
+lodPatch.renderOrder=2;lodPatch.visible=false;globe.add(lodPatch);
+
+let lodLevelId=null,lodKey=null,lodLoadingKey=null,lodLastCheck=0,lodRequestId=0;
+const lodTextureCache=new Map();
+const _lodGlobePos=new THREE.Vector3(),_lodCameraPos=new THREE.Vector3(),_lodViewDir=new THREE.Vector3();
+const _lodWorldQ=new THREE.Quaternion(),_lodInvQ=new THREE.Quaternion();
+
+function selectLodLevel(distance){
+  if(distance<SURFACE_LOD_LEVELS.L2.maxDistance)return SURFACE_LOD_LEVELS.L2;
+  if(distance<SURFACE_LOD_LEVELS.L1.maxDistance)return SURFACE_LOD_LEVELS.L1;
+  return null;
+}
+function viewCenterLonLat(){
+  globe.updateWorldMatrix(true,false);
+  globe.getWorldPosition(_lodGlobePos);camera.getWorldPosition(_lodCameraPos);
+  _lodViewDir.copy(_lodCameraPos).sub(_lodGlobePos).normalize();
+  globe.getWorldQuaternion(_lodWorldQ);_lodInvQ.copy(_lodWorldQ).invert();_lodViewDir.applyQuaternion(_lodInvQ).normalize();
+  return {
+    lon:THREE.MathUtils.radToDeg(Math.atan2(-_lodViewDir.z,_lodViewDir.x)),
+    lat:THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(_lodViewDir.y,-1,1)))
+  };
+}
+function makeLodSpec(level,lon,lat){
+  const halfLon=level.lonSpan/2,halfLat=level.latSpan/2;
+  // Snapping avoids a new network request for every tiny drag. Near the date line / poles,
+  // clamp the patch instead of asking WMS for a bbox that crosses +/-180 or +/-90.
+  let cLon=Math.round(lon/level.snapLon)*level.snapLon;
+  let cLat=Math.round(lat/level.snapLat)*level.snapLat;
+  cLon=THREE.MathUtils.clamp(cLon,-180+halfLon,180-halfLon);
+  cLat=THREE.MathUtils.clamp(cLat,-90+halfLat,90-halfLat);
+  const bbox={minLon:cLon-halfLon,maxLon:cLon+halfLon,minLat:cLat-halfLat,maxLat:cLat+halfLat};
+  const height=Math.max(256,Math.round(level.width*level.latSpan/level.lonSpan));
+  const key=`${level.id}:${cLon.toFixed(2)}:${cLat.toFixed(2)}:${level.width}x${height}`;
+  return {level,bbox,width:level.width,height,key,cLon,cLat};
+}
+function makePatchGeometry(bbox,segX=72,segY=44,r=1.00035){
+  const pos=[],norm=[],uv=[],idx=[];
+  const lonSpan=bbox.maxLon-bbox.minLon,latSpan=bbox.maxLat-bbox.minLat;
+  for(let y=0;y<=segY;y++){
+    const v=y/segY,lat=bbox.minLat+latSpan*v;
+    for(let x=0;x<=segX;x++){
+      const u=x/segX,lon=bbox.minLon+lonSpan*u,p=lonLatVec(lon,lat);
+      pos.push(p.x*r,p.y*r,p.z*r);norm.push(p.x,p.y,p.z);uv.push(u,v);
+    }
+  }
+  const row=segX+1;
+  for(let y=0;y<segY;y++)for(let x=0;x<segX;x++){
+    const a=y*row+x,b=a+1,c=a+row,d=c+1;
+    idx.push(a,b,c,b,d,c);
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(norm,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(idx);g.computeBoundingSphere();return g;
+}
+function gibsRegionURL(layer,bbox,width,height,format='image/jpeg'){
+  const p=new URLSearchParams({SERVICE:'WMS',REQUEST:'GetMap',VERSION:'1.1.1',LAYERS:layer,STYLES:'',FORMAT:format,
+    WIDTH:String(width),HEIGHT:String(height),SRS:'EPSG:4326',BBOX:`${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}`,TRANSPARENT:'FALSE'});
+  return `${GIBS}?${p}`;
+}
+function touchLodCache(key,tex){
+  if(lodTextureCache.has(key))lodTextureCache.delete(key);
+  lodTextureCache.set(key,tex);
+  while(lodTextureCache.size>MAX_LOD_CACHE){
+    const oldKey=lodTextureCache.keys().next().value;
+    if(oldKey===lodKey){const t=lodTextureCache.get(oldKey);lodTextureCache.delete(oldKey);lodTextureCache.set(oldKey,t);continue;}
+    const old=lodTextureCache.get(oldKey);lodTextureCache.delete(oldKey);old.dispose();old.source?.data?.close?.();
+  }
+}
+async function textureForLod(spec){
+  if(lodTextureCache.has(spec.key)){const tex=lodTextureCache.get(spec.key);touchLodCache(spec.key,tex);return tex;}
+  const tex=await textureFromURL(gibsRegionURL('BlueMarble_NextGeneration',spec.bbox,spec.width,spec.height,'image/jpeg'));
+  tex.wrapS=THREE.ClampToEdgeWrapping;tex.wrapT=THREE.ClampToEdgeWrapping;tex.needsUpdate=true;
+  touchLodCache(spec.key,tex);return tex;
+}
+async function requestSurfaceLod(spec){
+  if(spec.key===lodKey||spec.key===lodLoadingKey)return;
+  const requestId=++lodRequestId;lodLoadingKey=spec.key;
+  lodStatus.textContent=`Surface detail: loading ${spec.level.id} ${spec.width}×${spec.height}…`;
+  try{
+    const tex=await textureForLod(spec);
+    if(requestId!==lodRequestId)return;
+    const oldGeo=lodPatch.geometry;
+    lodPatch.geometry=makePatchGeometry(spec.bbox);
+    oldGeo?.dispose?.();
+    lodUniforms.lodMap.value=tex;
+    lodPatch.visible=true;lodLevelId=spec.level.id;lodKey=spec.key;
+    lodStatus.textContent=`Surface detail: ${spec.level.id} ${spec.width}×${spec.height} · ${spec.level.lonSpan}°×${spec.level.latSpan}° regional`;
+  }catch(e){
+    if(requestId!==lodRequestId)return;
+    console.warn('Surface LOD unavailable',e);
+    lodStatus.textContent='Surface detail: GLOBAL 4K (regional LOD unavailable)';
+  }finally{if(requestId===lodRequestId)lodLoadingKey=null;}
+}
+function updateSurfaceLod(force=false){
+  const now=performance.now();if(!force&&now-lodLastCheck<350)return;lodLastCheck=now;
+  // Regional LOD is deliberately disabled in immersive XR for predictable Quest memory/performance.
+  if(xrMode){if(lodPatch.visible)lodPatch.visible=false;return;}
+  const distance=camera.position.distanceTo(controls.target),level=selectLodLevel(distance);
+  if(!level){
+    ++lodRequestId;lodLoadingKey=null;lodLevelId=null;lodKey=null;lodPatch.visible=false;
+    lodStatus.textContent=`Surface detail: GLOBAL ${SURFACE_W>=4096?'4K':'2K'}`;return;
+  }
+  const center=viewCenterLonLat(),spec=makeLodSpec(level,center.lon,center.lat);
+  if(spec.key===lodKey){lodPatch.visible=true;return;}
+  requestSurfaceLod(spec);
+}
+
+function eumetURL(layer,time){
+  const p=new URLSearchParams({SERVICE:'WMS',VERSION:'1.3.0',REQUEST:'GetMap',LAYERS:layer,STYLES:'raster',CRS:'CRS:84',
+    BBOX:'-180,-90,180,90',WIDTH:String(CLOUD_W),HEIGHT:String(CLOUD_H),FORMAT:'image/png',TRANSPARENT:'TRUE',
+    TIME:new Date(time).toISOString(),EXCEPTIONS:'XML'});
+  return `${EUMET}?${p}`;
+}
+async function getPixels(layer,time){
+  const bmp=await fetchBitmap(eumetURL(layer,time));
+  if(bmp.width!==CLOUD_W||bmp.height!==CLOUD_H){bmp.close();throw new Error('Unexpected WMS size');}
+  const c=document.createElement('canvas');c.width=CLOUD_W;c.height=CLOUD_H;
+  const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(bmp,0,0);bmp.close();
+  return x.getImageData(0,0,CLOUD_W,CLOUD_H);
+}
+function parseISODurationMs(s){
+  const m=/P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?/.exec(s||'');if(!m)return 3*3600e3;
+  return ((+m[1]||0)*24*3600+(+m[2]||0)*3600+(+m[3]||0)*60+(+m[4]||0))*1000;
+}
+function findLayerTime(xml,name){
+  for(const layer of xml.querySelectorAll('Layer')){
+    const n=[...layer.children].find(e=>e.localName==='Name')?.textContent?.trim();
+    if(n===name){
+      const d=[...layer.children].find(e=>e.localName==='Dimension'&&e.getAttribute('name')==='time');
+      if(d)return {text:d.textContent.trim(),def:d.getAttribute('default'),nearest:d.getAttribute('nearestValue')};
+    }
+  }
+  return null;
+}
+function recentTimes(dim,max=SEARCH_SLOTS){
+  if(!dim)return[];
+  const out=[];
+  for(const part of dim.text.split(',')){
+    const q=part.trim();
+    if(q.includes('/')){
+      const [a,b,step]=q.split('/');const start=Date.parse(a),end=Date.parse(b),dt=parseISODurationMs(step);
+      if(Number.isFinite(start)&&Number.isFinite(end)&&dt>0)for(let t=end;t>=start&&out.length<max;t-=dt)out.push(new Date(t).toISOString());
+    }else if(Date.parse(q))out.push(new Date(q).toISOString());
+  }
+  return [...new Set(out)].sort((a,b)=>Date.parse(b)-Date.parse(a)).slice(0,max);
+}
+async function getCandidateTimes(){
+  setStatus('Checking EUMETView GetCapabilities…');setProgress(15);
+  const u=`${EUMET}?service=WMS&version=1.3.0&request=GetCapabilities`;
+  const r=await fetch(u,{mode:'cors',cache:'no-cache'});if(!r.ok)throw new Error(`Capabilities HTTP ${r.status}`);
+  const xml=new DOMParser().parseFromString(await r.text(),'application/xml');
+  if(xml.querySelector('parsererror'))throw new Error('GetCapabilities XML parse error');
+  const dims=Object.fromEntries(Object.entries(LAYERS).map(([k,v])=>[k,findLayerTime(xml,v)]));
+  const lists=Object.fromEntries(Object.entries(dims).map(([k,d])=>[k,recentTimes(d,SEARCH_SLOTS)]));
+  // v0.5: GLOBAL latest-frame selection is driven by IR. Dust/Natural are optional enhancers and
+  // must never hold the live frame back to their latest common timestamp.
+  const latest={ir:lists.ir[0]||null,dust:lists.dust[0]||null,natural:lists.natural[0]||null};
+  const fmt=t=>t?isoShort(t):'none';
+  sourceTimes.textContent=`Latest source: IR ${fmt(latest.ir)} / Dust ${fmt(latest.dust)} / Natural ${fmt(latest.natural)}`;
+  console.info('EUMET latest advertised times',latest);
+  return {
+    candidates:lists.ir.slice(0,SEARCH_SLOTS),
+    latest,
+    available:{dust:new Set(lists.dust),natural:new Set(lists.natural)}
+  };
+}
+function makeCloudAlpha(ir,dust,natural,time){
+  const out=new Uint8ClampedArray(CLOUD_W*CLOUD_H*4);
+  const alphaBytes=new Uint8Array(CLOUD_W*CLOUD_H);
+  const I=ir.data,D=dust?.data,N=natural?.data;
+  // solarPosition used to be recomputed for every pixel (~2 million calls at 2048x1024).
+  // Compute the frame's subsolar point once, and precompute longitude terms once per column.
+  const DEG=Math.PI/180,RAD2DEG=180/Math.PI,sp=solarPosition(new Date(time));
+  const sinDecl=Math.sin(sp.lat*DEG),cosDecl=Math.cos(sp.lat*DEG);
+  const cosHour=new Float32Array(CLOUD_W);
+  for(let x=0;x<CLOUD_W;x++){const lon=-180+(x+.5)/CLOUD_W*360;cosHour[x]=Math.cos((lon-sp.lon)*DEG);}
+  let validCount=0;
+  for(let y=0;y<CLOUD_H;y++){
+    const lat=90-(y+.5)/CLOUD_H*180,latRad=lat*DEG;
+    const sinLat=Math.sin(latRad),cosLat=Math.cos(latRad);
+    for(let x=0;x<CLOUD_W;x++){
+      const k=(y*CLOUD_W+x)*4;
+      const validIR=I[k+3]>8, validD=D&&D[k+3]>8, validN=N&&N[k+3]>8;
+      if(!validIR&&!validN){out[k+3]=0;continue;}
+      validCount++;
+      let cIR=0,dcold=0,damb=0,cvis=0;
+      if(validIR){
+        const ii=(I[k]+I[k+1]+I[k+2])/(3*255);
+        cIR=Math.pow(smooth(.28,.70,ii),.8);
+      }
+      if(validD){
+        const r=D[k]/255,g=D[k+1]/255,b=D[k+2]/255;
+        dcold=smooth(.05,.25,r-Math.max(g,b))*smooth(.25,.60,r);
+        damb=smooth(.08,.25,Math.min(r,b)-g)*smooth(.30,.60,Math.max(r,b));
+      }
+      let cthermal=cIR+.15*dcold*(1-cIR);
+      if(validN){
+        const r=N[k]/255,g=N[k+1]/255,b=N[k+2]/255,mn=Math.min(r,g,b),mx=Math.max(r,g,b);
+        const W=smooth(.18,.60,mn)*(1-smooth(.06,.22,mx-mn));
+        const Y=smooth(.08,.25,Math.min(g,b)-r)*(1-smooth(.05,.18,Math.abs(g-b)))*smooth(.25,.65,Math.min(g,b));
+        cvis=Math.max(W,.7*Y);
+      }
+      const sinAlt=clamp01((sinLat*sinDecl+cosLat*cosDecl*cosHour[x]+1)*.5)*2-1;
+      const h=Math.asin(Math.max(-1,Math.min(1,sinAlt)))*RAD2DEG,wday=smooth(3,15,h);
+      // Conservative approximations without static snow/desert masks in v0.1:
+      // bright/cold ambiguity reduces visible-only additions rather than deleting IR evidence.
+      const irMean=validIR?(I[k]+I[k+1]+I[k+2])/(3*255):0;
+      const brightSuspicion=validN&&cIR<.25?clamp01(cvis*.65):0;
+      const coldSuspicion=(Math.abs(lat)>65&&irMean>.48)?0.35:0;
+      const cT=cthermal*(1-.75*coldSuspicion);
+      const rV=(1-.65*brightSuspicion)*(1-.40*damb)*(1-.85*coldSuspicion);
+      const cV=wday*rV*cvis;
+      let C=Math.max(cT,.85*cV);
+      if(!validIR)C=.45*cV; // low confidence Natural-only fallback
+      const alpha=.95*Math.pow(clamp01(C),.9);
+      const a=alpha<.01?0:Math.round(alpha*255);
+      alphaBytes[y*CLOUD_W+x]=a;
+      out[k]=255;out[k+1]=250;out[k+2]=242;out[k+3]=a;
+    }
+  }
+  if(validCount<CLOUD_W*CLOUD_H*.15)throw new Error('Too few valid pixels');
+  const c=document.createElement('canvas');c.width=CLOUD_W;c.height=CLOUD_H;
+  c.getContext('2d').putImageData(new ImageData(out,CLOUD_W,CLOUD_H),0,0);
+  return {canvas:c,alpha:alphaBytes};
+}
+async function canvasToBlob(c){return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('PNG encode failed')),'image/png'));}
+async function buildFrame(time,available){
+  const ir=await getPixels(LAYERS.ir,time);
+  // nearestValue=1 can silently substitute another nominal time. Only request auxiliaries
+  // when GetCapabilities explicitly advertises the exact IR timestamp for that layer.
+  const dustPromise=available.dust.has(time)
+    ? getPixels(LAYERS.dust,time).catch(e=>{console.warn('Dust unavailable at advertised time',time,e);return null;})
+    : Promise.resolve(null);
+  const naturalPromise=available.natural.has(time)
+    ? getPixels(LAYERS.natural,time).catch(e=>{console.warn('Natural unavailable at advertised time',time,e);return null;})
+    : Promise.resolve(null);
+  const [dust,natural]=await Promise.all([dustPromise,naturalPromise]);
+  const cloud=makeCloudAlpha(ir,dust,natural,time);
+  const blob=await canvasToBlob(cloud.canvas);
+  return {time,blob,alpha:cloud.alpha,type:'observed',verified:false,hasDust:!!dust,hasNatural:!!natural};
+}
+
+function canvasFromAlpha(alpha){
+  const rgba=new Uint8ClampedArray(CLOUD_W*CLOUD_H*4);
+  for(let i=0,j=0;i<alpha.length;i++,j+=4){rgba[j]=255;rgba[j+1]=250;rgba[j+2]=242;rgba[j+3]=alpha[i];}
+  const c=document.createElement('canvas');c.width=CLOUD_W;c.height=CLOUD_H;
+  c.getContext('2d').putImageData(new ImageData(rgba,CLOUD_W,CLOUD_H),0,0);
+  return c;
+}
+
+function downsampleAlpha(alpha,tw,th){
+  const out=new Float32Array(tw*th),sx=CLOUD_W/tw,sy=CLOUD_H/th;
+  for(let ty=0;ty<th;ty++){
+    const y0=Math.floor(ty*sy),y1=Math.max(y0+1,Math.floor((ty+1)*sy));
+    for(let tx=0;tx<tw;tx++){
+      const x0=Math.floor(tx*sx),x1=Math.max(x0+1,Math.floor((tx+1)*sx));
+      let sum=0,n=0;
+      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){sum+=alpha[y*CLOUD_W+x];n++;}
+      out[ty*tw+tx]=n?sum/(255*n):0;
+    }
+  }
+  return out;
+}
+function wrapIndex(x,n){x%=n;return x<0?x+n:x;}
+function estimateCloudFlow(prevFrame,latestFrame){
+  const lw=isMobile?128:256,lh=lw/2,cols=16,rows=8,search=isMobile?4:5,br=3;
+  const A=downsampleAlpha(prevFrame.alpha,lw,lh),B=downsampleAlpha(latestFrame.alpha,lw,lh);
+  const cellDx=new Float32Array(cols*rows),cellDy=new Float32Array(cols*rows);
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const cx=Math.round((c+.5)*lw/cols),cy=Math.round((r+.5)*lh/rows);
+    let mean=0,mean2=0,count=0;
+    for(let by=-br;by<=br;by++)for(let bx=-br;bx<=br;bx++){
+      const yy=Math.max(0,Math.min(lh-1,cy+by)),xx=wrapIndex(cx+bx,lw),v=B[yy*lw+xx];mean+=v;mean2+=v*v;count++;
+    }
+    mean/=count;const variance=mean2/count-mean*mean;
+    if(mean<.025||variance<.0012){continue;}
+    let best=Infinity,bdx=0,bdy=0;
+    for(let dy=-search;dy<=search;dy++)for(let dx=-search;dx<=search;dx++){
+      let err=0,n=0;
+      for(let by=-br;by<=br;by++)for(let bx=-br;bx<=br;bx++){
+        const yb=cy+by;if(yb<0||yb>=lh)continue;
+        const ya=yb-dy;if(ya<0||ya>=lh)continue;
+        const xb=wrapIndex(cx+bx,lw),xa=wrapIndex(xb-dx,lw);
+        err+=Math.abs(B[yb*lw+xb]-A[ya*lw+xa]);n++;
+      }
+      if(!n)continue;const score=err/n+.0025*(dx*dx+dy*dy);
+      if(score<best){best=score;bdx=dx;bdy=dy;}
+    }
+    cellDx[r*cols+c]=bdx;cellDy[r*cols+c]=bdy;
+  }
+  // Bilinearly expand the coarse block vectors to a small dense flow map.
+  const dx=new Float32Array(lw*lh),dy=new Float32Array(lw*lh);
+  for(let y=0;y<lh;y++){
+    const gy=(y+.5)*rows/lh-.5,ry0=Math.floor(gy),wy=gy-ry0;
+    const r0=Math.max(0,Math.min(rows-1,ry0)),r1=Math.max(0,Math.min(rows-1,ry0+1));
+    for(let x=0;x<lw;x++){
+      const gx=(x+.5)*cols/lw-.5,cx0=Math.floor(gx),wx=gx-cx0;
+      const c0=wrapIndex(cx0,cols),c1=wrapIndex(cx0+1,cols);
+      const i00=r0*cols+c0,i10=r0*cols+c1,i01=r1*cols+c0,i11=r1*cols+c1;
+      const ax=cellDx[i00]*(1-wx)+cellDx[i10]*wx,bx=cellDx[i01]*(1-wx)+cellDx[i11]*wx;
+      const ay=cellDy[i00]*(1-wx)+cellDy[i10]*wx,by=cellDy[i01]*(1-wx)+cellDy[i11]*wx;
+      const i=y*lw+x;dx[i]=ax*(1-wy)+bx*wy;dy[i]=ay*(1-wy)+by*wy;
+    }
+  }
+  return {lowW:lw,lowH:lh,dx,dy,dtMs:Math.max(HYBRID_STEP_MS,Date.parse(latestFrame.time)-Date.parse(prevFrame.time))};
+}
+function sampleAlpha(alpha,x,y){
+  x=((x%CLOUD_W)+CLOUD_W)%CLOUD_W;y=Math.max(0,Math.min(CLOUD_H-1.001,y));
+  const x0=Math.floor(x),x1=(x0+1)%CLOUD_W,y0=Math.floor(y),y1=Math.min(CLOUD_H-1,y0+1),wx=x-x0,wy=y-y0;
+  const a00=alpha[y0*CLOUD_W+x0],a10=alpha[y0*CLOUD_W+x1],a01=alpha[y1*CLOUD_W+x0],a11=alpha[y1*CLOUD_W+x1];
+  return ((a00*(1-wx)+a10*wx)*(1-wy)+(a01*(1-wx)+a11*wx)*wy)/255;
+}
+function hybridTargetTimes(latestObservedTime){
+  const base=Date.parse(latestObservedTime),lastSlot=Math.floor(Date.now()/HYBRID_STEP_MS)*HYBRID_STEP_MS,out=[];
+  const cap=base+MAX_HYBRID_HOURS*3600e3;
+  for(let t=base+HYBRID_STEP_MS;t<=lastSlot&&t<=cap;t+=HYBRID_STEP_MS)out.push(new Date(t).toISOString());
+  return out;
+}
+async function fetchJson(url,timeoutMs=20000){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{const r=await fetch(url,{mode:'cors',cache:'no-cache',signal:controller.signal});if(!r.ok)throw new Error(`HTTP ${r.status}`);return await r.json();}
+  finally{clearTimeout(timer);}
+}
+async function fetchGFSCloudGuidance(targetTimes){
+  const lat0=-82.5,lon0=-172.5,step=GFS_GRID_STEP,nLat=12,nLon=24,total=nLat*nLon;
+  const lats=[],lons=[];for(let r=0;r<nLat;r++)for(let c=0;c<nLon;c++){lats.push(lat0+r*step);lons.push(lon0+c*step);}
+  const grids=new Map(targetTimes.map(t=>[t,new Float32Array(total).fill(NaN)]));
+  const earliest=Math.min(...targetTimes.map(Date.parse)),pastHours=Math.max(6,Math.min(48,Math.ceil((Date.now()-earliest)/3600e3)+6));
+  const batches=Math.ceil(total/GFS_BATCH);
+  for(let start=0,b=0;start<total;start+=GFS_BATCH,b++){
+    setStatus(`Loading NOAA GFS cloud guidance ${b+1}/${batches}…`,'hybrid');setProgress(80+12*(b/batches));
+    const end=Math.min(total,start+GFS_BATCH),p=new URLSearchParams({
+      latitude:lats.slice(start,end).join(','),longitude:lons.slice(start,end).join(','),hourly:'cloud_cover',models:'ncep_gfs_global',timezone:'GMT',past_hours:String(pastHours),forecast_hours:'6',cell_selection:'nearest'
+    });
+    const data=await fetchJson(`${OPEN_METEO}?${p}`,25000),list=Array.isArray(data)?data:[data];
+    for(let j=0;j<list.length;j++){
+      const hourly=list[j]?.hourly;if(!hourly?.time||!hourly?.cloud_cover)continue;
+      const index=new Map(hourly.time.map((t,i)=>[t,i]));
+      for(const target of targetTimes){
+        const key=new Date(target).toISOString().slice(0,16),ti=index.get(key),v=ti===undefined?null:hourly.cloud_cover[ti];
+        if(Number.isFinite(v))grids.get(target)[start+j]=clamp01(v/100);
+      }
+    }
+  }
+  for(const [t,g] of grids){let ok=0;for(let i=0;i<g.length;i++){if(Number.isFinite(g[i]))ok++;else g[i]=.5;}if(ok<g.length*.7)throw new Error(`GFS coverage too sparse for ${t}`);}
+  return {lat0,lon0,step,nLat,nLon,grids};
+}
+function sampleGFS(guidance,values,lon,lat){
+  const {lon0,lat0,step,nLon,nLat}=guidance;
+  lon=((lon+180)%360+360)%360-180;
+  let gx=(lon-lon0)/step;while(gx<0)gx+=nLon;while(gx>=nLon)gx-=nLon;
+  const c0=Math.floor(gx),c1=(c0+1)%nLon,wx=gx-c0;
+  const gy=Math.max(0,Math.min(nLat-1,(lat-lat0)/step)),r0=Math.floor(gy),r1=Math.min(nLat-1,r0+1),wy=gy-r0;
+  const v00=values[r0*nLon+c0],v10=values[r0*nLon+c1],v01=values[r1*nLon+c0],v11=values[r1*nLon+c1];
+  return (v00*(1-wx)+v10*wx)*(1-wy)+(v01*(1-wx)+v11*wx)*wy;
+}
+function makeHybridAlpha(latestFrame,flow,guidance,targetTime){
+  const targetMs=Date.parse(targetTime),baseMs=Date.parse(latestFrame.time),ratio=(targetMs-baseMs)/flow.dtMs;
+  // Long extrapolations are deliberately damped so 12-hour HYBRID frames do not shear clouds unrealistically.
+  const advRatio=ratio<=2?ratio:2+(ratio-2)*.45,ageHours=(targetMs-baseMs)/3600e3,influence=Math.min(.72,.22+ageHours/18*.60);
+  const g=guidance.grids.get(targetTime),out=new Uint8Array(CLOUD_W*CLOUD_H),sx=CLOUD_W/flow.lowW,sy=CLOUD_H/flow.lowH;
+  for(let y=0;y<CLOUD_H;y++){
+    const lat=90-(y+.5)/CLOUD_H*180,fy=Math.min(flow.lowH-1,Math.floor(y*flow.lowH/CLOUD_H));
+    for(let x=0;x<CLOUD_W;x++){
+      const fx=Math.min(flow.lowW-1,Math.floor(x*flow.lowW/CLOUD_W)),fi=fy*flow.lowW+fx;
+      const srcX=x-flow.dx[fi]*sx*advRatio,srcY=y-flow.dy[fi]*sy*advRatio;
+      const adv=sampleAlpha(latestFrame.alpha,srcX,srcY),lon=-180+(x+.5)/CLOUD_W*360,gfs=sampleGFS(guidance,g,lon,lat);
+      const desiredScale=.55+.90*gfs,scale=1+influence*(desiredScale-1);
+      // GFS changes regional amount/thickness; fine cloud texture still comes from the observed satellite alpha.
+      let a=adv*scale;
+      const overcastHint=smooth(.78,.98,gfs)*(.035+.055*influence)*(1-adv);
+      a=clamp01(Math.max(a,overcastHint));
+      out[y*CLOUD_W+x]=a<.008?0:Math.round(a*255);
+    }
+  }
+  return out;
+}
+async function buildHybridFrames(){
+  const obs=frames.filter(f=>f.type==='observed').sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
+  if(!obs.length)return;
+  const latest=obs[obs.length-1],targets=hybridTargetTimes(latest.time);
+  if(!targets.length){sourceTimes.textContent+=` / HYBRID not needed`;return;}
+  if(obs.length<2){console.warn('HYBRID needs two observed frames for motion; using zero motion.');}
+  try{
+    setStatus(`Preparing ${targets.length} forecast-assisted 3-hour frame${targets.length===1?'':'s'}…`,'hybrid');setProgress(80);
+    const guidance=await fetchGFSCloudGuidance(targets);
+    const prev=obs.length>=2?obs[obs.length-2]:latest;
+    const flow=obs.length>=2?estimateCloudFlow(prev,latest):{lowW:isMobile?128:256,lowH:(isMobile?128:256)/2,dx:new Float32Array((isMobile?128:256)*((isMobile?128:256)/2)),dy:new Float32Array((isMobile?128:256)*((isMobile?128:256)/2)),dtMs:HYBRID_STEP_MS};
+    for(let i=0;i<targets.length;i++){
+      const time=targets[i],alpha=makeHybridAlpha(latest,flow,guidance,time),blob=await canvasToBlob(canvasFromAlpha(alpha));
+      frames.push({time,blob,alpha,type:'hybrid',verified:true,hasDust:false,hasNatural:false,baseObservedTime:latest.time,gfsModel:'NOAA GFS'});
+      frames.sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
+      setProgress(92+7*(i+1)/targets.length);
+    }
+    const newest=targets[targets.length-1];
+    sourceTimes.textContent+=` / HYBRID through ${isoShort(newest)} — NOAA GFS via Open-Meteo`;
+    tlBtn.disabled=frames.length<2;renderStrip();
+    if(followLatest)await showFrame(frames.length-1);
+  }catch(e){
+    console.warn('HYBRID unavailable; keeping observed frames only',e);
+    sourceTimes.textContent+=` / HYBRID unavailable`;
+    setStatus(`Hybrid guidance unavailable: ${e.message}. Showing observed frames only.`,true);
+  }
+}
+
+const frames=[];
+let currentIndex=-1,currentFrameTime=null,playing=false,playTimer=0,cloudsOn=true,nightOn=true,followLatest=true;
+let showRequestId=0;
+const texCache=new Map();
+async function textureForFrame(frame){
+  // Cache by stable nominal timestamp, never by array index. The history array is re-sorted
+  // as older frames arrive, so index-based cache keys can show the wrong cloud image.
+  const key=frame.time;
+  if(texCache.has(key)){const t=texCache.get(key);texCache.delete(key);texCache.set(key,t);return t;}
+  const bmp=await createImageBitmap(frame.blob);
+  const tex=new THREE.Texture(bmp);tex.needsUpdate=true;tex.colorSpace=THREE.NoColorSpace;tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.ClampToEdgeWrapping;
+  tex.minFilter=THREE.LinearFilter;tex.magFilter=THREE.LinearFilter;texCache.set(key,tex);
+  while(texCache.size>3){const [k,t]=texCache.entries().next().value;texCache.delete(k);t.dispose();t.source?.data?.close?.();}
+  return tex;
+}
+function stopTimelapse(){
+  playing=false;clearTimeout(playTimer);playTimer=0;tlBtn.textContent='▶ TIME LAPSE';
+}
+async function showFrame(i){
+  if(i<0||i>=frames.length)return;
+  const frame=frames[i],requestId=++showRequestId;
+  const tex=await textureForFrame(frame);
+  if(requestId!==showRequestId)return; // ignore stale async texture loads
+  currentFrameTime=frame.time;
+  currentIndex=frames.findIndex(f=>f.time===currentFrameTime);
+  titleFrameTime.textContent=`${localShort(frame.time)} ${frame.type==='hybrid'?'HYB':'OBS'}`;
+  titleFrameTime.classList.toggle('hybrid',frame.type==='hybrid');
+  titleFrameTime.title=`${frame.type==='hybrid'?'Forecast-assisted HYBRID':'EUMETSAT OBS'} — ${localShort(frame.time)} (${localZoneLabel()})`;
+  cloudUniforms.cloudAlpha.value=tex;surfaceUniforms.cloudAlpha.value=tex;
+  updateSun(new Date(frame.time));
+  renderStrip();
+  if(frame.type==='hybrid'){
+    const mode=playing?'TIME LAPSE / HYBRID':followLatest?'LATEST / HYBRID':'SELECTED / HYBRID';
+    setStatus(`${mode} — ${localShort(frame.time)} (${localZoneLabel()}) / forecast-assisted from OBS ${localShort(frame.baseObservedTime)} / NOAA GFS guidance`,'hybrid');
+  }else{
+    const mode=playing?'TIME LAPSE / OBS':followLatest?'GLOBAL / OBS':'SELECTED / OBS';
+    setStatus(`${mode} — ${localShort(frame.time)} (${localZoneLabel()}) / Dust:${frame.hasDust?'same time':'none'} Natural:${frame.hasNatural?'same time':'none'}${frame.verified?'':' (nominal time)'}`);
+  }
+}
+function renderStrip(){
+  if(currentFrameTime)currentIndex=frames.findIndex(f=>f.time===currentFrameTime);
+  strip.innerHTML='';
+  frames.forEach((f,i)=>{
+    const e=document.createElement('span');e.className=`tick ${f.type==='hybrid'?'hybrid':'observed'}${i===currentIndex?' active':''}`;
+    e.textContent=`${isoShort(f.time)} ${f.type==='hybrid'?'HYB':'OBS'}`;
+    e.title=f.type==='hybrid'?'Forecast-assisted hybrid frame':'EUMETSAT observed composite';
+    e.onclick=()=>{stopTimelapse();followLatest=false;showFrame(i);};
+    strip.appendChild(e);
+  });
+}
+async function loadCloudHistory(){
+  const meta=await getCandidateTimes(),candidates=meta.candidates;if(!candidates.length)throw new Error('Could not retrieve available IR times');
+  tlBtn.disabled=true;
+  setStatus(`Loading latest IR first… ${isoShort(candidates[0])}`);setProgress(18);
+  for(let ci=0;ci<candidates.length&&frames.filter(f=>f.type==='observed').length<MAX_OBS_FRAMES;ci++){
+    const t=candidates[ci];
+    try{
+      const f=await buildFrame(t,meta.available);
+      frames.push(f);
+      frames.sort((a,b)=>Date.parse(a.time)-Date.parse(b.time));
+      if(currentFrameTime)currentIndex=frames.findIndex(x=>x.time===currentFrameTime);
+      if(frames.length===1){followLatest=true;await showFrame(0);}
+      else if(!playing&&followLatest){await showFrame(frames.length-1);}
+      renderStrip();
+      setProgress(18+78*Math.min(1,frames.filter(f=>f.type==='observed').length/MAX_OBS_FRAMES));
+      setStatus(`Observed ${frames.filter(f=>f.type==='observed').length}/${MAX_OBS_FRAMES} frames — nominal ${isoShort(t)}`);
+    }catch(e){console.warn('skip frame',t,e);setStatus(`Skipped ${isoShort(t)}: ${e.message}`,true);}
+  }
+  if(!frames.length)throw new Error('No valid cloud frames available');
+  tlBtn.disabled=frames.length<2;
+  if(followLatest){await showFrame(frames.length-1);}else renderStrip();
+  setProgress(78);
+}
+cloudBtn.onclick=()=>{cloudsOn=!cloudsOn;clouds.visible=cloudsOn;surfaceUniforms.cloudShadowOn.value=cloudsOn?1:0;cloudBtn.classList.toggle('on',cloudsOn);cloudBtn.textContent=`☁ CLOUDS ${cloudsOn?'ON':'OFF'}`;};
+nightBtn.onclick=()=>{nightOn=!nightOn;surfaceUniforms.nightOn.value=nightOn?1:0;nightBtn.classList.toggle('on',nightOn);nightBtn.textContent=`🌃 CITY LIGHTS ${nightOn?'ON':'OFF'}`;};
+tlBtn.onclick=async()=>{
+  if(frames.length<2)return;
+  if(playing){stopTimelapse();if(currentFrameTime)updateSun(new Date(currentFrameTime));return;}
+  followLatest=false;playing=true;tlBtn.textContent='⏸ TIME LAPSE';currentIndex=-1;currentFrameTime=null;await advanceTL();
+};
+async function advanceTL(){
+  if(!playing)return;
+  currentIndex=(currentIndex+1)%frames.length;
+  await showFrame(currentIndex);
+  if(playing)playTimer=setTimeout(advanceTL,1000);
+}
+liveBtn.onclick=async()=>{stopTimelapse();followLatest=true;if(frames.length)await showFrame(frames.length-1);};
+resetBtn.onclick=()=>{camera.position.set(-2.40,.12,-2.10);controls.target.set(0,0,0);controls.update();globe.rotation.set(0,0,0);};
+let sunOn=true;
+sunBtn.onclick=()=>{
+  sunOn=!sunOn;
+  surfaceUniforms.fullBright.value=sunOn?0:1;
+  cloudUniforms.fullBright.value=sunOn?0:1;
+  sunBtn.classList.toggle('on',sunOn);
+  sunBtn.textContent=`☀ SUN ${sunOn?'ON':'OFF'}`;
+};
+function focusLonLat(lon,lat){
+  const local=lonLatVec(lon,lat);
+  const towardCamera=camera.position.clone().sub(controls.target).normalize();
+  globe.quaternion.setFromUnitVectors(local,towardCamera);
+}
+locationBtn.onclick=()=>{
+  if(!navigator.geolocation){setStatus('Geolocation is not supported by this browser.',true);return;}
+  locationBtn.disabled=true; locationBtn.textContent='⌖ LOCATING…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{focusLonLat(pos.coords.longitude,pos.coords.latitude);locationBtn.disabled=false;locationBtn.textContent='⌖ CURRENT LOCATION';setStatus('Centered on current location.');},
+    err=>{locationBtn.disabled=false;locationBtn.textContent='⌖ CURRENT LOCATION';setStatus(`Location unavailable: ${err.message}`,true);},
+    {enableHighAccuracy:true,timeout:10000,maximumAge:300000}
+  );
+};
+
+let xrSession=null,xrMode=null,grabber=null,preXRState=null;const ctrls=[],grips=[];
+async function detectXR(){
+  if(!navigator.xr||!isSecureContext)return;
+  try{if(await navigator.xr.isSessionSupported('immersive-ar'))arBtn.classList.remove('hidden')}catch{}
+  try{if(await navigator.xr.isSessionSupported('immersive-vr'))vrBtn.classList.remove('hidden')}catch{}
+}
+function setupXRControllers(){
+  for(let i=0;i<2;i++){
+    const c=renderer.xr.getController(i),g=renderer.xr.getControllerGrip(i);scene.add(c,g);ctrls.push(c);grips.push(g);
+    c.addEventListener('connected',e=>{c.userData.inputSource=e.data;});
+    c.addEventListener('disconnected',()=>{c.userData.inputSource=null;});
+    c.addEventListener('squeezestart',()=>{if(!grabber){grabber=c;c.attach(globe)}});
+    c.addEventListener('squeezeend',()=>{if(grabber===c){scene.attach(globe);grabber=null}});
+  }
+}
+setupXRControllers();
+async function startXR(mode){
+  if(xrSession)return;
+  try{
+    const init=mode==='ar'?{optionalFeatures:['local-floor','dom-overlay'],domOverlay:{root:document.body}}:{optionalFeatures:['local-floor']};
+    xrSession=await navigator.xr.requestSession(mode==='ar'?'immersive-ar':'immersive-vr',init);xrMode=mode;
+    preXRState={position:globe.position.clone(),quaternion:globe.quaternion.clone(),scale:globe.scale.clone()};
+    await renderer.xr.setSession(xrSession);controls.enabled=false;
+    globe.position.set(0,mode==='ar'?1.15:1.25,mode==='ar'?-.9:-2.2);globe.scale.setScalar(mode==='ar'?.20:.75);
+    globe.rotation.set(0,THREE.MathUtils.degToRad(139),0);
+    scene.background=mode==='ar'?null:new THREE.Color(0x01040a);
+    xrSession.addEventListener('end',()=>{
+      if(grabber)scene.attach(globe);
+      grabber=null;xrSession=null;xrMode=null;
+      if(preXRState){globe.position.copy(preXRState.position);globe.quaternion.copy(preXRState.quaternion);globe.scale.copy(preXRState.scale);preXRState=null;}
+      scene.background=new THREE.Color(0x01040a);controls.enabled=true;
+    });
+  }catch(e){setStatus(`XR start failed: ${e.message}`,true)}
+}
+arBtn.onclick=()=>startXR('ar');vrBtn.onclick=()=>startXR('vr');detectXR();
+
+function updateXR(){
+  if(!xrMode||grabber)return;
+  for(const c of ctrls){
+    const gp=c.userData.inputSource?.gamepad;if(!gp)continue;
+    const x=gp.axes?.[2]??gp.axes?.[0]??0;if(Math.abs(x)>.16)globe.rotation.y-=x*.025;
+  }
+}
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+renderer.setAnimationLoop(()=>{updateAdaptiveRotateSpeed();controls.update();updateXR();updateSurfaceLod();updateSun(currentFrameTime?new Date(currentFrameTime):new Date());renderer.render(scene,camera);});
+
+(async()=>{
+  try{
+    await loadStaticMaps();
+    updateSurfaceLod(true);
+    await loadCloudHistory();
+    await buildHybridFrames();
+    setProgress(100);setTimeout(()=>setProgress(0),900);
+  }catch(e){
+    console.error(e);setStatus(`Startup error: ${e.message}`,true);setProgress(0);
+  }
+})();
+</script>
+</body>
+</html>
