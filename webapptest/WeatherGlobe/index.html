@@ -58,7 +58,7 @@ canvas{display:block}
   <div id="progress"><div id="bar"></div></div>
   <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
   </div>
-  <div class="title"><span>LIVE EARTH XR <span class="badge">v1.1.3 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v1.1.4 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
 </div></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 <script type="module">
@@ -846,7 +846,9 @@ function enterXRScene(mode){
   xrMode=mode; playing=false; forceXRVisuals(); setXRLockedUI(true);
   controls.enabled=false;
   normalGlobe.position.copy(globe.position);normalGlobe.scale.copy(globe.scale);normalGlobe.rotation.copy(globe.rotation);
-  globe.rotation.set(0,0,0);
+  // XR初期表示も通常モードと同様に日本付近を正面へ。
+  // lonLatToWorld系の向きに合わせ、約139°EをXRカメラ正面(+Z側)へ回す。
+  globe.rotation.set(0, THREE.MathUtils.degToRad(139), 0);
   if(mode==='ar'){
     // WebXRの単位はm。直径約40cmの卓上地球を約90cm前方へ。
     globe.scale.setScalar(0.20);
