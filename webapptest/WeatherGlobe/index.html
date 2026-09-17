@@ -8,33 +8,29 @@
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02060d;color:#eef6ff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
 canvas{display:block}
 #hud{position:fixed;inset:0;pointer-events:none;padding:calc(12px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom));box-sizing:border-box}
-.panel{pointer-events:auto;position:absolute;left:14px;top:calc(14px + env(safe-area-inset-top));background:#07101ccc;border:1px solid #ffffff1c;backdrop-filter:blur(12px);border-radius:16px;padding:12px 14px;box-shadow:0 12px 35px #0008;max-width:min(390px,calc(100vw - 28px))}
-.title{font-weight:800;letter-spacing:.13em;font-size:14px;display:flex;align-items:center;justify-content:space-between;gap:12px}#collapseBtn{padding:4px 8px;min-width:34px;font-size:16px;line-height:1}.panel.collapsed .panelBody{display:none}.panel.collapsed{padding:9px 10px}.status{font-size:12px;margin-top:6px;color:#a9c7e7}.live{color:#67ffad;font-weight:800}.warn{color:#ffd37a}
-.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}button{appearance:none;border:1px solid #ffffff22;background:#10243be6;color:#eef6ff;padding:9px 12px;border-radius:11px;font-weight:700}button:active{transform:scale(.98)}button:disabled{opacity:.45}.small{font-size:11px;color:#92aac4;margin-top:8px;line-height:1.4}
+.panel{pointer-events:auto;position:absolute;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));background:#07101ccc;border:1px solid #ffffff1c;backdrop-filter:blur(12px);border-radius:16px;padding:12px 14px;box-shadow:0 12px 35px #0008;max-width:min(390px,calc(100vw - 28px))}
+.title{font-weight:800;letter-spacing:.13em;font-size:14px;display:flex;align-items:center;justify-content:space-between;gap:12px}#collapseBtn{padding:4px 8px;min-width:34px;font-size:16px;line-height:1}.panel.collapsed .panelBody{display:none}.panel.collapsed{padding:9px 10px}.status{font-size:12px;margin-top:8px;margin-bottom:6px;color:#a9c7e7}.live{color:#67ffad;font-weight:800}.warn{color:#ffd37a}
+.controls{display:flex;flex-direction:column;gap:8px;margin-top:10px}.controlRow{display:flex;gap:8px;flex-wrap:nowrap}.controlRow button{flex:0 1 auto}.xrRow{display:flex;gap:8px;flex-wrap:wrap}button{appearance:none;border:1px solid #ffffff22;background:#10243be6;color:#eef6ff;padding:9px 12px;border-radius:11px;font-weight:700}button:active{transform:scale(.98)}button:disabled{opacity:.45}.small{font-size:11px;color:#92aac4;margin-top:8px;line-height:1.4}.small.hidden{display:none}
 #progress{display:none;margin-top:9px;height:5px;background:#ffffff16;border-radius:99px;overflow:hidden}#bar{height:100%;width:0;background:#8bc8ff}
 .badge{display:inline-block;padding:2px 6px;border-radius:99px;background:#ffffff12;margin-left:5px}
 </style>
 </head>
 <body>
 <div id="hud"><div class="panel">
-  <div class="title"><span>LIVE EARTH XR <span class="badge">v0.9.8 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
   <div class="panelBody">
-  <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
+  <div class="small hidden" id="description">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。昼側はBand 3可視、夜側はBand 13赤外を使い、昼夜境界で滑らかに自動合成。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFF、XでBLACK MARBLE ON/OFF、Yで雲表示「データ/見栄え」を切り替えできます。太陽光とBLACK MARBLEの昼夜境界は地球と一緒に追従します。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
   <div class="controls">
-    <button id="timelapse" disabled>▶ TIME LAPSE</button>
-    <button id="live">LIVEへ戻る</button>
-    <button id="clouds">衛星画像 ON</button>
-    <button id="cloudVisualBtn">☁️ 雲表示 データ</button>
-    <button id="nightBtn">🌃 BLACK MARBLE OFF</button>
-    <button id="emphasisBtn">✨ 強調 OFF</button>
-    <button id="uprightBtn">↺ 初期位置リセット</button>
-    <button id="locBtn">📍 現在位置</button>
-    <button id="arBtn" style="display:none">🥽 AR</button>
-    <button id="vrBtn" style="display:none">🥽 VR</button>
+    <div class="controlRow"><button id="descriptionBtn">ℹ️ 説明を表示</button><button id="clouds">衛星画像 ON</button></div>
+    <div class="controlRow"><button id="cloudVisualBtn">☁️ 雲表示 見栄え</button><button id="emphasisBtn">✨ 強調 ON</button></div>
+    <div class="controlRow"><button id="nightBtn">🌃 BLACK MARBLE ON</button></div>
+    <div class="controlRow"><button id="locBtn">📍 現在位置</button><button id="uprightBtn">↺ 初期位置リセット</button></div>
+    <div class="controlRow"><button id="timelapse" disabled>▶ TIME LAPSE</button><button id="live">LIVEへ戻る</button></div>
+    <div class="xrRow"><button id="arBtn" style="display:none">🥽 AR</button><button id="vrBtn" style="display:none">🥽 VR</button></div>
   </div>
   <div id="progress"><div id="bar"></div></div>
-  <div class="small">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。昼側はBand 3可視、夜側はBand 13赤外を使い、昼夜境界で滑らかに自動合成。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFF、XでBLACK MARBLE ON/OFF、Yで雲表示「データ/見栄え」を切り替えできます。太陽光とBLACK MARBLEの昼夜境界は地球と一緒に追従します。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
+  <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
   </div>
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v1.1.2 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
 </div></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 <script type="module">
@@ -42,7 +38,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0x02060d);
-const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.003,100); camera.position.set(0,.15,3.2);
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.003,100); camera.position.set(-2.415071,0,-2.099389);
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); renderer.outputColorSpace=THREE.SRGBColorSpace; document.body.prepend(renderer.domElement);
 renderer.xr.enabled=true;
 renderer.xr.setReferenceSpaceType('local-floor');
@@ -110,6 +106,73 @@ xrControllers.forEach(c=>scene.add(c));
 let grabbedBy=null;
 let xrPrevTime=0;
 const xrButtonPrev=new WeakMap();
+
+// XRコントローラー横に一時表示するステータスパネル。
+// CanvasTextureなのでQuestのAR/VRどちらでもDOMに依存せず表示できる。
+function makeXRStatusPanel(){
+  const canvas=document.createElement('canvas');
+  canvas.width=768; canvas.height=440;
+  const ctx=canvas.getContext('2d');
+  const tex=new THREE.CanvasTexture(canvas);
+  tex.colorSpace=THREE.SRGBColorSpace;
+  tex.minFilter=THREE.LinearFilter;
+  const mat=new THREE.MeshBasicMaterial({
+    map:tex,transparent:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide
+  });
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(0.30,0.172),mat);
+  mesh.position.set(0.20,0.10,-0.06);
+  mesh.rotation.y=-0.18;
+  mesh.renderOrder=1000;
+  mesh.visible=false;
+  mesh.userData={canvas,ctx,tex,hideAt:0};
+  return mesh;
+}
+const xrStatusPanels=xrControllers.map((controller)=>{
+  const panel=makeXRStatusPanel();
+  controller.add(panel);
+  return panel;
+});
+function drawXRStatus(panel,changed=''){
+  const {ctx,canvas,tex}=panel.userData;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='rgba(5,14,25,0.90)';
+  ctx.beginPath();ctx.roundRect(8,8,canvas.width-16,canvas.height-16,34);ctx.fill();
+  ctx.strokeStyle='rgba(150,210,255,0.45)';ctx.lineWidth=4;ctx.stroke();
+
+  ctx.fillStyle='#eef6ff';ctx.font='700 42px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillText('LIVE EARTH XR',42,65);
+  ctx.font='600 30px -apple-system, BlinkMacSystemFont, sans-serif';
+
+  const rows=[
+    ['衛星画像',cloudsOn?'ON':'OFF'],
+    ['雲表示',cloudVisualPretty?'見栄え':'データ'],
+    ['強調',emphasisMode?'ON':'OFF'],
+    ['BLACK MARBLE',blackMarbleEnabled?'ON':'OFF'],
+    ['TIME LAPSE',xrMode?'LOOP':'-']
+  ];
+  let y=125;
+  for(const [name,value] of rows){
+    const active=changed===name;
+    if(active){
+      ctx.fillStyle='rgba(95,190,255,0.20)';
+      ctx.fillRect(28,y-34,canvas.width-56,47);
+    }
+    ctx.fillStyle=active?'#8fd7ff':'#b8cee4';ctx.fillText(name,42,y);
+    ctx.fillStyle=value==='OFF'?'#ffbd9b':'#eef6ff';
+    ctx.textAlign='right';ctx.fillText(value,canvas.width-42,y);ctx.textAlign='left';
+    y+=58;
+  }
+  tex.needsUpdate=true;
+}
+function showXRStatus(controller,changed=''){
+  if(!xrMode)return;
+  const i=xrControllers.indexOf(controller);
+  if(i<0)return;
+  const panel=xrStatusPanels[i];
+  drawXRStatus(panel,changed);
+  panel.visible=true;
+  panel.userData.hideAt=performance.now()+2800;
+}
 function handednessOf(controller){
   return controller.userData.inputSource?.handedness || '';
 }
@@ -192,7 +255,7 @@ const TOKYO_LOD_W=IS_MOBILE?2048:3072;
 const TOKYO_LOD_H=Math.round(TOKYO_LOD_W*(TOKYO_LOD.north-TOKYO_LOD.south)/(TOKYO_LOD.east-TOKYO_LOD.west));
 let tokyoLodLoaded=false,tokyoLodLoading=false,tokyoLodVisible=false;
 
-let japanLodLoaded=false,japanLodLoading=false,japanLodVisible=false,emphasisMode=false;
+let japanLodLoaded=false,japanLodLoading=false,japanLodVisible=false,emphasisMode=true;
 
 function regionalEarthURL(box,w,h){
   const q=new URLSearchParams({
@@ -314,17 +377,22 @@ function updateJapanLOD(){
   tokyoLodLitMat.opacity=tokyoActive?1:0;
   tokyoLodBrightMat.opacity=tokyoActive?1:0;
 
-  // ズームするほどドラッグ回転を遅くする。遠景は従来相当、東京近接では精密操作。
-  const near=Math.max(0,Math.min(1,(2.4-dist)/(2.4-1.035)));
-  controls.rotateSpeed=0.72-(0.56*near);
+  // 画面上のドラッグ量と地表の見かけ移動量がズームで大きく変わらないようにする。
+  // OrbitControls は同じpxドラッグでほぼ同じ角度だけ回すため、近接時には地表が動き過ぎて見える。
+  // 球表面までの見かけ距離 (dist - radius) に比例して回転速度を落とす。
+  // pointer/touch とも OrbitControls.rotateSpeed を共有するので両方に同じ補正が効く。
+  const surfaceGap=Math.max(0.035,dist-1.0);
+  const referenceGap=3.2-1.0;
+  const zoomDragScale=THREE.MathUtils.clamp(surfaceGap/referenceGap,0.012,1.0);
+  controls.rotateSpeed=0.72*zoomDragScale;
 }
 
 // simple continent-ish visual via wireless shader-free points, hidden beneath satellite imagery
 const grid=new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(1.001,24,16)),new THREE.LineBasicMaterial({color:0x2c7294,transparent:true,opacity:.10})); globe.add(grid);
 
 
-let blackMarbleEnabled=false;
-const nightUniforms={nightMap:{value:null},sunDir:{value:new THREE.Vector3(1,0,0)},enabled:{value:0.0}};
+let blackMarbleEnabled=true;
+const nightUniforms={nightMap:{value:null},sunDir:{value:new THREE.Vector3(1,0,0)},enabled:{value:1.0}};
 const nightMat=new THREE.ShaderMaterial({
  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,uniforms:nightUniforms,
  vertexShader:`varying vec2 vUv;varying vec3 vN;void main(){vUv=uv;vN=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
@@ -355,7 +423,7 @@ const satUniforms={
   irMap:{value:null},
   opacity:{value:.82},
   emphasis:{value:0.0},
-  visualMode:{value:0.0},
+  visualMode:{value:1.0},
   sunDir:{value:new THREE.Vector3(1,0,0)}
 };
 const satMat=new THREE.ShaderMaterial({
@@ -411,14 +479,21 @@ const satMat=new THREE.ShaderMaterial({
     // No whitening/color lift is applied; only alpha is reshaped.
     //
     // A broad soft knee retains low/mid-level and thin cloud detail.
-    float irMask=smoothstep(0.18,0.58,irL);
-    float irThin=pow(clamp(irL,0.0,1.0),0.62);
-    float irCloudMask=max(irMask,irThin*0.72);
+    // Night Band 13 cloud-only mask.
+    // v0.9.x kept too much of the broad IR background, making the whole
+    // Band 13 coverage look like a bright panel.  Suppress that background
+    // much more strongly while retaining a low-weight thin-cloud component.
+    // Cloud-only IR mask.  Background is exactly transparent.
+    // Use a soft threshold rather than a non-zero alpha floor, so the
+    // rectangular/sector-shaped Band 13 coverage cannot brighten the globe.
+    float irThin=smoothstep(0.20,0.38,irL);
+    float irCore=smoothstep(0.34,0.62,irL);
+    float irCloudMask=max(irThin*0.34,irCore);
 
-    // Very dark background is nearly clear, but never hard-clipped.
-    // Slightly more transparent than v0.9.6: preserve the cloud mask/detail,
-    // but reduce only its compositing strength so the globe/Black Marble reads through.
-    float irPrettyA=ir.a*(0.015 + 0.78*irCloudMask);
+    // Critical v1.0.1 change: NO constant alpha floor.
+    // Pixels below the cloud threshold contribute exactly zero.
+    float irPrettyA=ir.a*(0.76*irCloudMask);
+    if(irL<=0.20) irPrettyA=0.0;
 
     float irA=mix(irDataA,irPrettyA,visualMode);
     // Keep the original Band 13 tone in both modes.  This avoids the
@@ -427,9 +502,17 @@ const satMat=new THREE.ShaderMaterial({
 
     // Per-pixel solar blend. Broad twilight band avoids a hard terminator seam.
     float nd=dot(normalize(vN),normalize(sunDir));
-    float daylight=smoothstep(-0.10,0.14,nd);
+    // Narrow twilight blend: Band 3 no longer extends into the true night side.
+    float daylight=smoothstep(0.00,0.10,nd);
     vec3 c=mix(irColor,dayColor,daylight);
-    float a=mix(irA,dayA,daylight);
+
+    // Preserve cloud opacity through the Band 13 <-> Band 3 transition.
+    // The old straight alpha mix could create a dark seam when the same cloud
+    // was weak in either one of the two bands.
+    float blendedA=mix(irA,dayA,daylight);
+    float transition=1.0-abs(daylight*2.0-1.0);
+    float preserveA=max(irA,dayA)*transition;
+    float a=max(blendedA,preserveA);
 
     if(a<0.001)discard;
     gl_FragColor=vec4(c,a);
@@ -644,7 +727,7 @@ btnTL.onclick=play;
 btnLive.onclick=()=>{playing=false;if(frames.length)show(frames.length-1)};
 btnClouds.onclick=()=>{cloudsOn=!cloudsOn;sat.visible=cloudsOn;btnClouds.textContent=`衛星画像 ${cloudsOn?'ON':'OFF'}`};
 const cloudVisualBtn=document.getElementById('cloudVisualBtn');
-let cloudVisualPretty=false;
+let cloudVisualPretty=true;
 cloudVisualBtn.onclick=()=>{
   cloudVisualPretty=!cloudVisualPretty;
   satUniforms.visualMode.value=cloudVisualPretty?1.0:0.0;
@@ -677,10 +760,13 @@ function setEmphasis(on){
   emphasisBtn.textContent=`✨ 強調 ${emphasisMode?'ON':'OFF'}`;
 }
 
+// 雲を主役にした初期表示。
+setEmphasis(true);
+
 document.getElementById('uprightBtn').onclick=()=>{
-  // 起動時のカメラ位置・向き・ズームへ完全リセット。
+  // 日本（東経139度付近）が正面、ロール0°・チルト0°の起動位置へ完全リセット。
   controls.target.set(0,0,0);
-  camera.position.set(0,.15,3.2);
+  camera.position.set(-2.415071,0,-2.099389);
   camera.up.set(0,1,0);
   camera.lookAt(controls.target);
   controls.update();
@@ -749,6 +835,7 @@ function enterXRScene(mode){
   status.innerHTML=`${mode.toUpperCase()} / TIME LAPSE LOOP / Himawari-9`;
 }
 function leaveXRScene(){
+  xrStatusPanels.forEach(p=>p.visible=false);
   if(grabbedBy){scene.attach(globe);grabbedBy=null;}
   xrMode=null;xrSession=null;
   globe.position.copy(normalGlobe.position);globe.scale.copy(normalGlobe.scale);globe.rotation.copy(normalGlobe.rotation);
@@ -762,6 +849,9 @@ function updateXRControllers(time){
   if(!xrMode)return;
   const dt=xrPrevTime?Math.min((time-xrPrevTime)/1000,0.05):0;
   xrPrevTime=time;
+  for(const panel of xrStatusPanels){
+    if(panel.visible && performance.now()>=panel.userData.hideAt) panel.visible=false;
+  }
 
   // WebXR "xr-standard" gamepadではQuest Touchのthumbstickは通常 axes[2]/[3]。
   // 実装差にも耐えるよう、4軸未満なら最後の2軸を利用する。
@@ -782,11 +872,13 @@ function updateXRControllers(time){
         blackMarbleEnabled=!blackMarbleEnabled;
         nightUniforms.enabled.value=blackMarbleEnabled?1.0:0.0;
         nightBtn.textContent=`🌃 BLACK MARBLE ${blackMarbleEnabled?'ON':'OFF'}`;
+        showXRStatus(controller,'BLACK MARBLE');
       }
       if(yPressed && !prev.y){
         cloudVisualPretty=!cloudVisualPretty;
         satUniforms.visualMode.value=cloudVisualPretty?1.0:0.0;
         cloudVisualBtn.textContent=`☁️ 雲表示 ${cloudVisualPretty?'見栄え':'データ'}`;
+        showXRStatus(controller,'雲表示');
       }
 
       prev.x=xPressed;
@@ -817,9 +909,11 @@ function updateXRControllers(time){
       cloudsOn=!cloudsOn;
       sat.visible=cloudsOn;
       btnClouds.textContent=`衛星画像 ${cloudsOn?'ON':'OFF'}`;
+      showXRStatus(controller,'衛星画像');
     }
     if(bPressed && !prev.b){
       setEmphasis(!emphasisMode);
+      showXRStatus(controller,'強調');
     }
     prev.a=aPressed;prev.b=bPressed;
 
@@ -851,6 +945,13 @@ detectXR();
 
 // update actual latest imagery every 5 minutes; normal mode stays pinned to LIVE.
 setInterval(async()=>{if(!frames.length||playing||xrMode)return; const last=frames[frames.length-1]; const candidate=floor10(new Date(Date.now()-20*60000)); if(candidate<=last.date)return; try{const f=await buildFrame(candidate); if(frames.length>=11)frames.shift(); frames.push(f);show(frames.length-1);}catch{}},300000);
+
+const description=document.getElementById('description');
+const descriptionBtn=document.getElementById('descriptionBtn');
+descriptionBtn.onclick=()=>{
+  const hidden=description.classList.toggle('hidden');
+  descriptionBtn.textContent=hidden?'ℹ️ 説明を表示':'ℹ️ 説明を隠す';
+};
 
 const panel=document.querySelector('.panel');
 const collapseBtn=document.getElementById('collapseBtn');
