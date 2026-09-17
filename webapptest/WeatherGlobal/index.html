@@ -67,10 +67,10 @@ button.livebtn{border-color:#52e9a0}
       OBS frames are generated in-browser from the EUMETSAT EUMETView global composite. GLOBAL uses the IR 10.8 µm nominal time as its reference; Dust RGB and Natural Colour RGB are used only when the same nominal time is advertised.
       If the latest EUMETSAT composite is behind real time, 3-hour HYBRID frames are generated up to the latest completed 3-hour slot. They extrapolate motion from the two newest OBS cloud-alpha frames and use NOAA GFS total-cloud-cover guidance obtained through the Open-Meteo API. HYBRID is a forecast-assisted estimate, not a satellite observation.
       The surface uses NASA Blue Marble and city lights use NASA Black Marble. All displayed frame times use this device’s local time zone. Sun position, day/night shading, and city lights are synchronized to the selected frame time. Manual frame selection and TIME LAPSE use the same frame-rendering path.
-      Drag: rotate / Wheel or pinch: zoom. SUN OFF disables solar day/night shading and lights the whole globe uniformly for easier viewing. v0.15 keeps the adaptive drag behavior and adds regional NASA Blue Marble surface LOD. When you zoom in, a higher-resolution WMS patch is loaded only around the current view center, with soft feathered edges and a small LRU texture cache. SUN OFF remains a uniform full-globe viewing mode. In XR, use the right stick to rotate around Earth's own north-south axis. Grip moves the globe by translation only, so grabbing and moving it no longer tilts the planetary axis.
+      Drag: rotate / Wheel or pinch: zoom. SUN OFF disables solar day/night shading and lights the whole globe uniformly for easier viewing. v0.15 keeps the adaptive drag behavior and adds regional NASA Blue Marble surface LOD. When you zoom in, a higher-resolution WMS patch is loaded only around the current view center, with soft feathered edges and a small LRU texture cache. SUN OFF remains a uniform full-globe viewing mode. In XR, Grip lets you hold, move, and freely tilt the globe with your hand. The right stick rotates around Earth's own north-south axis. Quest buttons: A CLOUDS, B SUN, X CITY LIGHTS, Y INITIAL VIEW. TIME LAPSE keeps whatever state it had before entering AR/VR.
     </div>
   </div>
-  <div class="title"><span class="titleMain">EARTH WEATHER XR <span class="badge">v0.16 XR AXIS LOCK</span><span id="titleFrameTime" class="frameStamp">--/-- --:--</span></span><button id="collapse">−</button></div>
+  <div class="title"><span class="titleMain">EARTH WEATHER XR <span class="badge">v0.18 XR CONTROLS</span><span id="titleFrameTime" class="frameStamp">--/-- --:--</span></span><button id="collapse">−</button></div>
 </div></div>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
@@ -876,9 +876,86 @@ locationBtn.onclick=()=>{
 
 let xrSession=null,xrMode=null,grabber=null,preXRState=null;
 const ctrls=[],grips=[];
-const xrGrabControllerWorld=new THREE.Vector3();
-const xrGrabOffsetWorld=new THREE.Vector3();
-const xrGrabCurrentWorld=new THREE.Vector3();
+
+// XR uses two transform layers:
+//   xrPoseRoot = hand-held position + arbitrary tilt
+//   globe      = geographic spin around its own local Y (north-south) axis
+// Keeping these separate means the right stick always spins around Earth's own
+// axis, regardless of how the user tilts the globe with Grip.
+const xrPoseRoot=new THREE.Group();
+const xrGrabStartControllerPos=new THREE.Vector3();
+const xrGrabStartControllerQuat=new THREE.Quaternion();
+const xrGrabStartPosePos=new THREE.Vector3();
+const xrGrabStartPoseQuat=new THREE.Quaternion();
+const xrGrabOffsetLocal=new THREE.Vector3();
+const xrGrabCurrentPos=new THREE.Vector3();
+const xrGrabCurrentQuat=new THREE.Quaternion();
+const xrGrabInvStartQuat=new THREE.Quaternion();
+const xrGrabDeltaQuat=new THREE.Quaternion();
+const xrGrabRotatedOffset=new THREE.Vector3();
+
+// Quest controller button/status overlay.
+const xrButtonPrev=new WeakMap();
+const xrStatusPanels=[];
+function makeXRStatusPanel(){
+  const canvas=document.createElement('canvas');
+  canvas.width=768;canvas.height=500;
+  const ctx=canvas.getContext('2d');
+  const tex=new THREE.CanvasTexture(canvas);
+  tex.colorSpace=THREE.SRGBColorSpace;
+  tex.minFilter=THREE.LinearFilter;
+  const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false,side:THREE.DoubleSide});
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(.34,.22),mat);
+  mesh.position.set(.22,.11,-.07);
+  mesh.rotation.y=-.15;
+  mesh.renderOrder=1000;
+  mesh.visible=false;
+  mesh.userData={canvas,ctx,tex,hideAt:0};
+  return mesh;
+}
+function drawXRStatus(panel,changed=''){
+  const {canvas,ctx,tex}=panel.userData;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='rgba(5,14,25,.92)';
+  ctx.beginPath();ctx.roundRect(8,8,canvas.width-16,canvas.height-16,34);ctx.fill();
+  ctx.strokeStyle='rgba(150,210,255,.45)';ctx.lineWidth=4;ctx.stroke();
+
+  ctx.fillStyle='#eef6ff';
+  ctx.font='700 38px -apple-system,BlinkMacSystemFont,sans-serif';
+  ctx.fillText('EARTH WEATHER XR',40,58);
+
+  const rows=[
+    ['A  CLOUDS',cloudsOn?'ON':'OFF'],
+    ['B  SUN',sunOn?'ON':'OFF'],
+    ['X  CITY LIGHTS',nightOn?'ON':'OFF'],
+    ['Y  INITIAL VIEW','RESET'],
+    ['TIME LAPSE',playing?'PLAYING':'PAUSED']
+  ];
+  ctx.font='600 29px -apple-system,BlinkMacSystemFont,sans-serif';
+  let y=120;
+  for(const [name,value] of rows){
+    const active=changed===name[0];
+    if(active){
+      ctx.fillStyle='rgba(95,190,255,.20)';
+      ctx.fillRect(26,y-34,canvas.width-52,46);
+    }
+    ctx.fillStyle=active?'#8fd7ff':'#b8cee4';
+    ctx.textAlign='left';ctx.fillText(name,40,y);
+    ctx.fillStyle=value==='OFF'?'#ffbd9b':'#eef6ff';
+    ctx.textAlign='right';ctx.fillText(value,canvas.width-40,y);
+    y+=66;
+  }
+  tex.needsUpdate=true;
+}
+function showXRStatus(controller,changed=''){
+  if(!xrMode)return;
+  const i=ctrls.indexOf(controller);
+  if(i<0||!xrStatusPanels[i])return;
+  const panel=xrStatusPanels[i];
+  drawXRStatus(panel,changed);
+  panel.visible=true;
+  panel.userData.hideAt=performance.now()+2800;
+}
 async function detectXR(){
   if(!navigator.xr||!isSecureContext)return;
   try{if(await navigator.xr.isSessionSupported('immersive-ar'))arBtn.classList.remove('hidden')}catch{}
@@ -887,15 +964,25 @@ async function detectXR(){
 function setupXRControllers(){
   for(let i=0;i<2;i++){
     const c=renderer.xr.getController(i),g=renderer.xr.getControllerGrip(i);scene.add(c,g);ctrls.push(c);grips.push(g);
+    const panel=makeXRStatusPanel();c.add(panel);xrStatusPanels.push(panel);
     c.addEventListener('connected',e=>{c.userData.inputSource=e.data;});
     c.addEventListener('disconnected',()=>{c.userData.inputSource=null;});
     c.addEventListener('squeezestart',()=>{
-      if(grabber)return;
+      if(!xrMode||grabber)return;
       grabber=c;
-      // Translation-only grab: keep the globe parented to scene and preserve its quaternion.
-      // This prevents controller wrist rotation from tilting Earth's north-south axis.
-      c.getWorldPosition(xrGrabControllerWorld);
-      xrGrabOffsetWorld.copy(globe.position).sub(xrGrabControllerWorld);
+
+      // Capture controller and pose-root transforms at the instant of the grab.
+      c.getWorldPosition(xrGrabStartControllerPos);
+      c.getWorldQuaternion(xrGrabStartControllerQuat);
+      xrGrabStartPosePos.copy(xrPoseRoot.position);
+      xrGrabStartPoseQuat.copy(xrPoseRoot.quaternion);
+
+      // Store controller->globe-center offset in controller-local coordinates.
+      // Rotating the wrist then naturally swings/tilts the globe around the hand.
+      xrGrabInvStartQuat.copy(xrGrabStartControllerQuat).invert();
+      xrGrabOffsetLocal.copy(xrGrabStartPosePos)
+        .sub(xrGrabStartControllerPos)
+        .applyQuaternion(xrGrabInvStartQuat);
     });
     c.addEventListener('squeezeend',()=>{
       if(grabber===c)grabber=null;
@@ -903,6 +990,18 @@ function setupXRControllers(){
   }
 }
 setupXRControllers();
+
+function resetXRInitialView(){
+  if(!xrMode)return;
+  // Reset handheld pose to the original XR placement and clear tilt.
+  xrPoseRoot.position.set(0,xrMode==='ar'?1.15:1.25,xrMode==='ar'?-.9:-2.2);
+  xrPoseRoot.quaternion.identity();
+  // Reset geographic spin to the same Japan-facing initial heading used on XR entry.
+  globe.position.set(0,0,0);
+  globe.scale.setScalar(1);
+  globe.rotation.set(0,THREE.MathUtils.degToRad(139),0);
+}
+
 async function startXR(mode){
   if(xrSession)return;
   try{
@@ -910,33 +1009,109 @@ async function startXR(mode){
     xrSession=await navigator.xr.requestSession(mode==='ar'?'immersive-ar':'immersive-vr',init);xrMode=mode;
     preXRState={position:globe.position.clone(),quaternion:globe.quaternion.clone(),scale:globe.scale.clone()};
     await renderer.xr.setSession(xrSession);controls.enabled=false;
-    globe.position.set(0,mode==='ar'?1.15:1.25,mode==='ar'?-.9:-2.2);globe.scale.setScalar(mode==='ar'?.20:.75);
+
+    // Pose root owns XR placement and free tilt.
+    scene.add(xrPoseRoot);
+    xrPoseRoot.position.set(0,mode==='ar'?1.15:1.25,mode==='ar'?-.9:-2.2);
+    xrPoseRoot.quaternion.identity();
+    xrPoseRoot.scale.setScalar(mode==='ar'?.20:.75);
+
+    // Globe itself owns only geographic spin around local Y.
+    xrPoseRoot.add(globe);
+    globe.position.set(0,0,0);
+    globe.scale.setScalar(1);
     globe.rotation.set(0,THREE.MathUtils.degToRad(139),0);
+
     scene.background=mode==='ar'?null:new THREE.Color(0x01040a);
+
+    // Preserve the pre-existing TIME LAPSE state exactly as-is when entering XR.
+    // No automatic start/stop/reset here.
+    setTimeout(()=>{if(ctrls[0])showXRStatus(ctrls[0]);},250);
+
     xrSession.addEventListener('end',()=>{
       grabber=null;xrSession=null;xrMode=null;
-      if(preXRState){globe.position.copy(preXRState.position);globe.quaternion.copy(preXRState.quaternion);globe.scale.copy(preXRState.scale);preXRState=null;}
+
+      // Detach from the temporary XR pose hierarchy and restore the exact desktop pose.
+      scene.add(globe);
+      scene.remove(xrPoseRoot);
+      xrPoseRoot.position.set(0,0,0);
+      xrPoseRoot.quaternion.identity();
+      xrPoseRoot.scale.setScalar(1);
+
+      if(preXRState){
+        globe.position.copy(preXRState.position);
+        globe.quaternion.copy(preXRState.quaternion);
+        globe.scale.copy(preXRState.scale);
+        preXRState=null;
+      }
       scene.background=new THREE.Color(0x01040a);controls.enabled=true;
     });
   }catch(e){setStatus(`XR start failed: ${e.message}`,true)}
 }
 arBtn.onclick=()=>startXR('ar');vrBtn.onclick=()=>startXR('vr');detectXR();
 
-function updateXR(){
+function updateXR(time){
   if(!xrMode)return;
 
-  // Grip follows controller position only. Never copy controller orientation into globe.
+  // Grip controls the OUTER pose root: position + arbitrary hand tilt.
+  // The inner globe's geographic spin is untouched.
   if(grabber){
-    grabber.getWorldPosition(xrGrabCurrentWorld);
-    globe.position.copy(xrGrabCurrentWorld).add(xrGrabOffsetWorld);
+    grabber.getWorldPosition(xrGrabCurrentPos);
+    grabber.getWorldQuaternion(xrGrabCurrentQuat);
+
+    xrGrabInvStartQuat.copy(xrGrabStartControllerQuat).invert();
+    xrGrabDeltaQuat.copy(xrGrabCurrentQuat).multiply(xrGrabInvStartQuat);
+    xrPoseRoot.quaternion.copy(xrGrabDeltaQuat).multiply(xrGrabStartPoseQuat);
+
+    xrGrabRotatedOffset.copy(xrGrabOffsetLocal).applyQuaternion(xrGrabCurrentQuat);
+    xrPoseRoot.position.copy(xrGrabCurrentPos).add(xrGrabRotatedOffset);
   }
 
-  // Rotate around the globe's LOCAL Y axis (geographic north-south axis).
-  // Using rotateY keeps the axis intrinsic to Earth even after the globe has been moved.
   for(const c of ctrls){
     const gp=c.userData.inputSource?.gamepad;if(!gp)continue;
+
+    // Right stick = geographic spin around Earth's own local Y axis.
     const x=gp.axes?.[2]??gp.axes?.[0]??0;
     if(Math.abs(x)>.16)globe.rotateY(-x*.025);
+
+    // xr-standard face buttons:
+    // right controller: A=4, B=5
+    // left  controller: X=4, Y=5
+    const hand=c.userData.inputSource?.handedness||'';
+    const buttons=gp.buttons||[];
+    let prev=xrButtonPrev.get(c);
+    if(!prev){prev={a:false,b:false,x:false,y:false};xrButtonPrev.set(c,prev);}
+    const face4=!!buttons[4]?.pressed,face5=!!buttons[5]?.pressed;
+
+    const a=hand==='right'&&face4;
+    const b=hand==='right'&&face5;
+    const xBtn=hand==='left'&&face4;
+    const yBtn=hand==='left'&&face5;
+
+    if(a&&!prev.a){
+      cloudBtn.click();
+      showXRStatus(c,'A');
+    }
+    if(b&&!prev.b){
+      sunBtn.click();
+      showXRStatus(c,'B');
+    }
+    if(xBtn&&!prev.x){
+      nightBtn.click();
+      showXRStatus(c,'X');
+    }
+    if(yBtn&&!prev.y){
+      resetXRInitialView();
+      showXRStatus(c,'Y');
+    }
+
+    prev.a=a;prev.b=b;prev.x=xBtn;prev.y=yBtn;
+  }
+
+  // Auto-hide controller status panels.
+  const now=time??performance.now();
+  for(const p of xrStatusPanels){
+    if(p.visible&&now>p.userData.hideAt)p.visible=false;
   }
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
