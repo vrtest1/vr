@@ -1,0 +1,29 @@
+{
+  "width_m": 90,
+  "local_narrowing": "Voronoi boundary slits between nonadjacent course arms; outer width is reduced at tight turns",
+  "units": "metres",
+  "axes": "X east, Y up, Z south",
+  "origin_easting": 355000,
+  "origin_northing": 5580000,
+  "origin_height_NHN_m": 300,
+  "banking": "ARTISTIC ESTIMATE, NOT SURVEYED",
+  "banks": [
+    {
+      "name": "Caracciola Karussell",
+      "start_m": 12053.44,
+      "end_m": 12206.36,
+      "peak_degrees": 30,
+      "transition_m": 30
+    },
+    {
+      "name": "Kleines Karussell",
+      "start_m": 16965,
+      "end_m": 17110,
+      "peak_degrees": 15,
+      "transition_m": 30
+    }
+  ],
+  "bank_profile": "inner lane -4.5m to 0m slopes down; outside lane flat; widened extensions hold road-edge height",
+  "triangle_count": 189067,
+  "vertex_count": 119169
+}
