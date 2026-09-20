@@ -1,61 +1,29 @@
 {
-  "title": "Nordschleife geographic road prototype v01",
+  "width_m": 90,
+  "local_narrowing": "Voronoi boundary slits between nonadjacent course arms; outer width is reduced at tight turns",
   "units": "metres",
   "axes": "X east, Y up, Z south",
-  "horizontal_crs": "EPSG:25832",
-  "vertical_crs": "EPSG:7837 (DHHN2016 NHN)",
-  "origin_easting": 355000.0,
-  "origin_northing": 5580000.0,
-  "origin_height_m": 300.0,
-  "width_m": 10,
-  "width_status": "ASSUMED constant; not surveyed",
-  "banking_status": "NOT modelled; crossfall zero",
-  "elevation_source": "LVermGeoRP DGM1, bilinear sample of OSM centreline",
-  "elevation_smoothing_sigma_m": 2,
-  "bridge_estimates": [
+  "origin_easting": 355000,
+  "origin_northing": 5580000,
+  "origin_height_NHN_m": 300,
+  "banking": "ARTISTIC ESTIMATE, NOT SURVEYED",
+  "banks": [
     {
-      "way_id": "41395673",
-      "from_m": 184.15563598398984,
-      "to_m": 243.22778073462047
+      "name": "Caracciola Karussell",
+      "start_m": 12053.44,
+      "end_m": 12206.36,
+      "peak_degrees": 30,
+      "transition_m": 30
     },
     {
-      "way_id": "41395681",
-      "from_m": 1920.5324411898778,
-      "to_m": 2014.838281581969
-    },
-    {
-      "way_id": "41395647",
-      "from_m": 8036.413351234233,
-      "to_m": 8084.214174378607
-    },
-    {
-      "way_id": "41395652",
-      "from_m": 17900.699006896302,
-      "to_m": 17958.269171096767
-    },
-    {
-      "way_id": "41395668",
-      "from_m": 0.0,
-      "to_m": 15.0
-    },
-    {
-      "way_id": "41395668",
-      "from_m": 20747.47850821194,
-      "to_m": 20782.777051981397
+      "name": "Kleines Karussell",
+      "start_m": 16965,
+      "end_m": 17110,
+      "peak_degrees": 15,
+      "transition_m": 30
     }
   ],
-  "dgm_survey_years": [
-    "2025"
-  ],
-  "centerline_plan_length_m": 20788.197762590848,
-  "centerline_3d_length_m": 20826.782929199966,
-  "min_nhn_m": 334.80999014089565,
-  "max_nhn_m": 627.3783669287586,
-  "elevation_range_m": 292.568376787863,
-  "triangles": 41568,
-  "vertices": 31176,
-  "source_attribution": [
-    "© OpenStreetMap contributors, ODbL 1.0",
-    "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
-  ]
+  "bank_profile": "inner lane -4.5m to 0m slopes down; outside lane flat; widened extensions hold road-edge height",
+  "triangle_count": 189067,
+  "vertex_count": 119169
 }

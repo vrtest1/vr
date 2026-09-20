@@ -1,10 +1,11 @@
-import {recordLap} from './lap-history.js?v=03';
+import {TrackSurface} from './surface.js?v=04';
+import {recordLap} from './lap-history.js?v=04';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {Route,Drive,clamp} from './drive.js';
+import {Route,Drive,clamp} from './drive.js?v=04';
 const $=id=>document.getElementById(id), status=$('status');
 const touch=matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0;document.body.classList.toggle('touch',touch);
-let renderer,route,drive,ready=false,running=false,paused=false,view='chase',last=0,elapsed=0,xrSession=null,lastLap=1,toastUntil=0;
+let renderer,route,drive,surface,contact=null,ready=false,running=false,paused=false,view='chase',last=0,elapsed=0,xrSession=null,lastLap=1,toastUntil=0;
 const lapHistory=[];
 const keys=new Set(),input={steer:0,throttle:0,brake:0},touchInput={steer:0,throttle:0,brake:0};let steerPointer=null,padPrev={};
 const scene=new THREE.Scene();scene.background=new THREE.Color('#a7c8d4');scene.fog=new THREE.FogExp2('#a7c8d4',.00135);
@@ -33,14 +34,27 @@ function renderLapHistory(){
 }
 renderLapHistory();
 function notify(text,seconds=3){status.textContent=text;toastUntil=elapsed+seconds;}
-function ribbon(offsets,material,heightOffset=0){const vertices=[],indices=[];const ps=route.points;for(let i=0;i<ps.length;i+=4){const p=ps[i],a=ps[(i-4+ps.length)%ps.length],b=ps[(i+4)%ps.length];let dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);for(const o of offsets)vertices.push(p.x-dz/len*o,p.y+heightOffset-(Math.abs(o)>7?(Math.abs(o)-7)*.035:0),p.z+dx/len*o);}let n=vertices.length/6;for(let i=0;i<n;i++){let a=i*2,b=((i+1)%n)*2;indices.push(a,a+1,b,a+1,b+1,b);}let geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geo.setIndex(indices);geo.computeVertexNormals();let m=new THREE.Mesh(geo,material);scene.add(m);return m;}
-async function load(){try{const [gltf,csv,environment]=await Promise.all([new GLTFLoader().loadAsync('./assets/Nordschleife_v01.glb'),fetch('./assets/centerline.csv').then(r=>{if(!r.ok)throw new Error('centerline '+r.status);return r.text();}),new GLTFLoader().loadAsync('./assets/Nordschleife_environment_v02.glb')]);route=new Route(csv);drive=new Drive(route);gltf.scene.traverse(o=>{if(o.isMesh){o.material=new THREE.MeshStandardMaterial({color:'#41474b',roughness:.95,side:THREE.DoubleSide});}});scene.add(gltf.scene);
-scene.add(environment.scene);
-const line=new THREE.MeshBasicMaterial({color:'#e4e5d5',side:THREE.DoubleSide});ribbon([-4.9,-4.78],line,.025);ribbon([4.78,4.9],line,.025);
-// Sparse distance posts are navigation aids, not surveyed track furniture.
-for(let s=0;s<route.length;s+=250){const p=route.frame(s);for(const sign of [-1,1]){let m=new THREE.Mesh(new THREE.BoxGeometry(.12,.9,.12),line);m.position.set(p.x+Math.cos(p.yaw)*6.1*sign,p.y+.4,p.z+Math.sin(p.yaw)*6.1*sign);scene.add(m);}}
-ready=true;resetCamera();drawMap();$('start').disabled=false;$('start').textContent='ドライブを開始';status.textContent='';renderer.setAnimationLoop(frame);window.__driveApp={drive,route,renderer,get paused(){return paused;},get ready(){return ready;}};
-}catch(e){console.error(e);$('start').textContent='読込に失敗しました';status.textContent='コースを読み込めません。ZIPを展開してWebサーバーから開いてください。';}}
+function ribbon(offsets,material){
+ const vertices=[],indices=[];const ps=route.points;
+ for(let i=0;i<ps.length;i++){const p=ps[i],a=ps[(i-3+ps.length)%ps.length],b=ps[(i+3)%ps.length];const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);for(const o of offsets){const x=p.x-dz/len*o,z=p.z+dx/len*o,h=surface.sample(x,z,p.y);vertices.push(x,(h??p.y)+.035,z);}}
+ for(let i=0;i<ps.length;i++){const a=i*2,b=((i+1)%ps.length)*2;indices.push(a,a+1,b,a+1,b+1,b);}
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geo.setIndex(indices);scene.add(new THREE.Mesh(geo,material));
+}
+function indexSurface(root){
+ root.updateMatrixWorld(true);let total=0;root.traverse(o=>{if(o.isMesh)total+=(o.geometry.index?.count??o.geometry.attributes.position.count)*3;});
+ const triangles=new Float32Array(total),v=new THREE.Vector3();let at=0;
+ root.traverse(o=>{if(!o.isMesh)return;const g=o.geometry,pos=g.attributes.position,idx=g.index;for(let i=0;i<(idx?.count??pos.count);i++){v.fromBufferAttribute(pos,idx?idx.getX(i):i).applyMatrix4(o.matrixWorld);triangles[at++]=v.x;triangles[at++]=v.y;triangles[at++]=v.z;}});
+ return new TrackSurface(triangles);
+}
+async function load(){try{
+ const [gltf,csv]=await Promise.all([new GLTFLoader().loadAsync('./assets/Nordschleife_Banked_Drive_v04.glb'),fetch('./assets/centerline.csv').then(r=>{if(!r.ok)throw new Error('centerline '+r.status);return r.text();})]);
+ route=new Route(csv);drive=new Drive(route);surface=indexSurface(gltf.scene);
+ const trackMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.95,side:THREE.DoubleSide});gltf.scene.traverse(o=>{if(o.isMesh)o.material=trackMaterial;});scene.add(gltf.scene);
+ const line=new THREE.MeshBasicMaterial({color:'#e4e5d5',side:THREE.DoubleSide});ribbon([-4.9,-4.78],line);ribbon([4.78,4.9],line);
+ for(let s=0;s<route.length;s+=250){const p=route.frame(s);for(const sign of [-1,1]){const x=p.x+Math.cos(p.yaw)*6.1*sign,z=p.z+Math.sin(p.yaw)*6.1*sign,y=surface.sample(x,z,p.y);if(y===null)continue;const m=new THREE.Mesh(new THREE.BoxGeometry(.12,.9,.12),line);m.position.set(x,y+.45,z);scene.add(m);}}
+ ready=true;resetCamera();drawMap();$('start').disabled=false;$('start').textContent='ドライブを開始';status.textContent='';renderer.setAnimationLoop(frame);
+ window.__driveApp={drive,route,surface,renderer,get contact(){return contact;},get paused(){return paused;},get ready(){return ready;}};
+ }catch(e){console.error(e);$('start').textContent='読込に失敗しました';status.textContent='コースを読み込めません。ZIPを展開してWebサーバーから開いてください。';}}
 function clearInputs(){keys.clear();touchInput.steer=touchInput.throttle=touchInput.brake=0;steerPointer=null;$('knob').style.marginLeft='0px';for(const id of ['throttle','brake'])$(id).classList.remove('held');}
 function setPaused(v){paused=v;$('pause').textContent=v?'再開':'一時停止';clearInputs();notify(v?'一時停止中':'走行を再開',v?1e8:2);}
 function reset(){if(!drive)return;drive.reset();clearInputs();resetCamera();notify('路面中央に復帰しました');}
@@ -56,19 +70,37 @@ if(xrSession){for(const src of xrSession.inputSources){let g=src.gamepad;if(!g)c
 if(actionReset&&!padPrev.reset)reset();if(actionView&&!padPrev.view)toggleView();if(actionPause&&!padPrev.pause&&running)setPaused(!paused);padPrev={reset:actionReset,view:actionView,pause:actionPause};input.steer=steer;input.throttle=throttle;input.brake=brake;}
 const camTarget=new THREE.Vector3(),lookTarget=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),carQ=new THREE.Quaternion();let cameraInit=false;
 function resetCamera(){cameraInit=false;}
-function updateCar(dt){const p=drive.pose();car.position.set(p.x,p.y,p.z);const f=new THREE.Vector3(Math.sin(p.yaw),p.grade,-Math.cos(p.yaw)).normalize();const right=new THREE.Vector3().crossVectors(f,up).normalize(),u=new THREE.Vector3().crossVectors(right,f);const matrix=new THREE.Matrix4().makeBasis(right,u,f.clone().negate());carQ.setFromRotationMatrix(matrix);car.quaternion.slerp(carQ,cameraInit?1-Math.exp(-dt*14):1);for(const w of wheels){w.axle.rotation.y=w.front?-drive.steer*.25:0;w.wheel.rotation.x-=drive.v*dt/.34;w.hub.rotation.x-=drive.v*dt/.34;}
-const cockpit=view==='cockpit'||!!xrSession;roof.visible=cabin.visible=!cockpit;
-if(xrSession){rig.position.set(p.x,p.y+1.12,p.z);rig.rotation.set(0,-p.yaw,0);cameraInit=true;dash.visible=true;lapPanel.visible=true;return;}
-rig.position.set(0,0,0);rig.rotation.set(0,0,0);dash.visible=false;lapPanel.visible=false;
-if(cockpit){camTarget.set(p.x,p.y+1.12,p.z);lookTarget.set(p.x+f.x*30,p.y+1.12+f.y*24,p.z+f.z*30);}else{camTarget.set(p.x-f.x*8.5,p.y+3.9,p.z-f.z*8.5);lookTarget.set(p.x+f.x*12,p.y+1+f.y*10,p.z+f.z*12);}
-camera.position.lerp(camTarget,cameraInit?1-Math.exp(-dt*(cockpit?25:8)):1);camera.lookAt(lookTarget);cameraInit=true;}
+function updateCar(dt){
+ let p=drive.pose();contact=surface.support(p.x,p.z,p.yaw,p.y);
+ if(!contact){drive.reset();clearInputs();p=drive.pose();contact=surface.support(p.x,p.z,p.yaw,p.y);cameraInit=false;notify('走行床の端から路面中央へ復帰しました');}
+ if(!contact)return;
+ const f=new THREE.Vector3(Math.sin(p.yaw),contact.pitch,-Math.cos(p.yaw)).normalize();
+ const lateral=new THREE.Vector3(Math.cos(p.yaw),contact.crossfall,Math.sin(p.yaw)).normalize();
+ const u=new THREE.Vector3().crossVectors(lateral,f).normalize(),right=new THREE.Vector3().crossVectors(f,u).normalize();
+ const matrix=new THREE.Matrix4().makeBasis(right,u,f.clone().negate());carQ.setFromRotationMatrix(matrix);
+ // Set the contact frame directly: smoothing the rotation alone would let tyres sink into banks.
+ car.quaternion.copy(carQ);car.position.set(p.x,contact.height+.04,p.z);
+ // Lift as needed for the four wheel locations after applying roll/pitch.
+ let baseY=car.position.y;
+ for(const w of wheels){const local=w.axle.position.clone().applyQuaternion(carQ);const h=surface.sample(p.x+local.x,p.z+local.z,contact.height);if(h!==null)baseY=Math.max(baseY,h-local.y+.34*u.y+.015);}
+ car.position.y=baseY;
+ for(const w of wheels){w.axle.rotation.y=w.front?-drive.steer*.25:0;w.wheel.rotation.x-=drive.v*dt/.34;w.hub.rotation.x-=drive.v*dt/.34;}
+ const cockpit=view==='cockpit'||!!xrSession;roof.visible=cabin.visible=!cockpit;
+ const eye=new THREE.Vector3(0,1.12,0).applyQuaternion(car.quaternion).add(car.position);
+ if(xrSession){rig.position.copy(eye);rig.rotation.set(0,-p.yaw,0);cameraInit=true;dash.visible=true;lapPanel.visible=true;return;}
+ rig.position.set(0,0,0);rig.rotation.set(0,0,0);dash.visible=false;lapPanel.visible=false;
+ if(cockpit){camTarget.copy(eye);lookTarget.copy(eye).addScaledVector(f,30);camera.up.copy(u);}else{camTarget.set(p.x-f.x*8.5,baseY+3.9,p.z-f.z*8.5);lookTarget.set(p.x+f.x*12,baseY+1+f.y*10,p.z+f.z*12);camera.up.copy(up);}
+ // Prevent the chase camera from dipping under a nearby bank or raised shoulder.
+ if(!cockpit){const ground=surface.sample(camTarget.x,camTarget.z,camTarget.y);if(ground!==null)camTarget.y=Math.max(camTarget.y,ground+1.3);}
+ camera.position.lerp(camTarget,cameraInit?1-Math.exp(-dt*(cockpit?25:8)):1);camera.lookAt(lookTarget);cameraInit=true;
+}
 const mc=$('map').getContext('2d');let mapBase=null,mapTransform=null;
 function drawMap(){if(!mapBase){mapBase=document.createElement('canvas');mapBase.width=260;mapBase.height=220;let c=mapBase.getContext('2d'),xs=route.points.map(p=>p.x),zs=route.points.map(p=>p.z),minX=Math.min(...xs),maxX=Math.max(...xs),minZ=Math.min(...zs),maxZ=Math.max(...zs),scale=Math.min(230/(maxX-minX),185/(maxZ-minZ));mapTransform=p=>[15+(p.x-minX)*scale,15+(p.z-minZ)*scale];c.strokeStyle='#718a99';c.lineWidth=2.6;c.beginPath();route.points.forEach((p,i)=>{const [x,y]=mapTransform(p);i?c.lineTo(x,y):c.moveTo(x,y);});c.closePath();c.stroke();let [x,y]=mapTransform(route.points[0]);c.fillStyle='#eff3ed';c.fillRect(x-3,y-3,6,6);}mc.clearRect(0,0,260,220);mc.drawImage(mapBase,0,0);let [x,y]=mapTransform(drive.pose());mc.beginPath();mc.arc(x,y,5,0,Math.PI*2);mc.fillStyle='#d8f759';mc.fill();}
 function formatTime(t){return `${String(Math.floor(t/60)).padStart(2,'0')}:${(t%60).toFixed(1).padStart(4,'0')}`;}
-function hud(){const speed=Math.round(drive.v*3.6),p=drive.pose();$('speed').textContent=speed;$('gear').textContent=speed<1?'N':Math.min(6,Math.floor(speed/42)+1);$('elevation').textContent=Math.round(p.y+300);$('distance').textContent=`${(route.distance3(drive.s)/1000).toFixed(2)} / ${(route.length3/1000).toFixed(2)} km`;$('lap').textContent=`LAP ${drive.lap}`;$('time').textContent=formatTime(drive.time);$('power').style.width=`${speed/234*100}%`;drawMap();if(xrSession){dc.clearRect(0,0,512,160);dc.fillStyle='#101c22dc';dc.fillRect(0,0,512,160);dc.fillStyle='#d8f759';dc.font='bold 68px monospace';dc.fillText(`${speed}`,28,87);dc.fillStyle='#e6f1f5';dc.font='22px monospace';dc.fillText('km/h',167,87);dc.fillText(paused?'PAUSED':`LAP ${drive.lap}`,340,62);dc.fillText(`${(route.distance3(drive.s)/1000).toFixed(2)} km  /  ${formatTime(drive.time)}`,28,135);dashTexture.needsUpdate=true;}}
+function hud(){const speed=Math.round(drive.v*3.6),p=drive.pose();$('speed').textContent=speed;$('gear').textContent=speed<1?'N':Math.min(6,Math.floor(speed/42)+1);$('elevation').textContent=Math.round((contact?.height??p.y)+300);$('distance').textContent=`${(route.distance3(drive.s)/1000).toFixed(2)} / ${(route.length3/1000).toFixed(2)} km`;$('lap').textContent=`LAP ${drive.lap}`;$('time').textContent=formatTime(drive.time);$('power').style.width=`${speed/234*100}%`;drawMap();if(xrSession){dc.clearRect(0,0,512,160);dc.fillStyle='#101c22dc';dc.fillRect(0,0,512,160);dc.fillStyle='#d8f759';dc.font='bold 68px monospace';dc.fillText(`${speed}`,28,87);dc.fillStyle='#e6f1f5';dc.font='22px monospace';dc.fillText('km/h',167,87);dc.fillText(paused?'PAUSED':`LAP ${drive.lap}`,340,62);dc.fillText(`${(route.distance3(drive.s)/1000).toFixed(2)} km  /  ${formatTime(drive.time)}`,28,135);dashTexture.needsUpdate=true;}}
 let hudTimer=0;function frame(ms){const dt=last?Math.min((ms-last)/1000,.05):0;last=ms;elapsed+=dt;if(!ready)return;controls();if(running&&!paused){let remaining=dt;while(remaining>0){const step=Math.min(remaining,1/120);drive.step(step,input);remaining-=step;}if(drive.lap!==lastLap){recordLap(lapHistory,lastLap,drive.lastLap);renderLapHistory();notify(`LAP ${lastLap}  ${formatTime(drive.lastLap)}`,6);lastLap=drive.lap;}}
 updateCar(dt);hudTimer+=dt;if(hudTimer>.08){hud();hudTimer=0;}if(elapsed>toastUntil){if(paused)status.textContent='一時停止中';else if(Math.abs(drive.offset)>4.9)status.textContent='コース外 · 減速中';else status.textContent='';}renderer.render(scene,camera);}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);resetCamera();});
 $('world').addEventListener('webglcontextlost',e=>{e.preventDefault();paused=true;status.textContent='描画が停止しました。ページを再読み込みしてください。';});
-async function setupVR(){let supported=false;try{supported=!!navigator.xr&&await navigator.xr.isSessionSupported('immersive-vr');}catch{}$('vrNote').textContent=supported?'このブラウザはVRに対応しています。右上の「VRで走る」から開始できます。':'このブラウザでは通常画面で遊べます。VRはQuestのブラウザでHTTPSのURLを開いてください。';if(!supported)return;$('vr').hidden=false;$('vr').onclick=async()=>{if(!ready)return;if(xrSession){await xrSession.end();return;}try{const session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor']});xrSession=session;camera.position.set(0,0,0);camera.rotation.set(0,0,0);await renderer.xr.setSession(session);running=true;paused=false;$('gate').hidden=true;$('pause').textContent='一時停止';$('vr').textContent='VRを終了';clearInputs();last=0;session.addEventListener('end',()=>{xrSession=null;rig.position.set(0,0,0);rig.rotation.set(0,0,0);camera.position.set(0,0,0);resetCamera();setPaused(true);$('vr').textContent='VRで走る';});}catch(e){console.error(e);xrSession=null;notify('VRを開始できませんでした。Questブラウザから開いてください。',6);}};}
+async function setupVR(){let supported=false;try{supported=!!navigator.xr&&await navigator.xr.isSessionSupported('immersive-vr');}catch{}$('vrNote').textContent=supported?'このブラウザはVRに対応しています。右上の「VRで走る」から開始できます。':'このブラウザでは通常画面で遊べます。VRはQuestのブラウザでHTTPSのURLを開いてください。';if(!supported)return;$('vr').hidden=false;$('vr').onclick=async()=>{if(!ready)return;if(xrSession){await xrSession.end();return;}try{const session=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor']});xrSession=session;camera.position.set(0,0,0);camera.up.set(0,1,0);camera.rotation.set(0,0,0);await renderer.xr.setSession(session);running=true;paused=false;$('gate').hidden=true;$('pause').textContent='一時停止';$('vr').textContent='VRを終了';clearInputs();last=0;session.addEventListener('end',()=>{xrSession=null;rig.position.set(0,0,0);rig.rotation.set(0,0,0);camera.position.set(0,0,0);resetCamera();setPaused(true);$('vr').textContent='VRで走る';});}catch(e){console.error(e);xrSession=null;notify('VRを開始できませんでした。Questブラウザから開いてください。',6);}};}
 load();setupVR();

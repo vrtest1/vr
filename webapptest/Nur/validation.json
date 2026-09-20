@@ -1,0 +1,11 @@
+{
+  "method": "Numerical mesh contact checks; no device/browser rendering test",
+  "triangle_count": 189067,
+  "centerline_step_m": 4,
+  "centerline_contact_misses": 0,
+  "main_peak_roll_degrees": 29.98097665964012,
+  "mini_peak_roll_degrees": 15.006931226038029,
+  "lap_transition": "passed",
+  "latest_10_laps": "passed",
+  "banking": "estimated, not surveyed"
+}
