@@ -41,12 +41,25 @@ canvas{display:block}
   }
 }
 
+
+.radarBox{border-top:1px solid #ffffff24;margin-top:10px;padding-top:10px}
+.radarBox button{font-size:12px;padding:8px 10px}.radarBox .controlRow{flex-wrap:wrap;margin-top:7px}
+.radarBox input[type=range]{width:100%;accent-color:#68c6ff;margin:8px 0;touch-action:pan-x}
+.radarBox label{display:block;font-size:11px;color:#a9c7e7;margin-top:6px}
+#radarStamp{font-size:12px;line-height:1.55;color:#7ef0c4;margin-top:8px;font-variant-numeric:tabular-nums}
+#radarStamp.forecast{color:#ffbd72}
+#radarMessage{font-size:11px;color:#adc2d8;line-height:1.5;min-height:1.5em;margin:3px 0}
+.radarLegend{display:flex;gap:0;margin-top:5px}.radarLegend span{flex:1;min-width:0;font-size:9px;text-align:center;color:#d6e4f5}
+.radarLegend i{display:block;height:6px;margin-bottom:3px}
+.radarSource{font-size:10px;color:#91a9bf;line-height:1.5;margin-top:6px}.radarSource a{color:#a9d9ff}
+button,input{-webkit-tap-highlight-color:transparent}button{user-select:none;-webkit-user-select:none}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
 <div id="hud"><div class="panel">
   <div class="panelBody">
-  <div class="small hidden" id="description">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。昼側はBand 3可視、夜側はBand 13赤外を使い、昼夜境界で滑らかに自動合成。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定・Himawari TIME LAPSEを常時ループします。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFF、XでBLACK MARBLE ON/OFF、Yで雲表示「データ/見栄え」を切り替えできます。太陽光とBLACK MARBLEの昼夜境界は地球と一緒に追従します。［強調］では日差しライトを無効化し、雲の中間調・白さ・不透明度も持ち上げて地表と雲を見やすくします。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は現在日時の太陽直下点からリアルタイム計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
+  <div class="small hidden" id="description">ドラッグ: 回転（ズームに応じて自動減速）　ピンチ/ホイール: 拡大縮小（東京が画面いっぱいになる程度まで近接可能）<br>Himawari-9/AHI 日本側雲データ専用。Band 13赤外を土台に、十分明るい昼側でBand 3可視へ滑らかに切り替えます。朝夕の雲の欠けを抑え、タイムラプスでも観測時刻に昼夜が追従します。全球は軽量ベース地球を使用し、日本へ十分近づくと高解像度地表LOD、さらに東京付近まで接近すると関東中心の第2段LODへ自動切替。WebXR対応環境ではAR/VRボタンを自動表示。XR中はLODなし・BLACK MARBLE ON固定。通常は衛星画像をループ再生し、雨雲レーダーON時は選択中のレーダー表示・再生を維持します。Quest Touchは右スティックで地球回転、Grip（中指）長押しで掴んで移動、Aで衛星画像ON/OFF、Bで強調ON/OFF、XでBLACK MARBLE ON/OFF、Yで雲表示「データ/見栄え」を切り替えできます。太陽光とBLACK MARBLEの昼夜境界は地球と一緒に追従します。［強調］では地表と雲を見やすくしつつ、夜側に穏やかな陰影を残します。Himawariの実データが存在する時刻だけを採用し、最新の有効フレームをLIVEとして先に表示。その後、取得できた過去10枚だけをタイムラプス用に読み込みます。観測半球を地表へ合成し、昼夜は表示中の衛星画像の観測時刻から計算します（経度座標をThree.js標準UVへ正しく変換）。BLACK MARBLEはボタンで夜側のNASA都市光を表示。初期位置リセット・現在位置センター・パネル折り畳みに対応。HTTP 200でも中身が空のフレームを画素判定で検出・スキップし、取得できた過去10枚をタイムラプス用に保持します。</div>
   <div class="controls">
     <div class="controlRow"><button id="descriptionBtn">ℹ️ 説明を表示</button><button id="clouds">衛星画像 ON</button></div>
     <div class="controlRow"><button id="cloudVisualBtn">☁️ 雲表示 見栄え</button><button id="emphasisBtn">✨ 強調 ON</button></div>
@@ -55,10 +68,28 @@ canvas{display:block}
     <div class="controlRow"><button id="timelapse" disabled>▶ TIME LAPSE</button><button id="live">LIVEへ戻る</button></div>
     <div class="xrRow"><button id="arBtn" style="display:none">🥽 AR</button><button id="vrBtn" style="display:none">🥽 VR</button></div>
   </div>
+
+  <div class="radarBox">
+    <button id="radarToggle" aria-expanded="false" aria-controls="radarBody">🌧 雨雲レーダー OFF</button>
+    <div id="radarBody" hidden>
+      <div class="controlRow"><button id="radarPast" disabled>▶ 過去2時間</button><button id="radarFuture" disabled>▶ 1時間先まで</button></div>
+      <div class="controlRow"><button id="radarStop">⏸ 停止</button><button id="radarLatest">最新・更新</button></div>
+      <div id="radarStamp" role="status">実況・予想の時刻を確認中…</div>
+      <label for="radarTime">過去 ← 時刻を選択 → 予想</label>
+      <input id="radarTime" type="range" min="0" max="0" value="0" step="1" disabled aria-label="雨雲レーダーの表示時刻">
+      <div id="radarMessage" role="status"></div>
+      <label for="radarOpacity">重ねる濃さ <span id="radarOpacityValue">78%</span></label>
+      <input id="radarOpacity" type="range" min="15" max="100" value="78" aria-label="雨雲レーダーの不透明度">
+      <div class="radarLegend" aria-label="降水強度 mm/h">
+        <span><i style="background:#f2f2ff"></i>0–1</span><span><i style="background:#a0d2ff"></i>1–5</span><span><i style="background:#218cff"></i>5–10</span><span><i style="background:#0041ff"></i>10–20</span><span><i style="background:#faf500"></i>20–30</span><span><i style="background:#f90"></i>30–50</span><span><i style="background:#ff2800"></i>50–80</span><span><i style="background:#b40068"></i>80+</span>
+      </div>
+      <div class="radarSource">降水強度 mm/h · 日本周辺 · 10分刻みでループ再生<br>予想中は衛星雲を非表示。灰色の斜線は未取得領域。<br>出典：<a href="https://www.jma.go.jp/bosai/nowc/" target="_blank" rel="noopener noreferrer">気象庁「雨雲の動き」</a>を球面に加工して表示</div>
+    </div>
+  </div>
   <div id="progress"><div id="bar"></div></div>
   <div id="status" class="status"><span class="live">● LIVE</span> 起動中…</div>
   </div>
-  <div class="title"><span>LIVE EARTH XR <span class="badge">v1.1.4 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
+  <div class="title"><span>LIVE EARTH XR <span class="badge">v1.3.0 XR</span></span><button id="collapseBtn" title="パネルを畳む">−</button></div>
 </div></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 <script type="module">
@@ -76,7 +107,7 @@ renderer.xr.setReferenceSpaceType('local-floor');
 function solarPosition(date=new Date()){
   const rad=Math.PI/180;
   const start=Date.UTC(date.getUTCFullYear(),0,1);
-  const day=(date.getTime()-start)/86400000 + 1;
+  const day=Math.floor((date.getTime()-start)/86400000) + 1;
   const utc=date.getUTCHours()+date.getUTCMinutes()/60+date.getUTCSeconds()/3600;
   const gamma=2*Math.PI/365*(day-1+(utc-12)/24);
   const eqtime=229.18*(0.000075+0.001868*Math.cos(gamma)-0.032077*Math.sin(gamma)
@@ -100,16 +131,20 @@ function lonLatToWorld(lon,lat,r=8){
      r*Math.sin(theta)*Math.sin(phi)
   );
 }
-let lastSunUpdate=0;
+let observationDate=null;
 function updateRealtimeSun(force=false){
-  const now=Date.now();
-  if(!force && now-lastSunUpdate<1000) return;
-  lastSunUpdate=now;
-  const p=solarPosition(new Date(now));
+  const p=solarPosition(observationDate || new Date());
   sun.position.copy(lonLatToWorld(p.lon,p.lat,8));
-  // nightUniforms は描画ループ側で globe の回転/移動後のワールド太陽方向へ同期する。
   window.__subsolar=p;
 }
+function applySatelliteFrame(frame){
+  satUniforms.map.value=frame.tex;
+  satUniforms.irMap.value=frame.irTex;
+  if(radar.on)radar.contextKey='';
+  observationDate=radar.on && radar.shown ? radar.shown.date : frame.date;
+  updateRealtimeSun(true);
+}
+
 
 const controls=new OrbitControls(camera,renderer.domElement); controls.enableDamping=true; controls.enablePan=false; controls.minDistance=1.035; controls.maxDistance=6;
 
@@ -176,7 +211,7 @@ function drawXRStatus(panel,changed=''){
     ['雲表示',cloudVisualPretty?'見栄え':'データ'],
     ['強調',emphasisMode?'ON':'OFF'],
     ['BLACK MARBLE',blackMarbleEnabled?'ON':'OFF'],
-    ['TIME LAPSE',xrMode?'LOOP':'-']
+    ['TIME LAPSE',radar.on?(radar.mode==='future'?'RAIN FORECAST':radar.mode==='past'?'RAIN PAST':'RAIN PAUSE'):(xrMode?'LOOP':'-')]
   ];
   let y=125;
   for(const [name,value] of rows){
@@ -436,6 +471,22 @@ const nightMesh=new THREE.Mesh(new THREE.SphereGeometry(1.004,96,64),nightMat);
 nightMat.depthTest=false;
 nightMesh.renderOrder=15;
 globe.add(nightMesh);
+const groundShadeMat=new THREE.ShaderMaterial({
+  transparent:true, depthWrite:false, depthTest:false,
+  uniforms:{sunDir:nightUniforms.sunDir},
+  vertexShader:`varying vec3 vN;void main(){
+    vN=normalize(mat3(modelMatrix)*normal);
+    gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+  }`,
+  fragmentShader:`uniform vec3 sunDir;varying vec3 vN;void main(){
+    float nd=dot(normalize(vN),normalize(sunDir));
+    float day=smoothstep(-0.12,0.18,nd);
+    gl_FragColor=vec4(0.005,0.012,0.03,0.78*(1.0-day));
+  }`
+});
+const groundShade=new THREE.Mesh(new THREE.SphereGeometry(1.003,96,64),groundShadeMat);
+groundShade.renderOrder=10;
+globe.add(groundShade);
 updateRealtimeSun(true);
 function blackMarbleURL(){
  const q=new URLSearchParams({SERVICE:'WMS',REQUEST:'GetMap',VERSION:'1.1.1',LAYERS:'VIIRS_CityLights_2012',STYLES:'',
@@ -506,41 +557,30 @@ const satMat=new THREE.ShaderMaterial({
     // making the warm surface/ocean background almost transparent.
     // No whitening/color lift is applied; only alpha is reshaped.
     //
-    // A broad soft knee retains low/mid-level and thin cloud detail.
-    // Night Band 13 cloud-only mask.
-    // v0.9.x kept too much of the broad IR background, making the whole
-    // Band 13 coverage look like a bright panel.  Suppress that background
-    // much more strongly while retaining a low-weight thin-cloud component.
-    // Cloud-only IR mask.  Background is exactly transparent.
-    // Use a soft threshold rather than a non-zero alpha floor, so the
-    // rectangular/sector-shaped Band 13 coverage cannot brighten the globe.
-    float irThin=smoothstep(0.20,0.38,irL);
-    float irCore=smoothstep(0.34,0.62,irL);
-    float irCloudMask=max(irThin*0.34,irCore);
-
-    // Critical v1.0.1 change: NO constant alpha floor.
-    // Pixels below the cloud threshold contribute exactly zero.
-    float irPrettyA=ir.a*(0.76*irCloudMask);
-    if(irL<=0.20) irPrettyA=0.0;
-
+    // Soft cloud proxy, not a physical cloud classification. Avoid an abrupt
+    // cutoff; a single infrared display channel cannot separate all low cloud.
+    float irThin=smoothstep(0.08,0.32,irL);
+    float irCore=smoothstep(0.26,0.62,irL);
+    float irCloudMask=max(irThin*0.24,irCore);
+    float irPrettyA=ir.a*0.80*irCloudMask;
     float irA=mix(irDataA,irPrettyA,visualMode);
-    // Keep the original Band 13 tone in both modes.  This avoids the
-    // white veil seen in v0.9.5.
-    irA*=mix(0.92,1.08,emphasis);
+    irA=clamp(irA*mix(0.92,1.08,emphasis),0.0,1.0);
 
-    // Per-pixel solar blend. Broad twilight band avoids a hard terminator seam.
+    // Switch to visible only with sufficient sunlight (about 5 to 20 degrees).
+    // The observation timestamp, not the wall clock, supplies this sun vector.
     float nd=dot(normalize(vN),normalize(sunDir));
-    // Narrow twilight blend: Band 3 no longer extends into the true night side.
-    float daylight=smoothstep(0.00,0.10,nd);
-    vec3 c=mix(irColor,dayColor,daylight);
-
-    // Preserve cloud opacity through the Band 13 <-> Band 3 transition.
-    // The old straight alpha mix could create a dark seam when the same cloud
-    // was weak in either one of the two bands.
-    float blendedA=mix(irA,dayA,daylight);
-    float transition=1.0-abs(daylight*2.0-1.0);
-    float preserveA=max(irA,dayA)*transition;
-    float a=max(blendedA,preserveA);
+    float daylight=smoothstep(0.087,0.342,nd);
+    float visValid=smoothstep(0.01,0.12,vis.a);
+    float irValid=smoothstep(0.01,0.12,ir.a);
+    float useVis=daylight*visValid;
+    // A dark visible sample in twilight must not erase an infrared cloud.
+    float visConfidence=smoothstep(0.025,0.16,L);
+    useVis*=mix(1.0,visConfidence,irValid);
+    // If IR is missing, retain visible imagery only where sunlight permits it.
+    float wIR=1.0-useVis;
+    float a=irA*wIR+dayA*useVis;
+    vec3 premult=irColor*irA*wIR+dayColor*dayA*useVis;
+    vec3 c=premult/max(a,0.00001);
 
     if(a<0.001)discard;
     gl_FragColor=vec4(c,a);
@@ -713,7 +753,7 @@ async function initFrames(){
 
   // 最初の1枚を即表示。履歴ロード完了を待たない。
   frames=[latest];
-  satUniforms.map.value=latest.tex; satUniforms.irMap.value=latest.irTex; current=0;
+  applySatelliteFrame(latest); current=0;
   status.innerHTML=`<span class="live">● LIVE</span> ${label(latestDate)} / Himawari-9 / 履歴を読込中 1/11`;
   btnTL.disabled=true;
 
@@ -737,16 +777,14 @@ async function initFrames(){
 
   frames=[...history.reverse(),latest];
   current=frames.length-1;
-  satUniforms.map.value=latest.tex;
-  satUniforms.irMap.value=latest.irTex;
+  applySatelliteFrame(latest);
   btnTL.disabled=frames.length<2;
   status.innerHTML=`<span class="live">● LIVE</span> ${label(latestDate)} / Himawari-9 / 履歴 ${frames.length}/11`;
 }
 function show(i){
   if(!frames[i])return;
   current=i;
-  satUniforms.map.value=frames[i].tex;
-  satUniforms.irMap.value=frames[i].irTex;
+  applySatelliteFrame(frames[i]);
   status.innerHTML=`${i===frames.length-1?'<span class="live">● LIVE</span>':'TIME LAPSE'} ${label(frames[i].date)} / Himawari-9`;
   bar.style.width=`${frames.length>1?i/(frames.length-1)*100:100}%`;
 }
@@ -992,6 +1030,226 @@ collapseBtn.onclick=()=>{
 };
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+// --- JMA rain radar: lazy, bounded regional tiles; no key or proxy. -----------
+const RADAR_ROOT='https://www.jma.go.jp/bosai/jmatile/data/nowc';
+const RADAR_GRID={z:4,x0:13,x1:15,y0:5,y1:7,size:256};
+const radar={on:false,shown:null,past:[],future:[],timeline:[],cache:new Map(),
+  controller:null,epoch:0,mode:null,metadataAt:0,contextKey:'',forecastError:false,satelliteAllowed:false};
+const radarUI={toggle:document.getElementById('radarToggle'),body:document.getElementById('radarBody'),
+  past:document.getElementById('radarPast'),future:document.getElementById('radarFuture'),
+  stop:document.getElementById('radarStop'),latest:document.getElementById('radarLatest'),
+  slider:document.getElementById('radarTime'),stamp:document.getElementById('radarStamp'),
+  message:document.getElementById('radarMessage'),opacity:document.getElementById('radarOpacity')};
+function radarDate(s){
+  return new Date(Date.UTC(+s.slice(0,4),+s.slice(4,6)-1,+s.slice(6,8),+s.slice(8,10),+s.slice(10,12),+s.slice(12,14)));
+}
+function radarFrame(row){
+  return {...row,date:radarDate(row.validtime),baseDate:radarDate(row.basetime),
+    forecast:row.validtime>row.basetime,key:row.basetime+'/'+row.validtime};
+}
+function radarMercatorY(lat){return (1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2;}
+function makeRadarGeometry(){
+  const g=makeGeoPatch(118,158,18,50,1.010,80,64),uv=g.attributes.uv;
+  const n=2**RADAR_GRID.z;
+  for(let y=0;y<=64;y++)for(let x=0;x<=80;x++){
+    const lon=118+40*x/80,lat=50-32*y/64;
+    uv.setXY(y*81+x,((lon+180)/360*n-RADAR_GRID.x0)/3,
+      1-(radarMercatorY(lat)*n-RADAR_GRID.y0)/3);
+  }
+  return g;
+}
+const radarMaterial=new THREE.MeshBasicMaterial({transparent:true,opacity:.78,depthWrite:false,
+  side:THREE.DoubleSide,toneMapped:false});
+const radarMesh=new THREE.Mesh(makeRadarGeometry(),radarMaterial);
+radarMesh.renderOrder=30;radarMesh.visible=false;globe.add(radarMesh);
+function stopRadarTask(){
+  radar.epoch++;radar.controller?.abort();radar.controller=null;radar.mode=null;
+  radarUI.past.textContent='▶ 過去2時間';radarUI.future.textContent='▶ 1時間先まで';
+}
+function newRadarTask(mode=null){
+  stopRadarTask();radar.controller=new AbortController();radar.mode=mode;
+  return {epoch:radar.epoch,signal:radar.controller.signal};
+}
+function radarTaskCurrent(task){return radar.on && task.epoch===radar.epoch && !task.signal.aborted;}
+function radarAbort(){return new DOMException('Cancelled','AbortError');}
+async function radarFetch(url,signal,asJSON=false){
+  const timeout=new AbortController(),timer=setTimeout(()=>timeout.abort(),18000);
+  const cancel=()=>timeout.abort();signal.addEventListener('abort',cancel,{once:true});
+  try{
+    if(signal.aborted)throw radarAbort();
+    const r=await fetch(url,{signal:timeout.signal,mode:'cors',cache:asJSON?'no-cache':'default'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    return asJSON?await r.json():await r.blob();
+  }catch(e){if(signal.aborted)throw radarAbort();if(timeout.signal.aborted)throw new Error('通信がタイムアウトしました');throw e;}
+  finally{clearTimeout(timer);signal.removeEventListener('abort',cancel);}
+}
+function sampleRadarFrames(rows,latestMs,predicted){
+  const valid=rows.filter(r=>/^\d{14}$/.test(r.basetime)&&/^\d{14}$/.test(r.validtime)&&r.elements?.includes('hrpns'))
+    .map(radarFrame).filter(f=>Number.isFinite(+f.date));
+  if(predicted){
+    const newestBase=valid.reduce((m,f)=>f.basetime>m?f.basetime:m,'');
+    return valid.filter(f=>f.basetime===newestBase && f.forecast && +f.date>latestMs &&
+      +f.date- +f.baseDate<=3600000 && (+f.date- +f.baseDate)%600000===0).sort((a,b)=>a.date-b.date);
+  }
+  return valid.filter(f=>!f.forecast && +f.date>=latestMs-7200000 && +f.date<=latestMs &&
+    (latestMs- +f.date)%600000===0).sort((a,b)=>a.date-b.date);
+}
+async function refreshRadarTimes(task,force=false){
+  if(!force && radar.past.length && Date.now()-radar.metadataAt<240000)return;
+  radarUI.message.textContent='実況・予想の配信時刻を確認中…';
+  const result=await Promise.allSettled([
+    radarFetch(RADAR_ROOT+'/targetTimes_N1.json',task.signal,true),
+    radarFetch(RADAR_ROOT+'/targetTimes_N2.json',task.signal,true)
+  ]);
+  if(!radarTaskCurrent(task))throw radarAbort();
+  if(result[0].status!=='fulfilled'||!Array.isArray(result[0].value))throw new Error('実況の配信時刻を取得できません');
+  const rows=result[0].value;
+  const observed=rows.filter(r=>/^\d{14}$/.test(r.validtime)&&r.basetime===r.validtime&&r.elements?.includes('hrpns'));
+  const latest=observed.reduce((m,r)=>Math.max(m,+radarDate(r.validtime)),0);
+  if(!latest)throw new Error('実況データがありません');
+  radar.past=sampleRadarFrames(rows,latest,false);
+  radar.forecastError=result[1].status!=='fulfilled'||!Array.isArray(result[1].value);
+  radar.future=radar.forecastError?[]:sampleRadarFrames(result[1].value,latest,true);
+  radar.timeline=[...radar.past,...radar.future];radar.metadataAt=Date.now();
+  radarUI.slider.max=String(Math.max(0,radar.timeline.length-1));
+  radarUI.slider.disabled=!radar.timeline.length;
+  radarUI.past.disabled=radar.past.length<2;radarUI.future.disabled=!radar.future.length;
+}
+async function decodeRadarTile(blob){
+  // HTMLImageElement works on older Safari as well as desktop/Quest browsers.
+  const url=URL.createObjectURL(blob);
+  try{return await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(new Error('画像を読み込めません'));im.src=url;});}
+  finally{URL.revokeObjectURL(url);}
+}
+async function loadRadarFrame(frame,task){
+  if(radar.cache.has(frame.key)){
+    const cached=radar.cache.get(frame.key);radar.cache.delete(frame.key);radar.cache.set(frame.key,cached);return cached;
+  }
+  const canvas=document.createElement('canvas');canvas.width=768;canvas.height=768;
+  const ctx=canvas.getContext('2d'),tiles=[];
+  for(let y=RADAR_GRID.y0;y<=RADAR_GRID.y1;y++)for(let x=RADAR_GRID.x0;x<=RADAR_GRID.x1;x++)tiles.push({x,y});
+  let next=0,done=0,missing=0;const errors=[];
+  async function worker(){
+    while(next<tiles.length){
+      if(!radarTaskCurrent(task))throw radarAbort();
+      const {x,y}=tiles[next++];
+      try{
+        const blob=await radarFetch(`${RADAR_ROOT}/${frame.basetime}/none/${frame.validtime}/surf/hrpns/${RADAR_GRID.z}/${x}/${y}.png`,task.signal);
+        const im=await decodeRadarTile(blob);
+        if(!radarTaskCurrent(task))throw radarAbort();
+        ctx.drawImage(im,(x-RADAR_GRID.x0)*256,(y-RADAR_GRID.y0)*256,256,256);
+      }catch(e){
+        if(task.signal.aborted)throw e;
+        // Missing tiles are shown as grey hatch, never silently as "no rain".
+        missing++;errors.push(e.message);
+        ctx.fillStyle='rgba(90,100,120,.40)';ctx.fillRect((x-13)*256,(y-5)*256,256,256);
+        ctx.save();ctx.beginPath();ctx.rect((x-13)*256,(y-5)*256,256,256);ctx.clip();
+        ctx.strokeStyle='rgba(170,180,200,.65)';ctx.lineWidth=2;
+        for(let k=-256;k<512;k+=24){ctx.beginPath();ctx.moveTo((x-13)*256+k,(y-5)*256);ctx.lineTo((x-13)*256+k+256,(y-5)*256+256);ctx.stroke();}ctx.restore();
+      }
+      done++;
+      if(radarTaskCurrent(task))radarUI.message.textContent=`${frame.forecast?'予想':'実況'} ${label(frame.date)} を読込中 ${done}/9`;
+    }
+  }
+  await Promise.all(Array.from({length:3},worker));
+  if(!radarTaskCurrent(task))throw radarAbort();
+  if(missing===tiles.length)throw new Error('雨雲画像を取得できません（通信状況や配信元を確認してください）');
+  const result={canvas,missing};
+  // Retry partial frames next time. Keep at most 20 complete regional frames.
+  if(!missing){radar.cache.set(frame.key,result);while(radar.cache.size>20)radar.cache.delete(radar.cache.keys().next().value);}
+  return result;
+}
+function radarContext(){
+  if(!radar.on||!radar.shown)return;
+  const f=radar.shown;
+  const key=f.key+'/'+frames.length+'/'+cloudsOn;
+  if(key===radar.contextKey){if(status.textContent!==radar.contextStatus)status.textContent=radar.contextStatus;return;}radar.contextKey=key;
+  let nearest=null,delta=Infinity;
+  for(const s of frames){const d=Math.abs(+s.date- +f.date);if(d<delta){nearest=s;delta=d;}}
+  radar.satelliteAllowed=!f.forecast && !!nearest && delta<=15*60000;
+  if(radar.satelliteAllowed){
+    satUniforms.map.value=nearest.tex;satUniforms.irMap.value=nearest.irTex;
+    sat.visible=cloudsOn;
+    status.textContent=`衛星画像 ${label(nearest.date)} / レーダー時刻に近い観測`;
+  }else{
+    sat.visible=false;
+    status.textContent=f.forecast?'衛星雲：予想画像はないため非表示':'衛星雲：近い観測時刻がないため非表示';
+  }
+  radar.contextStatus=status.textContent;
+  observationDate=f.date;updateRealtimeSun(true);
+}
+function showRadarFrame(frame,result){
+  const previous=radarMaterial.map;
+  const tex=new THREE.CanvasTexture(result.canvas);tex.colorSpace=THREE.SRGBColorSpace;
+  tex.generateMipmaps=false;tex.minFilter=THREE.LinearFilter;tex.magFilter=THREE.LinearFilter;
+  radarMaterial.map=tex;radarMaterial.needsUpdate=true;previous?.dispose();
+  radar.shown=frame;radarMesh.visible=radar.on;radar.contextKey='';radarContext();
+  const minutes=Math.round((+frame.date- +frame.baseDate)/60000);
+  radarUI.stamp.textContent=frame.forecast?`予想 +${minutes}分｜${label(frame.date)}（基準 ${label(frame.baseDate)}）`:`実況｜${label(frame.date)}`;
+  radarUI.stamp.classList.toggle('forecast',frame.forecast);
+  radarUI.slider.value=String(Math.max(0,radar.timeline.findIndex(f=>f.key===frame.key)));
+  radarUI.message.textContent=result.missing?`一部未取得：灰色の斜線 ${result.missing}/9 区画`:
+    frame.forecast?'気象庁の予想を表示中／衛星雲は非表示':radar.forecastError?'予想時刻を取得できませんでした。最新・更新で再試行できます':'実況の降水強度／再生は10分刻み';
+}
+async function radarLoadAndShow(frame,task){
+  const result=await loadRadarFrame(frame,task);
+  if(!radarTaskCurrent(task))throw radarAbort();showRadarFrame(frame,result);
+}
+function radarFailure(e,task){
+  if(!radarTaskCurrent(task)||e.name==='AbortError')return;
+  radarUI.message.textContent=e.message+'。［最新・更新］で再試行できます。';
+  radar.mode=null;radarUI.past.textContent='▶ 過去2時間';radarUI.future.textContent='▶ 1時間先まで';
+}
+async function radarLatest(force=false){
+  const task=newRadarTask();
+  try{await refreshRadarTimes(task,force);await radarLoadAndShow(radar.past.at(-1),task);}
+  catch(e){radarFailure(e,task);}
+}
+function radarDelay(ms,signal){
+  return new Promise((resolve,reject)=>{
+    if(signal.aborted){reject(radarAbort());return;}
+    const done=()=>{signal.removeEventListener('abort',cancel);resolve();};
+    const timer=setTimeout(done,ms),cancel=()=>{clearTimeout(timer);signal.removeEventListener('abort',cancel);reject(radarAbort());};
+    signal.addEventListener('abort',cancel,{once:true});
+  });
+}
+async function playRadar(mode){
+  const task=newRadarTask(mode);playing=false;
+  try{
+    await refreshRadarTimes(task);
+    const sequence=mode==='past'?[...radar.past]:[radar.past.at(-1),...radar.future];
+    if(sequence.length<2)throw new Error('再生できるデータがありません');
+    (mode==='past'?radarUI.past:radarUI.future).textContent='▶ 再生中（ループ）';
+    do{
+      for(const frame of sequence){await radarLoadAndShow(frame,task);await radarDelay(900,task.signal);}
+      await radarDelay(900,task.signal);
+    }while(radarTaskCurrent(task));
+  }catch(e){radarFailure(e,task);}
+}
+radarUI.toggle.onclick=()=>{
+  radar.on=!radar.on;radarUI.toggle.textContent=radar.on?'🌧 雨雲レーダー ON':'🌧 雨雲レーダー OFF';
+  radarUI.body.hidden=!radar.on;radarUI.toggle.setAttribute('aria-expanded',String(radar.on));
+  if(radar.on){playing=false;radarMesh.visible=!!radar.shown;btnTL.disabled=true;btnLive.disabled=true;radarLatest();}
+  else{
+    stopRadarTask();radarMesh.visible=false;radar.contextKey='';sat.visible=cloudsOn;
+    if(frames.length)show(frames.length-1);
+    else{observationDate=null;updateRealtimeSun(true);}
+    btnTL.disabled=!!xrMode||frames.length<2;btnLive.disabled=!!xrMode;
+  }
+};
+radarUI.past.onclick=()=>playRadar('past');radarUI.future.onclick=()=>playRadar('future');
+radarUI.latest.onclick=()=>radarLatest(true);
+radarUI.stop.onclick=()=>{stopRadarTask();radarUI.message.textContent='一時停止／スライダーで時刻を選べます';};
+let radarScrubTimer=null;
+radarUI.slider.oninput=()=>{
+  clearTimeout(radarScrubTimer);const f=radar.timeline[+radarUI.slider.value];if(!f)return;
+  const task=newRadarTask();radarUI.message.textContent=`${label(f.date)} を選択中…`;
+  radarScrubTimer=setTimeout(()=>{if(radarTaskCurrent(task))radarLoadAndShow(f,task).catch(e=>radarFailure(e,task));},160);
+};
+radarUI.opacity.oninput=()=>{radarMaterial.opacity=+radarUI.opacity.value/100;document.getElementById('radarOpacityValue').textContent=radarUI.opacity.value+'%';};
+// Stop network work when leaving; data load starts only after the ON button.
+addEventListener('pagehide',()=>stopRadarTask());
+
 const _sunWorld=new THREE.Vector3(), _globeWorld=new THREE.Vector3();
 function syncGlobeLockedSun(){
   // DirectionalLightとBlack Marble shaderを同じ「地球ローカルの太陽方向」に固定。
@@ -1003,16 +1261,22 @@ function syncGlobeLockedSun(){
 }
 
 renderer.setAnimationLoop((time)=>{
-  controls.update();updateJapanLOD();updateXRControllers(time);syncGlobeLockedSun();
-  if(xrMode && frames.length){
+  controls.update();updateJapanLOD();updateXRControllers(time);
+  if(xrMode && frames.length && !radar.on){
     // XRでは1秒/フレームで最古→最新→最古…を永久ループ。
     if(time-xrLastFrameChange>=1000){
       xrFrameIndex=(xrFrameIndex+1)%frames.length;
-      satUniforms.map.value=frames[xrFrameIndex].tex;
-      satUniforms.irMap.value=frames[xrFrameIndex].irTex;
+      applySatelliteFrame(frames[xrFrameIndex]);
       xrLastFrameChange=time;
     }
   }
+  if(radar.on){
+    // Keep satellite controls from restarting a conflicting timeline.
+    btnTL.disabled=true;btnLive.disabled=true;radarContext();
+    if(radar.shown)sat.visible=cloudsOn && radar.satelliteAllowed;
+  }
+  groundShade.visible=earth.material===earthBrightMat;
+  syncGlobeLockedSun();
   renderer.render(scene,camera);
 });
 initFrames();
