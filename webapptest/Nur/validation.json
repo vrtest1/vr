@@ -7,5 +7,15 @@
   "mini_peak_roll_degrees": 15.006931226038029,
   "lap_transition": "passed",
   "latest_10_laps": "passed",
-  "banking": "estimated, not surveyed"
+  "banking": "estimated, not surveyed",
+  "v05": {
+    "geometry": "binary geometry unchanged; only vertex colors updated",
+    "vr_map": "texture update, position right of speed panel, shared position marker, visibility wiring passed",
+    "browser_and_device_test": "not performed"
+  },
+  "v06": {
+    "engine_state": "6 gears, no up/down shift oscillation, RPM range and shift drop passed",
+    "web_audio": "API mock tests: single context, parameter bounds, mute/pause targets, settings persistence",
+    "listening_browser_device_test": "not performed"
+  }
 }
