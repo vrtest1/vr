@@ -8,51 +8,48 @@
 </style>
 </head>
 <body>
-<header><div>☁️ Sky Cloud MR<div class="sub">空にだけ雲を重ねるカメラデモ</div></div><span id="mode" class="badge">カメラ未開始</span></header>
+<header><div>☁️ Sky Cloud MR<div class="sub">曇り空にも対応する空セグメンテーションデモ</div></div><span id="mode" class="badge">カメラ未開始</span></header>
 <div class="stage" id="stage"><video id="video" autoplay playsinline muted></video><canvas id="fx"></canvas><div class="empty" id="empty">カメラを開始してください<br><small>屋外の空に向けると空色を自動判定します</small></div></div>
 <div class="controls">
  <div class="row"><button class="primary" id="start">カメラ開始</button><button id="stop" disabled>停止</button><button id="clear">リセット</button></div>
  <div class="row"><button class="active" data-tool="cloud">雲を描く</button><button data-tool="erase">雲を消す</button><button data-tool="inspect">空マスク確認</button></div>
  <div class="slider"><span>ブラシ</span><input id="brush" type="range" min="18" max="150" value="72"><span id="brushN">72</span></div>
+ <div class="row"><button class="active" data-style="fair">白い雲</button><button data-style="storm">雨雲（暗め）</button></div>
  <div class="slider"><span>雲の濃さ</span><input id="opacity" type="range" min="20" max="100" value="78"><span id="opacityN">78%</span></div>
  <div class="status" id="status">準備完了。まずカメラを開始してください。</div>
- <div class="hint">画面をなぞって操作します。空の認識はiPhone内で軽量に行う試作方式です。青空では比較的よく動きますが、曇天・夕焼け・木の枝が多い景色では境界がずれることがあります。SafariではHTTPSのページで開いてください。</div>
+ <div class="hint">画面をなぞって操作します。空判定モデルを初回にネットから読み込みます（約数十MB）。映像の推論は端末内で行います。曇天にも対応しますが、枝など細い境界は誤ることがあります。SafariではHTTPSのページで開いてください。</div>
 </div>
 <script>
 (()=>{
 const video=document.querySelector('#video'), canvas=document.querySelector('#fx'), ctx=canvas.getContext('2d',{alpha:true}), stage=document.querySelector('#stage'), empty=document.querySelector('#empty'), status=document.querySelector('#status'), mode=document.querySelector('#mode');
-const work=document.createElement('canvas'), wc=work.getContext('2d',{willReadFrequently:true}), maskCanvas=document.createElement('canvas'), maskCtx=maskCanvas.getContext('2d'); let stream=null, raf=0, tool='cloud', painting=false, last=null, clouds=[], mask=null, maskW=0,maskH=0, frame=0, inspect=false;
+const work=document.createElement('canvas'), wc=work.getContext('2d',{willReadFrequently:true}), maskCanvas=document.createElement('canvas'), maskCtx=maskCanvas.getContext('2d'); let stream=null, raf=0, tool='cloud', cloudStyle='fair', painting=false, last=null, clouds=[], mask=null, maskW=0,maskH=0, frame=0, inspect=false, segmenter=null, inferenceBusy=false;
 const resize=()=>{const r=stage.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,1.5);canvas.width=Math.round(r.width*d);canvas.height=Math.round(r.height*d);canvas.style.width=r.width+'px';canvas.style.height=r.height+'px';};new ResizeObserver(resize).observe(stage);resize();
-function detectSky(){if(video.readyState<2)return;const w=144,h=Math.max(64,Math.round(144*video.videoHeight/video.videoWidth)); if(work.width!==w||work.height!==h){work.width=w;work.height=h;maskW=w;maskH=h;mask=new Uint8Array(w*h)}wc.drawImage(video,0,0,w,h);let im;try{im=wc.getImageData(0,0,w,h).data}catch{return} // classify likely sky colors; only retain regions connected to upper edge
-const candidate=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let i=(y*w+x)*4,r=im[i],g=im[i+1],b=im[i+2],bright=(r+g+b)/3, blue=b-r, sat=Math.max(r,g,b)-Math.min(r,g,b); let topBias=y/h; candidate[y*w+x]=((blue>9&&b>85&&g>65&&bright>75)||(bright>183&&sat<58&&topBias<.68))?1:0;}
-// Flood from top row to avoid selecting blue objects disconnected from the sky.
-const seen=new Uint8Array(w*h),q=new Int32Array(w*h);let head=0,tail=0;for(let x=0;x<w;x++)if(candidate[x]){seen[x]=1;q[tail++]=x}while(head<tail){let k=q[head++],x=k%w,y=(k/w)|0;for(const n of [x>0?k-1:-1,x<w-1?k+1:-1,y>0?k-w:-1,y<h-1?k+w:-1])if(n>=0&&!seen[n]&&candidate[n]){seen[n]=1;q[tail++]=n}}
-// Temporal smoothing suppresses edge flicker.
-for(let i=0;i<mask.length;i++)mask[i]=seen[i]?(mask[i]<150?Math.min(255,mask[i]+100):255):(mask[i]>80?Math.max(0,mask[i]-95):0);
-}
-function cloudStamp(x,y,size,alpha){const d=canvas.width/Math.max(1,stage.clientWidth);let s=size*d;ctx.save();ctx.globalAlpha=alpha;ctx.translate(x*d,y*d); // layered soft cloud puffs with subtle shaded underside
+async function detectSky(){if(!segmenter||inferenceBusy||video.readyState<2)return;inferenceBusy=true;try{const result=await segmenter(video);const sky=result.find(x=>String(x.label).toLowerCase()==='sky');if(!sky?.mask){inferenceBusy=false;return}const m=sky.mask, mw=m.width||m.cols||144,mh=m.height||m.rows||96,src=m.data;if(!src){inferenceBusy=false;return}maskW=mw;maskH=mh;if(!mask||mask.length!==mw*mh)mask=new Uint8Array(mw*mh);for(let i=0;i<mask.length;i++){const v=src.length===mask.length?src[i]:src[i*4];const next=v>125?255:0;mask[i]=next?Math.min(255,mask[i]+100):Math.max(0,mask[i]-100)}mode.textContent='空を認識中';}catch(e){status.textContent='空認識モデルの実行に失敗しました。ページを再読み込みしてください。';}finally{inferenceBusy=false}}
+
+function cloudStamp(x,y,size,alpha,style){const d=canvas.width/Math.max(1,stage.clientWidth);let s=size*d;ctx.save();ctx.globalAlpha=alpha;ctx.translate(x*d,y*d); // layered soft cloud puffs with subtle shaded underside
 const puffs=[[-.42,.05,.34],[-.20,-.12,.40],[.08,-.18,.46],[.34,-.06,.36],[.48,.08,.27],[-.05,.08,.48]];
-for(const [px,py,pr] of puffs){let rad=s*pr,g=ctx.createRadialGradient(px*s,py*s-rad*.15,rad*.12,px*s,py*s,rad);g.addColorStop(0,'rgba(255,255,255,.98)');g.addColorStop(.52,'rgba(255,255,255,.86)');g.addColorStop(.82,'rgba(238,245,255,.48)');g.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(px*s,py*s,rad,0,Math.PI*2);ctx.fill();}
+for(const [px,py,pr] of puffs){let rad=s*pr,g=ctx.createRadialGradient(px*s,py*s-rad*.15,rad*.12,px*s,py*s,rad);if(style==='storm'){g.addColorStop(0,'rgba(125,137,151,.97)');g.addColorStop(.42,'rgba(77,88,103,.94)');g.addColorStop(.72,'rgba(43,51,64,.82)');g.addColorStop(.9,'rgba(29,36,48,.62)');g.addColorStop(1,'rgba(25,32,44,0)')}else{g.addColorStop(0,'rgba(255,255,255,.98)');g.addColorStop(.52,'rgba(255,255,255,.86)');g.addColorStop(.82,'rgba(238,245,255,.48)');g.addColorStop(1,'rgba(255,255,255,0)')};ctx.fillStyle=g;ctx.beginPath();ctx.arc(px*s,py*s,rad,0,Math.PI*2);ctx.fill();}
 ctx.restore();}
-function draw(){raf=requestAnimationFrame(draw);if(++frame%5===0)detectSky();let cw=canvas.width,ch=canvas.height;ctx.clearRect(0,0,cw,ch);if(!mask||!mask.length)return;
+function draw(){raf=requestAnimationFrame(draw);if(++frame%30===0)detectSky();let cw=canvas.width,ch=canvas.height;ctx.clearRect(0,0,cw,ch);if(!mask||!mask.length)return;
 // Create soft sky alpha mask in output dimensions.
 const mw=maskW,mh=maskH;let data=ctx.createImageData(mw,mh);for(let i=0;i<mask.length;i++){let a=mask[i];data.data[i*4]=255;data.data[i*4+1]=255;data.data[i*4+2]=255;data.data[i*4+3]=a}maskCanvas.width=mw;maskCanvas.height=mh;maskCtx.putImageData(data,0,0);const mc=maskCanvas;
 if(inspect){ctx.save();ctx.globalAlpha=.38;ctx.drawImage(mc,0,0,cw,ch);ctx.restore();}
 // Clouds are stored in normalized video-view coordinates. Clip painting to detected sky.
 ctx.save();ctx.globalCompositeOperation='destination-in';ctx.drawImage(mc,0,0,cw,ch);ctx.restore();
-for(const c of clouds)if(c.points?.length){for(const p of c.points)cloudStamp(p.x*stage.clientWidth,p.y*stage.clientHeight,c.size,c.alpha)}
+for(const c of clouds)if(c.points?.length){for(const p of c.points)cloudStamp(p.x*stage.clientWidth,p.y*stage.clientHeight,c.size,c.alpha,c.style)}
 // Build clipping mask again: destination-in above was on an empty canvas; clouds have already been drawn after it.
 if(clouds.length){const layer=document.createElement('canvas');layer.width=cw;layer.height=ch;let l=layer.getContext('2d');l.drawImage(canvas,0,0);l.globalCompositeOperation='destination-in';l.drawImage(mc,0,0,cw,ch);ctx.clearRect(0,0,cw,ch);ctx.drawImage(layer,0,0)}
 }
 function point(e){let r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top,nx:(e.clientX-r.left)/r.width,ny:(e.clientY-r.top)/r.height}}
 function skyAt(p){if(!mask)return false;let x=Math.max(0,Math.min(maskW-1,Math.floor(p.nx*maskW))),y=Math.max(0,Math.min(maskH-1,Math.floor(p.ny*maskH)));return mask[y*maskW+x]>70}
-canvas.addEventListener('pointerdown',e=>{if(!stream)return;painting=true;canvas.setPointerCapture(e.pointerId);let p=point(e);if(tool==='inspect'){inspect=!inspect;mode.textContent=inspect?'空マスク表示':'カメラ追従';return}last=p; if(tool==='cloud'&&skyAt(p)){clouds.push({points:[{x:p.nx,y:p.ny}],size:+document.querySelector('#brush').value,alpha:+document.querySelector('#opacity').value/100});} else if(tool==='erase') eraseAt(p);});
+canvas.addEventListener('pointerdown',e=>{if(!stream)return;painting=true;canvas.setPointerCapture(e.pointerId);let p=point(e);if(tool==='inspect'){inspect=!inspect;mode.textContent=inspect?'空マスク表示':'カメラ追従';return}last=p; if(tool==='cloud'&&skyAt(p)){clouds.push({points:[{x:p.nx,y:p.ny}],size:+document.querySelector('#brush').value,alpha:+document.querySelector('#opacity').value/100,style:cloudStyle});} else if(tool==='erase') eraseAt(p);});
 canvas.addEventListener('pointermove',e=>{if(!painting||!last)return;let p=point(e), dx=p.x-last.x,dy=p.y-last.y,dist=Math.hypot(dx,dy),steps=Math.max(1,Math.ceil(dist/12));for(let j=1;j<=steps;j++){let t=j/steps,q={x:last.x+dx*t,y:last.y+dy*t,nx:last.nx+(p.nx-last.nx)*t,ny:last.ny+(p.ny-last.ny)*t};if(!skyAt(q))continue;if(tool==='cloud'&&clouds.length)clouds[clouds.length-1].points.push({x:q.nx,y:q.ny});else if(tool==='erase')eraseAt(q)}last=p});
 function eraseAt(p){const radius=(+document.querySelector('#brush').value)/2/Math.min(stage.clientWidth,stage.clientHeight);for(let i=clouds.length-1;i>=0;i--){let c=clouds[i];c.points=c.points.filter(q=>Math.hypot((q.x-p.nx)*stage.clientWidth,(q.y-p.ny)*stage.clientHeight)>+document.querySelector('#brush').value*.8);if(!c.points.length)clouds.splice(i,1)}}
 canvas.addEventListener('pointerup',()=>{painting=false;last=null});canvas.addEventListener('pointercancel',()=>{painting=false;last=null});
+document.querySelectorAll('[data-style]').forEach(b=>b.onclick=()=>{cloudStyle=b.dataset.style;document.querySelectorAll('[data-style]').forEach(x=>x.classList.toggle('active',x===b));status.textContent=cloudStyle==='storm'?'雨雲風の暗い雲を描きます。':'明るい白い雲を描きます。'});
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{tool=b.dataset.tool;document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('active',x===b));if(tool==='inspect'){inspect=!inspect;tool='cloud';document.querySelector('[data-tool="cloud"]').classList.add('active');mode.textContent=inspect?'空マスク表示':'カメラ追従'}status.textContent=tool==='erase'?'なぞった場所の雲を消します。':'空をなぞると雲を追加します。'});
 document.querySelector('#brush').oninput=e=>document.querySelector('#brushN').textContent=e.target.value;document.querySelector('#opacity').oninput=e=>document.querySelector('#opacityN').textContent=e.target.value+'%';document.querySelector('#clear').onclick=()=>{clouds=[];inspect=false;mode.textContent=stream?'カメラ追従':'カメラ未開始'};
-document.querySelector('#start').onclick=async()=>{try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});video.srcObject=stream;await video.play();empty.style.display='none';document.querySelector('#start').disabled=true;document.querySelector('#stop').disabled=false;mode.textContent='空を解析中';status.textContent='カメラ映像を端末内で解析しています。空をなぞって雲を描けます。';cancelAnimationFrame(raf);draw()}catch(e){status.textContent='カメラを開始できません。Safariのカメラ許可とHTTPS接続を確認してください。';}};
+document.querySelector('#start').onclick=async()=>{try{status.textContent='空認識モデルを読み込み中です。初回は少し時間がかかります。';if(!segmenter){const {pipeline}=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2');segmenter=await pipeline('image-segmentation','Xenova/segformer-b0-finetuned-ade-512-512',{device:'wasm'});}stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});video.srcObject=stream;await video.play();empty.style.display='none';document.querySelector('#start').disabled=true;document.querySelector('#stop').disabled=false;mode.textContent='空を解析中';status.textContent='空認識モデルで映像を端末内解析しています。曇天にも対応します。空をなぞって雲を描けます。';cancelAnimationFrame(raf);draw();detectSky()}catch(e){status.textContent='カメラを開始できません。Safariのカメラ許可とHTTPS接続を確認してください。';}};
 document.querySelector('#stop').onclick=()=>{if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;cancelAnimationFrame(raf);ctx.clearRect(0,0,canvas.width,canvas.height);empty.style.display='grid';document.querySelector('#start').disabled=false;document.querySelector('#stop').disabled=true;mode.textContent='カメラ未開始';status.textContent='カメラを停止しました。'};
 })();
 </script></body></html>
