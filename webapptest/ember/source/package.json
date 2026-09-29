@@ -1,0 +1,1 @@
+{"name": "ember", "private": true, "type": "module", "scripts": {"build": "esbuild src/main.js --bundle --format=esm --minify --outfile=dist/app.js"}, "dependencies": {"three": "0.180.0", "cannon-es": "0.20.0", "esbuild": "0.25.10"}}
