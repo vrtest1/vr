@@ -1,5 +1,15 @@
 export const dictionaries = {
   "ja": {
+    "wakeActive": "スリープ防止：有効",
+    "wakeRequesting": "スリープ防止：準備中…",
+    "wakeWaiting": "スリープ防止：表示中に有効になります",
+    "wakeReleased": "スリープ防止：解除されました。画面タップで再試行",
+    "wakeFailed": "スリープ防止：利用できません。画面タップで再試行、または端末の自動ロック設定を変更してください",
+    "wakeUnsupported": "このブラウザーはスリープ防止に未対応です。端末の自動ロック設定をご利用ください",
+
+        "wakeLabel": "スリープ防止",
+    "wakeOff": "スリープ防止：OFF",
+
     "firstSteps": "① 薪を追加 → ② ドラッグで配置 → ③ 着火",
     "title": "EMBER — 焚き火",
     "subtitle": "焚き火の時間",
@@ -77,6 +87,16 @@ export const dictionaries = {
     "description": "薪を組み、風を感じ、火を育てる。操作できる焚き火。"
   },
   "en": {
+    "wakeActive": "Keep screen awake: active",
+    "wakeRequesting": "Keep screen awake: requesting…",
+    "wakeWaiting": "Keep screen awake: waiting for visibility",
+    "wakeReleased": "Screen lock released. Tap to retry.",
+    "wakeFailed": "Cannot keep screen awake. Tap to retry or change your device’s auto-lock setting.",
+    "wakeUnsupported": "Screen wake lock is unsupported. Use your device’s auto-lock setting.",
+
+        "wakeLabel": "Keep screen awake",
+    "wakeOff": "Keep screen awake: off",
+
     "firstSteps": "1. Add logs → 2. Drag to arrange → 3. Ignite",
     "title": "EMBER — Campfire",
     "subtitle": "Time by the fire",
