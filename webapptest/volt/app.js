@@ -1,15 +1,17 @@
+import {rainResponse} from './rain.js?v=near-rain-4';
 import * as THREE from 'three';
 import {pass} from 'three/tsl';
 import {bloom} from './vendor/BloomNode.js';
-import {Terrain} from './terrain.js';
-import {Weather} from './weather.js';
-import {Lightning} from './lightning.js';
-import {StormAudio} from './audio.js?v=0.3';
+import {Terrain} from './terrain.js?v=near-rain-4';
+import {Weather} from './weather.js?v=near-rain-4';
+import {Lightning} from './lightning.js?v=near-rain-4';
+import {StormAudio} from './audio.js?v=near-rain-4';
 
 const $=id=>document.getElementById(id),
 mobile=matchMedia('(max-width:700px)').matches;
 
 const state={
+  tapStrike:false,
   rain:80,
   wind:12,
   cloud:85,
@@ -25,7 +27,8 @@ const presets={
   hakone:[35.21,139,'箱根・芦ノ湖'],
   aso:[32.884,131.104,'阿蘇・カルデラ'],
   fuji:[35.405,138.76,'富士山'],
-  tokyo:[35.6812,139.7671,'東京・丸の内']
+  tokyo:[35.6812,139.7671,'東京・丸の内'],
+  minatomirai:[35.45458,139.63145,'横浜・みなとみらい']
 };
 
 let renderer,scene,camera,terrain,weather,lightning,post,
@@ -49,6 +52,7 @@ touchKeys=new Set();
 */
 
 const reportedMissingNormals=new WeakSet();
+const debugGeometry=new URLSearchParams(location.search).has('debug');
 
 function diagnoseSceneGeometry(){
 
@@ -154,9 +158,21 @@ $('period').onclick=e=>{
     .forEach(n=>n.classList.toggle('active',n===b));
 };
 
+function syncAudioButtons(){
+  const on=audio.enabled;
+  $('audio').textContent=on?'♫ 音をミュート':'♫ 音を有効にする';
+  $('audio').setAttribute('aria-pressed',String(on));
+  $('quickAudio').textContent='♫ 音：'+(on?'ON':'OFF');
+  $('quickAudio').setAttribute('aria-pressed',String(on));
+  $('quickAudio').setAttribute('aria-label',on?'音をミュート':'音を有効にする');
+}
+$('quickAudio').onclick=()=>$('audio').click();
 $('audio').onclick=async()=>{
+  if($('audio').disabled)return;
+  $('audio').disabled=$('quickAudio').disabled=true;
   try{
     const on=await audio.toggle();
+    syncAudioButtons();
 
     $('audio').textContent=
       on?'♫ 音をミュート':'♫ 音を有効にする';
@@ -170,6 +186,8 @@ $('audio').onclick=async()=>{
     toast(
       '音声を開始できませんでした。もう一度お試しください。'
     );
+  }finally{
+    $('audio').disabled=$('quickAudio').disabled=false;
   }
 };
 
@@ -202,6 +220,7 @@ $('thunderDelay').onclick=()=>{
 $('previewThunder').onclick=async()=>{
   try{
     await audio.preview();
+    syncAudioButtons();
 
     $('audio').textContent='♫ 音をミュート';
     $('audio').setAttribute('aria-pressed','true');
@@ -238,6 +257,7 @@ $('strike').onclick=()=>{
 };
 
 function setView(mode){
+  if(state.tapStrike)return;
 
   if(!camera)return;
 
@@ -465,8 +485,31 @@ for(const b of document.querySelectorAll('[data-move]')){
   };
 
   b.onpointerup=
+  b.onlostpointercapture=
   b.onpointercancel=
     ()=>touchKeys.delete(b.dataset.move);
+}
+
+$('tapStrike').onclick=()=>{
+  state.tapStrike=!state.tapStrike;
+  keys.clear(); touchKeys.clear();
+  document.body.classList.toggle('tap-strike',state.tapStrike);
+  $('tapStrike').setAttribute('aria-pressed',String(state.tapStrike));
+  $('tapStrike').textContent='ϟ タップ落雷：'+(state.tapStrike?'ON':'OFF');
+  if(state.tapStrike) panel(false);
+  toast(state.tapStrike?'地形をタップすると落雷します。カメラ操作は停止中です。':'カメラ操作を再開しました');
+};
+
+function strikeAtScreen(x,y,canvas){
+  if(!terrain||!lightning||!camera)return;
+  const rect=canvas.getBoundingClientRect();
+  const ray=new THREE.Raycaster();
+  camera.updateMatrixWorld();
+  scene.updateMatrixWorld(true);
+  ray.setFromCamera(new THREE.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),camera);
+  const hit=ray.intersectObjects(terrain.slots.filter(s=>s.mesh.visible).map(s=>s.mesh),false)[0];
+  if(!hit){toast('読み込み済みの地形をタップしてください（空には落雷できません）');return;}
+  if(!lightning.strike(camera,true,hit.point))toast('雷の発光が終わってから、もう一度タップしてください');
 }
 
 function initControls(canvas){
@@ -475,7 +518,16 @@ function initControls(canvas){
 
   let previousDistance=0;
 
+  const taps=new Map();
   canvas.addEventListener('pointerdown',e=>{
+    if(state.tapStrike){
+      if(e.button!==0)return;
+      if(taps.size)for(const tap of taps.values())tap.cancelled=true;
+      taps.set(e.pointerId,{x:e.clientX,y:e.clientY,cancelled:taps.size>0});
+      canvas.setPointerCapture(e.pointerId);
+      return;
+    }
+
 
     pointers.set(
       e.pointerId,
@@ -489,6 +541,12 @@ function initControls(canvas){
   });
 
   canvas.addEventListener('pointermove',e=>{
+    if(state.tapStrike){
+      const tap=taps.get(e.pointerId);
+      if(tap&&Math.hypot(e.clientX-tap.x,e.clientY-tap.y)>12)tap.cancelled=true;
+      return;
+    }
+
 
     const prev=pointers.get(e.pointerId);
 
@@ -536,12 +594,19 @@ function initControls(canvas){
   });
 
   const end=e=>{
+    const tap=taps.get(e.pointerId);
+    taps.delete(e.pointerId);
+    if(state.tapStrike&&e.type==='pointerup'&&tap&&!tap.cancelled)
+      strikeAtScreen(e.clientX,e.clientY,canvas);
+
     pointers.delete(e.pointerId);
     previousDistance=0;
   };
 
   canvas.addEventListener('pointerup',end);
   canvas.addEventListener('pointercancel',end);
+  canvas.addEventListener('lostpointercapture',end);
+  $('tapStrike').addEventListener('click',()=>{pointers.clear();taps.clear();previousDistance=0;});
 
   canvas.addEventListener(
     'wheel',
@@ -560,7 +625,7 @@ function initControls(canvas){
 
 function moveForward(n){
 
-  if(!camera)return;
+  if(!camera||state.tapStrike)return;
 
   const d=new THREE.Vector3();
 
@@ -573,6 +638,7 @@ function moveForward(n){
 }
 
 function move(dt){
+  if(state.tapStrike)return;
 
   camera.rotation.set(
     pitch,
@@ -805,9 +871,7 @@ function render(now){
     );
 
 
-    scene.fog.density=
-      .000023+
-      state.rain*.00000105;
+    scene.fog.density=rainResponse(state.rain).fog;
 
 
     hemi.intensity=
@@ -845,13 +909,14 @@ function render(now){
       MeshStandardMaterialなのにnormalが無いMeshがあれば
       Consoleへ一度だけ詳細を表示する。
     */
-    diagnoseSceneGeometry();
+    if(debugGeometry) diagnoseSceneGeometry();
 
 
     /*
       WebGPUエラーが現在発生している場所。
     */
     post.render();
+    failures=0; // 正常フレームで連続失敗回数をリセット
 
 
     frames++;
@@ -913,7 +978,7 @@ function render(now){
         '描画中にエラーが発生しました。再読み込みをお試しください。';
 
       toast(
-        '描画を停止しました。端末のGPU対応をご確認ください。'
+        '描画を一時停止しました：'+String(e.message||e).slice(0,120)
       );
     }
   }

@@ -1,3 +1,4 @@
+import {rainResponse} from './rain.js?v=near-rain-4';
 import * as THREE from 'three';
 import {
   Fn,
@@ -84,6 +85,10 @@ export class Weather {
     this.rainAmount =
       uniform(.7);
 
+    this.rainWidth = uniform(1);
+    this.rainLength = uniform(1);
+    this.rainArea = uniform(1);
+    this.curtainAmount = uniform(.2);
     this.eco = eco;
 
     this.createClouds();
@@ -621,18 +626,18 @@ export class Weather {
       );
 
 
+    // Reserve 12% of existing particles for a dense near-camera volume.
+    const near = s.x.lessThan(.12);
     const speed =
       s.w
         .mul(.65)
-        .add(.65);
+        .add(.65).mul(near.select(.45, 1));
 
-
-    const area =
-      vec3(
-        1100,
-        900,
-        1100
-      );
+    const area = near.select(
+      vec3(180, 160, 180), vec3(1100, 900, 1100)
+    ).mul(this.rainArea);
+    // Remap the selector interval so near particles fill the entire box.
+    const seedPosition = vec3(near.select(s.x.div(.12), s.x.sub(.12).div(.88)), s.y, s.z);
 
 
     const motion =
@@ -647,7 +652,7 @@ export class Weather {
 
     const p =
       fract(
-        s.xyz
+        seedPosition
           .mul(area)
           .add(motion)
           .sub(
@@ -675,7 +680,7 @@ export class Weather {
               s.w
                 .mul(.09)
                 .add(.06)
-            )
+            ).mul(this.rainWidth).mul(near.select(.28, 1))
         )
 
         .add(
@@ -687,7 +692,7 @@ export class Weather {
               s.w
                 .mul(.025)
                 .add(.025)
-            )
+            ).mul(this.rainLength).mul(near.select(.3, 1))
         );
 
 
@@ -706,6 +711,7 @@ export class Weather {
 
     m.opacityNode =
       float(.26)
+        .mul(smoothstep(2, 12, p.sub(cameraPosition).length()))
         .mul(
           this.rainAmount
         )
@@ -754,8 +760,12 @@ export class Weather {
     at
   ) {
 
-    this.clock.value =
-      t;
+    const response = rainResponse(rain);
+    this.rainWidth.value = response.width;
+    this.rainLength.value = response.length;
+    this.rainArea.value = response.area;
+    this.curtainAmount.value = response.curtain;
+    this.clock.value = t;
 
 
     this.density.value =
@@ -798,10 +808,7 @@ export class Weather {
 
 
     this.rainAmount.value =
-      Math.min(
-        1,
-        rain / 90
-      );
+      rainResponse(rain).opacity;
 
 
     this.rain.geometry.instanceCount =
@@ -816,10 +823,7 @@ export class Weather {
                 : 22000
             )
             *
-            Math.min(
-              1,
-              rain / 120
-            )
+            rainResponse(rain).particles
           );
 
 
@@ -881,7 +885,7 @@ export class Weather {
               this.clock.mul(.002)
             ),
 
-          uv().y.mul(.12),
+          uv().y.mul(1.8).add(this.clock.mul(.16)),
 
           .5
         )
@@ -907,6 +911,10 @@ export class Weather {
       );
 
 
+    const streaks = texture3D(this.volumeTexture, vec3(
+      uv().x.mul(65).add(this.clock.mul(.008)),
+      uv().y.mul(3).add(this.clock.mul(.65)), .72
+    )).r;
     material.opacityNode =
       smoothstep(
         .3,
@@ -933,11 +941,8 @@ export class Weather {
           )
       )
 
-      .mul(
-        this.rainAmount
-      )
-
-      .mul(.2);
+      .mul(this.curtainAmount)
+      .mul(streaks.mul(1.2).add(.4));
 
 
     for (

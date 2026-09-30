@@ -1,3 +1,4 @@
+import {rainResponse} from './rain.js?v=near-rain-4';
 // Normalize filtered noise before applying the envelope: otherwise most energy
 // disappears below 200 Hz and only the short high-frequency click remains audible.
 export function synthesizeThunder(rate,distance,random=Math.random){
@@ -17,7 +18,7 @@ export class StormAudio{
  makeNoise(seconds){const b=this.ctx.createBuffer(1,this.ctx.sampleRate*seconds,this.ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
  loop(freq,type,level){const source=this.ctx.createBufferSource();source.buffer=this.noise;source.loop=true;const filter=this.ctx.createBiquadFilter();filter.type=type;filter.frequency.value=freq;const gain=this.ctx.createGain();gain.gain.value=level;source.connect(filter).connect(gain).connect(this.master);source.start();return gain;}
  setVolume(v){this.volume=v;if(this.ctx)this.master.gain.setTargetAtTime(this.enabled?v:0,this.ctx.currentTime,.1);}
- update(rain,wind){if(!this.ctx)return;const duck=this.ctx.currentTime<this.duckUntil ? .42 : 1;this.rain.gain.setTargetAtTime(rain/150*.3*duck,this.ctx.currentTime,.15);this.wind.gain.setTargetAtTime(wind/40*.35*duck,this.ctx.currentTime,.15);}
+ update(rain,wind){if(!this.ctx)return;const duck=this.ctx.currentTime<this.duckUntil ? .42 : 1;this.rain.gain.setTargetAtTime(rainResponse(rain).gain*duck,this.ctx.currentTime,.15);this.wind.gain.setTargetAtTime(wind/40*.35*duck,this.ctx.currentTime,.15);}
  getDelay(distance){return this.realisticDelay?distance/343:0;}
  setRealisticDelay(enabled){this.realisticDelay=!!enabled;for(const id of this.pending)clearTimeout(id);this.pending.clear();}
  thunder(distance){if(!this.enabled)return;const delay=this.getDelay(distance);if(delay===0){this.playThunder(distance);return;}const id=setTimeout(()=>{this.pending.delete(id);if(this.enabled)this.playThunder(distance);},delay*1000);this.pending.add(id);}
