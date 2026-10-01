@@ -13,7 +13,7 @@ h1{margin:0;font-size:clamp(28px,8vw,58px);letter-spacing:.08em;text-align:cente
 .pulse{width:15px;height:15px;border-radius:50%;background:#333;margin:11px auto 0;box-shadow:0 0 0 transparent}.pulse.on{background:var(--cyan);box-shadow:0 0 24px var(--cyan)}
 canvas{width:100%;height:90px;background:#050713;border:1px solid var(--line);border-radius:16px;margin:12px 0;display:block}
 button{width:100%;border:0;border-radius:18px;padding:18px;font-weight:800;font-size:18px;color:#090a12;background:linear-gradient(90deg,var(--cyan),var(--hot));cursor:pointer}
-button.active{background:#ff5570;color:white}.modebar{display:grid;grid-template-columns:1fr 1fr;gap:10px}.modebar #manual{background:linear-gradient(90deg,#ffd84d,#ff4fd8)}.modebar #manual:active{transform:scale(.97);filter:brightness(1.25)}.hint{text-align:center;color:#9aa4c7;font-size:12px;margin-top:9px}.controls{display:grid;gap:15px;margin-top:18px}.row{display:grid;grid-template-columns:150px 1fr 58px;gap:10px;align-items:center}.row label{font-size:14px}.row output{text-align:right;font-variant-numeric:tabular-nums;color:var(--cyan)}
+button.active{background:#ff5570;color:white}.modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.modebar #manual{background:linear-gradient(90deg,#ffd84d,#ff4fd8)}.modebar #manual:active{transform:scale(.97);filter:brightness(1.25)}.hint{text-align:center;color:#9aa4c7;font-size:12px;margin-top:9px}.controls{display:grid;gap:15px;margin-top:18px}.row{display:grid;grid-template-columns:150px 1fr 58px;gap:10px;align-items:center}.row label{font-size:14px}.row output{text-align:right;font-variant-numeric:tabular-nums;color:var(--cyan)}
 input[type=range]{width:100%}.status{min-height:24px;text-align:center;color:var(--muted);margin-top:13px;font-size:13px}.foot{text-align:center;color:#697293;font-size:11px;margin-top:15px}
 @media(max-width:520px){.app{padding:18px;border-radius:22px}.row{grid-template-columns:105px 1fr 48px}.modebar{grid-template-columns:1fr}.modebar button{padding:16px}}
 </style>
@@ -29,20 +29,21 @@ input[type=range]{width:100%}.status{min-height:24px;text-align:center;color:var
 <canvas id="scope" width="900" height="180"></canvas>
 <div class="modebar">
   <button id="start">🎙 AUTO：マイク開始</button>
-  <button id="manual">🔔 MANUAL COWBELL</button>
+  <button id="manual">🔔 MANUAL / SYNC 1</button>
+  <button id="random">🎲 RANDOM OFF</button>
 </div>
-<div class="hint">AUTOは周囲の曲に追従 ／ MANUALは押した瞬間に鳴ります</div>
+<div class="hint">AUTO＝BPM検出 ／ MANUAL＝発音＋1拍目同期 ／ RANDOM＝3拍目中心のアドリブ</div>
 <div class="controls">
  <div class="row"><label>80s度</label><input id="density" type="range" min="0" max="100" value="55"><output id="densityO">55%</output></div>
- <div class="row"><label>カウベル音量</label><input id="volume" type="range" min="0" max="100" value="55"><output id="volumeO">55%</output></div>
+ <div class="row"><label>カウベル音量</label><input id="volume" type="range" min="0" max="100" value="100"><output id="volumeO">100%</output></div>
  <div class="row"><label>検出感度</label><input id="sens" type="range" min="1" max="100" value="48"><output id="sensO">48</output></div>
 </div>
-<div id="status" class="status">マイク入力から拍を検出します。最初の数秒は学習時間です。</div>
+<div id="status" class="status">AUTOでBPM検出 → 曲の1拍目でMANUALを押すと同期します。</div>
 <div class="foot">イヤホン推奨：スピーカー再生ではカウベルをマイクが拾う場合があります</div>
 </main>
 <script>
 let ctx, analyser, source, stream, running=false, raf=0;
-let lastHit=0, intervals=[], bpm=0, beatNo=0, nextBeat=0, lastBellBeat=-99;
+let lastHit=0, intervals=[], bpm=0, beatNo=0, nextBeat=0, lastBellBeat=-99, synced=false, randomMode=false;
 const $=id=>document.getElementById(id);
 const canvas=$('scope'), g=canvas.getContext('2d');
 ['density','volume','sens'].forEach(id=>$(id).oninput=()=>$(id+'O').textContent=$(id).value+(id==='density'||id==='volume'?'%':''));
@@ -57,7 +58,7 @@ function cowbell(t, gainMul=1){
   const master=ctx.createGain(), bp=ctx.createBiquadFilter();
   bp.type='bandpass'; bp.frequency.value=1050; bp.Q.value=1.4;
   master.gain.setValueAtTime(0.0001,t);
-  master.gain.exponentialRampToValueAtTime(Math.max(.001, Number($('volume').value)/100*.22*gainMul),t+.004);
+  master.gain.exponentialRampToValueAtTime(Math.max(.001, Number($('volume').value)/100*.62*gainMul),t+.004);
   master.gain.exponentialRampToValueAtTime(.0001,t+.12);
   // Dry signal + subtle 80s-style echo (single short delay, low feedback).
   const dry=ctx.createGain(), delay=ctx.createDelay(1.0), wet=ctx.createGain(), feedback=ctx.createGain();
@@ -82,11 +83,25 @@ function estimateBpm(){
   let vals=intervals.filter(x=>x>.24&&x<1.5).map(x=>{while(x>.75)x/=2; while(x<.3)x*=2; return x});
   let m=median(vals); if(!m)return 0; let v=60/m; return Math.round(v);
 }
-function shouldBell(n){
-  let d=Number($('density').value)/100;
-  // Musical-ish offbeat/accent probabilities rather than pure randomness.
-  const weights=[.10,.55,.18,.72,.12,.48,.20,.62];
-  return Math.random() < weights[n%8]*d;
+function randomPlan(n){
+  const beat=(n%4)+1;
+  // 3rd beat is the anchor. Other hits are occasional musical variations.
+  if(beat===3) return Math.random()<0.78 ? [0] : [];
+  if(beat===1) return Math.random()<0.28 ? [0] : [];
+  if(beat===2) return Math.random()<0.10 ? [0] : (Math.random()<0.10 ? [0.5] : []);
+  if(beat===4){
+    let r=Math.random();
+    if(r<0.08) return [0,0.5];
+    if(r<0.20) return [0.5];
+    if(r<0.27) return [0];
+  }
+  return [];
+}
+function bellPlan(n){
+  if(!synced) return [];
+  if(randomMode) return randomPlan(n);
+  // Basic groove: beats 1 and 3.
+  return ((n%4)===0 || (n%4)===2) ? [0] : [];
 }
 function scheduleBeat(){
   if(!bpm||!running)return;
@@ -95,9 +110,11 @@ function scheduleBeat(){
   while(nextBeat<now+.12){
     let n=beatNo++;
     setTimeout(()=>{ $('beat').textContent=(n%4)+1; $('pulse').classList.add('on'); setTimeout(()=>$('pulse').classList.remove('on'),80)},Math.max(0,(nextBeat-now)*1000));
-    if(shouldBell(n)&&n-lastBellBeat>0){
-      cowbell(nextBeat, (n%4===3)?1:.82); lastBellBeat=n;
-    }
+    const plan=bellPlan(n);
+    plan.forEach(off=>{
+      const t=nextBeat+period*off;
+      cowbell(t, ((n%4)===2)?1.08:.94);
+    });
     nextBeat+=period;
   }
 }
@@ -123,7 +140,7 @@ function stop(){
  if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null}
  // Never close the shared AudioContext: MANUAL uses the same output context.
  $('start').textContent='🎙 AUTO：マイク開始';$('start').classList.remove('active');$('bpm').textContent='--';$('beat').textContent='·';
- intervals=[];bpm=0;nextBeat=0;beatNo=0;lastHit=0;lastBellBeat=-99;
+ intervals=[];bpm=0;nextBeat=0;beatNo=0;lastHit=0;lastBellBeat=-99;synced=false;
  $('status').textContent='MANUALはいつでも使用できます';
 }
 function loop(){
@@ -138,7 +155,7 @@ function loop(){
    if(lastHit){let dt=now-lastHit;if(dt<1.5){intervals.push(dt);if(intervals.length>24)intervals.shift()}}
    lastHit=now; let nb=estimateBpm();
    if(nb>=55&&nb<=190){
-     if(!bpm || Math.abs(nb-bpm)>2){bpm=nb; nextBeat=ctx.currentTime+.02}
+     if(!bpm || Math.abs(nb-bpm)>2){bpm=nb; if(!synced) nextBeat=ctx.currentTime+.02}
      else bpm=Math.round(bpm*.8+nb*.2);
      $('bpm').textContent=bpm;$('status').textContent='LOCKっぽいです 🔔  '+bpm+' BPM';
    }
@@ -150,36 +167,46 @@ function loop(){
  raf=requestAnimationFrame(loop);
 }
 $('start').onclick=start;
+let lastManualTap=0;
 async function manualBell(){
   try{
     await ensureAudio();
-    // iOS/Safari can leave an AudioContext interrupted/suspended after
-    // backgrounding, route changes, or inactivity. Resume on every tap.
-    if(ctx.state !== 'running'){
-      try{ await ctx.resume(); }catch(e){}
-    }
-    // If AUTO is not running, a dead context may safely be recreated.
-    // While AUTO is active, never replace ctx because its analyser/source belong to it.
+    if(ctx.state !== 'running'){ try{ await ctx.resume(); }catch(e){} }
     if(ctx.state !== 'running' && !running){
       try{ await ctx.close(); }catch(e){}
       ctx=new (window.AudioContext||window.webkitAudioContext)();
       await ctx.resume();
     }
-    cowbell(ctx.currentTime+.008,1.15);
-    $('beat').textContent='🔔';
-    $('pulse').classList.add('on');
-    $('status').textContent='MANUAL 🔔';
-    setTimeout(()=>{
-      $('pulse').classList.remove('on');
-      if(!running){
-        $('beat').textContent='·';
-        $('status').textContent='MANUAL待機中';
+    const t=ctx.currentTime;
+    // If AUTO has no reliable BPM yet, two manual taps can establish tempo.
+    if(lastManualTap){
+      const dt=t-lastManualTap;
+      if(dt>.30 && dt<1.10){
+        const tapBpm=Math.round(60/dt);
+        if(!bpm) bpm=tapBpm;
+        else bpm=Math.round(bpm*.65+tapBpm*.35);
+        $('bpm').textContent=bpm;
       }
-    },90);
+    }
+    lastManualTap=t;
+    cowbell(t+.006,1.25);
+    synced=true;
+    beatNo=1;                 // manual hit itself is beat 1
+    nextBeat=bpm ? t+(60/bpm) : 0;
+    $('beat').textContent='1';
+    $('pulse').classList.add('on');
+    $('status').textContent=bpm ? 'SYNC：ここを1拍目にしました 🔔' : '1拍目を設定。AUTOでBPM検出、またはもう一度テンポに合わせてタップ';
+    setTimeout(()=>$('pulse').classList.remove('on'),90);
   }catch(e){
     $('status').textContent='音声を再開できません。もう一度タップしてください';
   }
 }
 $('manual').addEventListener('pointerdown', manualBell, {passive:true});
+$('random').addEventListener('pointerdown', ()=>{
+  randomMode=!randomMode;
+  $('random').textContent=randomMode?'🎲 RANDOM ON':'🎲 RANDOM OFF';
+  $('random').classList.toggle('active',randomMode);
+  $('status').textContent=randomMode?'RANDOM：3拍目中心＋時々裏拍/別拍/連打':'BASIC：1拍目・3拍目';
+}, {passive:true});
 </script>
 </body></html>
