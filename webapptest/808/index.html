@@ -32,18 +32,18 @@ input[type=range]{width:100%}.status{min-height:24px;text-align:center;color:var
   <button id="manual">🔔 MANUAL / SYNC 1</button>
   <button id="random">🎲 RANDOM OFF</button>
 </div>
-<div class="hint">AUTO＝BPM検出 ／ MANUAL＝発音＋1拍目同期 ／ RANDOM＝3拍目中心のアドリブ</div>
+<div class="hint">AUTO＝BPM＋拍追従 ／ MANUAL＝1拍目同期 ／ RANDOM＝3拍目中心のアドリブ</div>
 <div class="controls">
  <div class="row"><label>80s度</label><input id="density" type="range" min="0" max="100" value="55"><output id="densityO">55%</output></div>
  <div class="row"><label>カウベル音量</label><input id="volume" type="range" min="0" max="100" value="100"><output id="volumeO">100%</output></div>
  <div class="row"><label>検出感度</label><input id="sens" type="range" min="1" max="100" value="48"><output id="sensO">48</output></div>
 </div>
-<div id="status" class="status">AUTOでBPM検出 → 曲の1拍目でMANUALを押すと同期します。</div>
+<div id="status" class="status">AUTOでBPM検出 → 1拍目でMANUAL。以後は実音に少しずつ位相追従します。</div>
 <div class="foot">イヤホン推奨：スピーカー再生ではカウベルをマイクが拾う場合があります</div>
 </main>
 <script>
 let ctx, analyser, source, stream, running=false, raf=0;
-let lastHit=0, intervals=[], bpm=0, beatNo=0, nextBeat=0, lastBellBeat=-99, synced=false, randomMode=false;
+let lastHit=0, intervals=[], bpm=0, beatNo=0, nextBeat=0, lastBellBeat=-99, synced=false, randomMode=false, ignoreMicUntil=0, phaseErrorMs=0;
 const $=id=>document.getElementById(id);
 const canvas=$('scope'), g=canvas.getContext('2d');
 ['density','volume','sens'].forEach(id=>$(id).oninput=()=>$(id+'O').textContent=$(id).value+(id==='density'||id==='volume'?'%':''));
@@ -55,6 +55,8 @@ async function ensureAudio(){
   }
 }
 function cowbell(t, gainMul=1){
+  // Ignore microphone transients around our own loud cowbell output.
+  if(ctx) ignoreMicUntil=Math.max(ignoreMicUntil, t+0.135);
   const master=ctx.createGain(), bp=ctx.createBiquadFilter();
   bp.type='bandpass'; bp.frequency.value=1050; bp.Q.value=1.4;
   master.gain.setValueAtTime(0.0001,t);
@@ -79,9 +81,10 @@ function cowbell(t, gainMul=1){
 }
 function median(a){let b=[...a].sort((x,y)=>x-y); return b.length?b[Math.floor(b.length/2)]:0}
 function estimateBpm(){
-  if(intervals.length<4)return 0;
+  if(intervals.length<5)return 0;
   let vals=intervals.filter(x=>x>.24&&x<1.5).map(x=>{while(x>.75)x/=2; while(x<.3)x*=2; return x});
-  let m=median(vals); if(!m)return 0; let v=60/m; return Math.round(v);
+  let m=median(vals); if(!m)return 0;
+  return 60/m; // keep decimals internally to reduce long-term drift
 }
 function randomPlan(n){
   const beat=(n%4)+1;
@@ -102,6 +105,32 @@ function bellPlan(n){
   if(randomMode) return randomPlan(n);
   // Basic groove: beats 1 and 3.
   return ((n%4)===0 || (n%4)===2) ? [0] : [];
+}
+function wrapPhaseError(hitTime, refTime, period){
+  let e=hitTime-refTime;
+  while(e> period/2)e-=period;
+  while(e<-period/2)e+=period;
+  return e;
+}
+function pllCorrect(hitCtxTime){
+  if(!synced || !bpm || !nextBeat) return;
+  const period=60/bpm;
+  // nextBeat is the next grid point. Find the nearest beat-grid point to this hit.
+  let nearest=nextBeat;
+  while(nearest-hitCtxTime>period/2) nearest-=period;
+  while(hitCtxTime-nearest>period/2) nearest+=period;
+  const err=wrapPhaseError(hitCtxTime,nearest,period);
+  // Only trust plausible near-grid transients; ignore syncopation/offbeats.
+  if(Math.abs(err) < Math.min(.11,period*.22)){
+    // Gentle phase correction: 18% of error per accepted transient.
+    nextBeat += err*.18;
+    phaseErrorMs=err*1000;
+    // Tiny tempo correction prevents persistent drift without chasing every hit.
+    const targetPeriod=period + err*.012;
+    const targetBpm=60/targetPeriod;
+    bpm=bpm*.985 + targetBpm*.015;
+    $('bpm').textContent=bpm.toFixed(1);
+  }
 }
 function scheduleBeat(){
   if(!bpm||!running)return;
@@ -140,7 +169,7 @@ function stop(){
  if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null}
  // Never close the shared AudioContext: MANUAL uses the same output context.
  $('start').textContent='🎙 AUTO：マイク開始';$('start').classList.remove('active');$('bpm').textContent='--';$('beat').textContent='·';
- intervals=[];bpm=0;nextBeat=0;beatNo=0;lastHit=0;lastBellBeat=-99;synced=false;
+ intervals=[];bpm=0;nextBeat=0;beatNo=0;lastHit=0;lastBellBeat=-99;synced=false;ignoreMicUntil=0;phaseErrorMs=0;
  $('status').textContent='MANUALはいつでも使用できます';
 }
 function loop(){
@@ -151,13 +180,28 @@ function loop(){
  let now=performance.now()/1000;
  loop.avg=loop.avg===undefined?lo:loop.avg*.965+lo*.035;
  let threshold=loop.avg*(1.12+(101-Number($('sens').value))*.006);
- if(lo>threshold && lo>.055 && now-lastHit>.24){
-   if(lastHit){let dt=now-lastHit;if(dt<1.5){intervals.push(dt);if(intervals.length>24)intervals.shift()}}
-   lastHit=now; let nb=estimateBpm();
+ const ctxNow=ctx.currentTime;
+ // Do not let our own loud cowbell retrigger the beat detector.
+ if(ctxNow>ignoreMicUntil && lo>threshold && lo>.055 && now-lastHit>.24){
+   if(lastHit){let dt=now-lastHit;if(dt<1.5){intervals.push(dt);if(intervals.length>32)intervals.shift()}}
+   lastHit=now;
+   let nb=estimateBpm();
    if(nb>=55&&nb<=190){
-     if(!bpm || Math.abs(nb-bpm)>2){bpm=nb; if(!synced) nextBeat=ctx.currentTime+.02}
-     else bpm=Math.round(bpm*.8+nb*.2);
-     $('bpm').textContent=bpm;$('status').textContent='LOCKっぽいです 🔔  '+bpm+' BPM';
+     if(!bpm){
+       bpm=nb;
+       if(!synced) nextBeat=ctx.currentTime+.02;
+     }else if(!synced){
+       // Before manual sync, allow faster acquisition.
+       bpm=bpm*.82+nb*.18;
+     }else{
+       // Once synced, tempo must move slowly; phase correction does the tracking.
+       if(Math.abs(nb-bpm)<8) bpm=bpm*.985+nb*.015;
+       pllCorrect(ctxNow);
+     }
+     $('bpm').textContent=bpm.toFixed(1);
+     $('status').textContent=synced
+       ? 'SYNC LOCK  Δ'+Math.round(phaseErrorMs)+'ms  🔔'
+       : 'BPM検出中 '+bpm.toFixed(1);
    }
  }
  scheduleBeat();
