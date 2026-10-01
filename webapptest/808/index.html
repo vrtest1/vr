@@ -14,9 +14,9 @@ h1{margin:0;font-size:clamp(28px,8vw,58px);letter-spacing:.08em;text-align:cente
 .big{font:700 clamp(34px,9vw,66px)/1 ui-monospace,monospace}.label{font-size:12px;color:var(--muted);letter-spacing:.12em;margin-top:7px}
 .pulse{width:15px;height:15px;border-radius:50%;background:#333;margin:11px auto 0}.pulse.on{background:var(--cyan);box-shadow:0 0 24px var(--cyan)}
 .tapcount{text-align:center;margin:12px 0;color:var(--cyan);font:700 16px ui-monospace,monospace}
-.modebar{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 button{border:0;border-radius:18px;padding:18px 12px;font-weight:800;font-size:16px;color:#090a12;background:linear-gradient(90deg,var(--cyan),var(--hot));cursor:pointer}
-button.active{background:#ff5570;color:#fff}.manual{background:linear-gradient(90deg,#ffd84d,#ff4fd8);font-size:18px}.manual:active{transform:scale(.97);filter:brightness(1.25)}
+button.active{background:#ff5570;color:#fff}.manual{background:linear-gradient(90deg,#ffd84d,#ff4fd8);font-size:18px}.syncbig{width:100%;margin-top:12px;padding:28px 16px;font-size:clamp(22px,6vw,34px);letter-spacing:.06em;background:linear-gradient(90deg,#4de8ff,#7d8cff);box-shadow:0 8px 28px #4de8ff30}.syncbig:active{transform:scale(.985);filter:brightness(1.2)}.manual:active{transform:scale(.97);filter:brightness(1.25)}
 .hint{text-align:center;color:var(--muted);font-size:12px;margin:11px 0 0}.controls{display:grid;gap:15px;margin-top:18px}.row{display:grid;grid-template-columns:150px 1fr 58px;gap:10px;align-items:center}.row label{font-size:14px}.row output{text-align:right;color:var(--cyan)}
 input[type=range]{width:100%}.status{min-height:42px;text-align:center;color:var(--muted);margin-top:15px;font-size:13px}.foot{text-align:center;color:#697293;font-size:11px;margin-top:12px}
 @media(max-width:520px){.app{padding:18px}.row{grid-template-columns:105px 1fr 48px}.modebar{grid-template-columns:1fr}.modebar button{padding:16px}}
@@ -33,11 +33,11 @@ input[type=range]{width:100%}.status{min-height:42px;text-align:center;color:var
 <div id="tapcount" class="tapcount">READY</div>
 <div class="modebar">
  <button id="auto">▶ AUTO / LEARN</button>
- <button id="sync">⏱ TAP / SYNC</button>
  <button id="manual" class="manual">🔔 MANUAL COWBELL</button>
  <button id="random">🎲 RANDOM OFF</button>
 </div>
-<div class="hint">TAP / SYNCはテンポ設定専用 ／ MANUAL COWBELLはいつでも自由に演奏</div>
+<button id="sync" class="syncbig">⏱ TAP / SYNC</button>
+<div class="hint">大きなTAP / SYNCでテンポ設定 ／ MANUAL COWBELLはいつでも自由に演奏</div>
 <div class="controls">
  <div class="row"><label>音量</label><input id="volume" type="range" min="0" max="100" value="100"><output id="volumeO">100%</output></div>
  <div class="row"><label>同期微調整</label><input id="trim" type="range" min="-80" max="80" value="0"><output id="trimO">0ms</output></div>
