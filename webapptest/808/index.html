@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>808 COWBELL — 1986 MODE</title>
+<style>
+:root{color-scheme:dark;--bg:#090a12;--panel:#111426;--line:#2a3157;--text:#f5f6ff;--muted:#9aa4c7;--hot:#ff4fd8;--cyan:#4de8ff}
+*{box-sizing:border-box} html,body,.app,button,input{touch-action:manipulation} body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#20275a 0,#0b0d18 38%,#05060b 100%);font-family:system-ui,-apple-system,sans-serif;color:var(--text);display:grid;place-items:center;padding:20px}
+.app{width:min(720px,100%);background:#0b0e1be8;border:1px solid #313963;border-radius:28px;padding:24px;box-shadow:0 24px 80px #0008}
+h1{margin:0;font-size:clamp(28px,8vw,58px);letter-spacing:.08em;text-align:center}.sub{text-align:center;color:var(--muted);margin:5px 0 22px}
+.display{display:grid;grid-template-columns:1fr 1fr;gap:12px}.meter,.bpm{background:#050713;border:1px solid var(--line);border-radius:18px;padding:16px;text-align:center}.big{font:700 clamp(34px,9vw,66px)/1 ui-monospace,monospace}.label{font-size:12px;color:var(--muted);letter-spacing:.12em;margin-top:7px}
+.pulse{width:15px;height:15px;border-radius:50%;background:#333;margin:11px auto 0;box-shadow:0 0 0 transparent}.pulse.on{background:var(--cyan);box-shadow:0 0 24px var(--cyan)}
+canvas{width:100%;height:90px;background:#050713;border:1px solid var(--line);border-radius:16px;margin:12px 0;display:block}
+button{width:100%;border:0;border-radius:18px;padding:18px;font-weight:800;font-size:18px;color:#090a12;background:linear-gradient(90deg,var(--cyan),var(--hot));cursor:pointer}
+button.active{background:#ff5570;color:white}.modebar{display:grid;grid-template-columns:1fr 1fr;gap:10px}.modebar #manual{background:linear-gradient(90deg,#ffd84d,#ff4fd8)}.modebar #manual:active{transform:scale(.97);filter:brightness(1.25)}.hint{text-align:center;color:#9aa4c7;font-size:12px;margin-top:9px}.controls{display:grid;gap:15px;margin-top:18px}.row{display:grid;grid-template-columns:150px 1fr 58px;gap:10px;align-items:center}.row label{font-size:14px}.row output{text-align:right;font-variant-numeric:tabular-nums;color:var(--cyan)}
+input[type=range]{width:100%}.status{min-height:24px;text-align:center;color:var(--muted);margin-top:13px;font-size:13px}.foot{text-align:center;color:#697293;font-size:11px;margin-top:15px}
+@media(max-width:520px){.app{padding:18px;border-radius:22px}.row{grid-template-columns:105px 1fr 48px}.modebar{grid-template-columns:1fr}.modebar button{padding:16px}}
+</style>
+</head>
+<body>
+<main class="app">
+<h1>808 COWBELL</h1>
+<div class="sub">周囲の音楽を勝手に1986年へ</div>
+<section class="display">
+ <div class="bpm"><div id="bpm" class="big">--</div><div class="label">BPM</div></div>
+ <div class="meter"><div id="beat" class="big">·</div><div class="label">BEAT</div><div id="pulse" class="pulse"></div></div>
+</section>
+<canvas id="scope" width="900" height="180"></canvas>
+<div class="modebar">
+  <button id="start">🎙 AUTO：マイク開始</button>
+  <button id="manual">🔔 MANUAL COWBELL</button>
+</div>
+<div class="hint">AUTOは周囲の曲に追従 ／ MANUALは押した瞬間に鳴ります</div>
+<div class="controls">
+ <div class="row"><label>80s度</label><input id="density" type="range" min="0" max="100" value="55"><output id="densityO">55%</output></div>
+ <div class="row"><label>カウベル音量</label><input id="volume" type="range" min="0" max="100" value="55"><output id="volumeO">55%</output></div>
+ <div class="row"><label>検出感度</label><input id="sens" type="range" min="1" max="100" value="48"><output id="sensO">48</output></div>
+</div>
+<div id="status" class="status">マイク入力から拍を検出します。最初の数秒は学習時間です。</div>
+<div class="foot">イヤホン推奨：スピーカー再生ではカウベルをマイクが拾う場合があります</div>
+</main>
+<script>
+let ctx, analyser, source, stream, running=false, raf=0;
+let lastHit=0, intervals=[], bpm=0, beatNo=0, nextBeat=0, lastBellBeat=-99;
+const $=id=>document.getElementById(id);
+const canvas=$('scope'), g=canvas.getContext('2d');
+['density','volume','sens'].forEach(id=>$(id).oninput=()=>$(id+'O').textContent=$(id).value+(id==='density'||id==='volume'?'%':''));
+
+async function ensureAudio(){
+  if(!ctx || ctx.state==="closed") ctx=new (window.AudioContext||window.webkitAudioContext)();
+  if(ctx.state==="suspended") await ctx.resume();
+}
+function cowbell(t, gainMul=1){
+  const master=ctx.createGain(), bp=ctx.createBiquadFilter();
+  bp.type='bandpass'; bp.frequency.value=1050; bp.Q.value=1.4;
+  master.gain.setValueAtTime(0.0001,t);
+  master.gain.exponentialRampToValueAtTime(Math.max(.001, Number($('volume').value)/100*.22*gainMul),t+.004);
+  master.gain.exponentialRampToValueAtTime(.0001,t+.12);
+  // Dry signal + subtle 80s-style echo (single short delay, low feedback).
+  const dry=ctx.createGain(), delay=ctx.createDelay(1.0), wet=ctx.createGain(), feedback=ctx.createGain();
+  dry.gain.value=1.0;
+  delay.delayTime.value=0.075;
+  wet.gain.value=0.18;
+  feedback.gain.value=0.12;
+  master.connect(bp);
+  bp.connect(dry).connect(ctx.destination);
+  bp.connect(delay);
+  delay.connect(wet).connect(ctx.destination);
+  delay.connect(feedback).connect(delay);
+  [540,800].forEach((f,i)=>{
+    const o=ctx.createOscillator(), og=ctx.createGain();
+    o.type='square'; o.frequency.value=f;
+    og.gain.value=i?0.65:1; o.connect(og).connect(master); o.start(t); o.stop(t+.14);
+  });
+}
+function median(a){let b=[...a].sort((x,y)=>x-y); return b.length?b[Math.floor(b.length/2)]:0}
+function estimateBpm(){
+  if(intervals.length<4)return 0;
+  let vals=intervals.filter(x=>x>.24&&x<1.5).map(x=>{while(x>.75)x/=2; while(x<.3)x*=2; return x});
+  let m=median(vals); if(!m)return 0; let v=60/m; return Math.round(v);
+}
+function shouldBell(n){
+  let d=Number($('density').value)/100;
+  // Musical-ish offbeat/accent probabilities rather than pure randomness.
+  const weights=[.10,.55,.18,.72,.12,.48,.20,.62];
+  return Math.random() < weights[n%8]*d;
+}
+function scheduleBeat(){
+  if(!bpm||!running)return;
+  let period=60/bpm, now=ctx.currentTime;
+  if(!nextBeat || nextBeat<now-.2) nextBeat=now+.03;
+  while(nextBeat<now+.12){
+    let n=beatNo++;
+    setTimeout(()=>{ $('beat').textContent=(n%4)+1; $('pulse').classList.add('on'); setTimeout(()=>$('pulse').classList.remove('on'),80)},Math.max(0,(nextBeat-now)*1000));
+    if(shouldBell(n)&&n-lastBellBeat>0){
+      cowbell(nextBeat, (n%4===3)?1:.82); lastBellBeat=n;
+    }
+    nextBeat+=period;
+  }
+}
+async function start(){
+ if(running){stop();return}
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  await ensureAudio();
+  analyser=ctx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=.15;
+  source=ctx.createMediaStreamSource(stream); source.connect(analyser);
+  running=true;$('start').textContent='■ AUTO停止';$('start').classList.add('active');$('status').textContent='解析中… 音楽を数秒聞かせてください';
+  loop();
+ }catch(e){$('status').textContent='マイクを開始できません: '+e.message}
+}
+function stop(){
+ running=false; cancelAnimationFrame(raf); if(stream)stream.getTracks().forEach(t=>t.stop()); /* keep AudioContext alive so MANUAL remains available */
+ $('start').textContent='🎙 マイクを開始';$('start').classList.remove('active');$('bpm').textContent='--';$('beat').textContent='·';
+ intervals=[];bpm=0;nextBeat=0;beatNo=0;
+}
+function loop(){
+ if(!running)return;
+ const data=new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data);
+ // emphasize bass/low-mid transient energy
+ let lo=0; const bins=Math.min(42,data.length); for(let i=2;i<bins;i++)lo+=data[i]*data[i]; lo=Math.sqrt(lo/bins)/255;
+ let now=performance.now()/1000;
+ loop.avg=loop.avg===undefined?lo:loop.avg*.965+lo*.035;
+ let threshold=loop.avg*(1.12+(101-Number($('sens').value))*.006);
+ if(lo>threshold && lo>.055 && now-lastHit>.24){
+   if(lastHit){let dt=now-lastHit;if(dt<1.5){intervals.push(dt);if(intervals.length>24)intervals.shift()}}
+   lastHit=now; let nb=estimateBpm();
+   if(nb>=55&&nb<=190){
+     if(!bpm || Math.abs(nb-bpm)>2){bpm=nb; nextBeat=ctx.currentTime+.02}
+     else bpm=Math.round(bpm*.8+nb*.2);
+     $('bpm').textContent=bpm;$('status').textContent='LOCKっぽいです 🔔  '+bpm+' BPM';
+   }
+ }
+ scheduleBeat();
+ g.clearRect(0,0,canvas.width,canvas.height);g.beginPath();
+ for(let i=0;i<data.length;i++){let x=i/(data.length-1)*canvas.width,y=canvas.height-data[i]/255*canvas.height;(i?g.lineTo(x,y):g.moveTo(x,y))}
+ g.strokeStyle='#4de8ff';g.lineWidth=3;g.stroke();
+ raf=requestAnimationFrame(loop);
+}
+$('start').onclick=start;
+$('manual').onclick=async()=>{
+  await ensureAudio();
+  cowbell(ctx.currentTime+.005,1.15);
+  $('beat').textContent='🔔';
+  $('pulse').classList.add('on');
+  setTimeout(()=>{$('pulse').classList.remove('on'); if(!running)$('beat').textContent='·'},90);
+};
+</script>
+</body></html>
