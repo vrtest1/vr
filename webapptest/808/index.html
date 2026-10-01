@@ -49,7 +49,9 @@ const canvas=$('scope'), g=canvas.getContext('2d');
 
 async function ensureAudio(){
   if(!ctx || ctx.state==="closed") ctx=new (window.AudioContext||window.webkitAudioContext)();
-  if(ctx.state==="suspended") await ctx.resume();
+  if(ctx.state!=="running"){
+    try{ await ctx.resume(); }catch(e){}
+  }
 }
 function cowbell(t, gainMul=1){
   const master=ctx.createGain(), bp=ctx.createBiquadFilter();
@@ -102,8 +104,11 @@ function scheduleBeat(){
 async function start(){
  if(running){stop();return}
  try{
-  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  // Unlock/resume audio first, while still inside the user's button gesture.
   await ensureAudio();
+  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  // getUserMedia can suspend audio on some mobile browsers, so resume once more.
+  if(ctx.state!=='running'){ try{await ctx.resume()}catch(e){} }
   analyser=ctx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=.15;
   source=ctx.createMediaStreamSource(stream); source.connect(analyser);
   running=true;$('start').textContent='■ AUTO停止';$('start').classList.add('active');$('status').textContent='解析中… 音楽を数秒聞かせてください';
@@ -111,9 +116,15 @@ async function start(){
  }catch(e){$('status').textContent='マイクを開始できません: '+e.message}
 }
 function stop(){
- running=false; cancelAnimationFrame(raf); if(stream)stream.getTracks().forEach(t=>t.stop()); /* keep AudioContext alive so MANUAL remains available */
- $('start').textContent='🎙 マイクを開始';$('start').classList.remove('active');$('bpm').textContent='--';$('beat').textContent='·';
- intervals=[];bpm=0;nextBeat=0;beatNo=0;
+ running=false;
+ cancelAnimationFrame(raf);
+ if(source){try{source.disconnect()}catch(e){} source=null}
+ if(analyser){try{analyser.disconnect()}catch(e){} analyser=null}
+ if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null}
+ // Never close the shared AudioContext: MANUAL uses the same output context.
+ $('start').textContent='🎙 AUTO：マイク開始';$('start').classList.remove('active');$('bpm').textContent='--';$('beat').textContent='·';
+ intervals=[];bpm=0;nextBeat=0;beatNo=0;lastHit=0;lastBellBeat=-99;
+ $('status').textContent='MANUALはいつでも使用できます';
 }
 function loop(){
  if(!running)return;
@@ -139,12 +150,36 @@ function loop(){
  raf=requestAnimationFrame(loop);
 }
 $('start').onclick=start;
-$('manual').onclick=async()=>{
-  await ensureAudio();
-  cowbell(ctx.currentTime+.005,1.15);
-  $('beat').textContent='🔔';
-  $('pulse').classList.add('on');
-  setTimeout(()=>{$('pulse').classList.remove('on'); if(!running)$('beat').textContent='·'},90);
-};
+async function manualBell(){
+  try{
+    await ensureAudio();
+    // iOS/Safari can leave an AudioContext interrupted/suspended after
+    // backgrounding, route changes, or inactivity. Resume on every tap.
+    if(ctx.state !== 'running'){
+      try{ await ctx.resume(); }catch(e){}
+    }
+    // If AUTO is not running, a dead context may safely be recreated.
+    // While AUTO is active, never replace ctx because its analyser/source belong to it.
+    if(ctx.state !== 'running' && !running){
+      try{ await ctx.close(); }catch(e){}
+      ctx=new (window.AudioContext||window.webkitAudioContext)();
+      await ctx.resume();
+    }
+    cowbell(ctx.currentTime+.008,1.15);
+    $('beat').textContent='🔔';
+    $('pulse').classList.add('on');
+    $('status').textContent='MANUAL 🔔';
+    setTimeout(()=>{
+      $('pulse').classList.remove('on');
+      if(!running){
+        $('beat').textContent='·';
+        $('status').textContent='MANUAL待機中';
+      }
+    },90);
+  }catch(e){
+    $('status').textContent='音声を再開できません。もう一度タップしてください';
+  }
+}
+$('manual').addEventListener('pointerdown', manualBell, {passive:true});
 </script>
 </body></html>
