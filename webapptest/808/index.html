@@ -3,272 +3,139 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>808 COWBELL — 1986 MODE</title>
+<title>808 COWBELL — TAP SYNC</title>
 <style>
-:root{color-scheme:dark;--bg:#090a12;--panel:#111426;--line:#2a3157;--text:#f5f6ff;--muted:#9aa4c7;--hot:#ff4fd8;--cyan:#4de8ff}
-*{box-sizing:border-box} html,body,.app,button,input{touch-action:manipulation} body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#20275a 0,#0b0d18 38%,#05060b 100%);font-family:system-ui,-apple-system,sans-serif;color:var(--text);display:grid;place-items:center;padding:20px}
+:root{color-scheme:dark;--bg:#090a12;--line:#2a3157;--text:#f5f6ff;--muted:#9aa4c7;--hot:#ff4fd8;--cyan:#4de8ff}
+*{box-sizing:border-box}html,body,.app,button,input{touch-action:manipulation}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#20275a 0,#0b0d18 38%,#05060b 100%);font-family:system-ui,-apple-system,sans-serif;color:var(--text);display:grid;place-items:center;padding:20px}
 .app{width:min(720px,100%);background:#0b0e1be8;border:1px solid #313963;border-radius:28px;padding:24px;box-shadow:0 24px 80px #0008}
 h1{margin:0;font-size:clamp(28px,8vw,58px);letter-spacing:.08em;text-align:center}.sub{text-align:center;color:var(--muted);margin:5px 0 22px}
-.display{display:grid;grid-template-columns:1fr 1fr;gap:12px}.meter,.bpm{background:#050713;border:1px solid var(--line);border-radius:18px;padding:16px;text-align:center}.big{font:700 clamp(34px,9vw,66px)/1 ui-monospace,monospace}.label{font-size:12px;color:var(--muted);letter-spacing:.12em;margin-top:7px}
-.pulse{width:15px;height:15px;border-radius:50%;background:#333;margin:11px auto 0;box-shadow:0 0 0 transparent}.pulse.on{background:var(--cyan);box-shadow:0 0 24px var(--cyan)}
-canvas{width:100%;height:90px;background:#050713;border:1px solid var(--line);border-radius:16px;margin:12px 0;display:block}
-button{width:100%;border:0;border-radius:18px;padding:18px;font-weight:800;font-size:18px;color:#090a12;background:linear-gradient(90deg,var(--cyan),var(--hot));cursor:pointer}
-button.active{background:#ff5570;color:white}.modebar{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.modebar #manual{background:linear-gradient(90deg,#ffd84d,#ff4fd8)}.modebar #manual:active{transform:scale(.97);filter:brightness(1.25)}.hint{text-align:center;color:#9aa4c7;font-size:12px;margin-top:9px}.controls{display:grid;gap:15px;margin-top:18px}.row{display:grid;grid-template-columns:150px 1fr 58px;gap:10px;align-items:center}.row label{font-size:14px}.row output{text-align:right;font-variant-numeric:tabular-nums;color:var(--cyan)}
-input[type=range]{width:100%}.status{min-height:24px;text-align:center;color:var(--muted);margin-top:13px;font-size:13px}.foot{text-align:center;color:#697293;font-size:11px;margin-top:15px}
-@media(max-width:520px){.app{padding:18px;border-radius:22px}.row{grid-template-columns:105px 1fr 48px}.modebar{grid-template-columns:1fr}.modebar button{padding:16px}}
+.display{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box{background:#050713;border:1px solid var(--line);border-radius:18px;padding:16px;text-align:center}
+.big{font:700 clamp(34px,9vw,66px)/1 ui-monospace,monospace}.label{font-size:12px;color:var(--muted);letter-spacing:.12em;margin-top:7px}
+.pulse{width:15px;height:15px;border-radius:50%;background:#333;margin:11px auto 0}.pulse.on{background:var(--cyan);box-shadow:0 0 24px var(--cyan)}
+.tapcount{text-align:center;margin:12px 0;color:var(--cyan);font:700 16px ui-monospace,monospace}
+.modebar{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:10px}
+button{border:0;border-radius:18px;padding:18px 12px;font-weight:800;font-size:16px;color:#090a12;background:linear-gradient(90deg,var(--cyan),var(--hot));cursor:pointer}
+button.active{background:#ff5570;color:#fff}.manual{background:linear-gradient(90deg,#ffd84d,#ff4fd8);font-size:18px}.manual:active{transform:scale(.97);filter:brightness(1.25)}
+.hint{text-align:center;color:var(--muted);font-size:12px;margin:11px 0 0}.controls{display:grid;gap:15px;margin-top:18px}.row{display:grid;grid-template-columns:150px 1fr 58px;gap:10px;align-items:center}.row label{font-size:14px}.row output{text-align:right;color:var(--cyan)}
+input[type=range]{width:100%}.status{min-height:42px;text-align:center;color:var(--muted);margin-top:15px;font-size:13px}.foot{text-align:center;color:#697293;font-size:11px;margin-top:12px}
+@media(max-width:520px){.app{padding:18px}.row{grid-template-columns:105px 1fr 48px}.modebar{grid-template-columns:1fr}.modebar button{padding:16px}}
 </style>
 </head>
 <body>
 <main class="app">
 <h1>808 COWBELL</h1>
-<div class="sub">周囲の音楽を勝手に1986年へ</div>
+<div class="sub">TAP SYNC — 人間が耳、ブラウザが時計</div>
 <section class="display">
- <div class="bpm"><div id="bpm" class="big">--</div><div class="label">BPM</div></div>
- <div class="meter"><div id="beat" class="big">·</div><div class="label">BEAT</div><div id="pulse" class="pulse"></div></div>
+ <div class="box"><div id="bpm" class="big">--</div><div class="label">BPM</div></div>
+ <div class="box"><div id="beat" class="big">·</div><div class="label">BEAT</div><div id="pulse" class="pulse"></div></div>
 </section>
-<canvas id="scope" width="900" height="180"></canvas>
+<div id="tapcount" class="tapcount">READY</div>
 <div class="modebar">
-  <button id="start">🎙 AUTO：マイク開始</button>
-  <button id="manual">🔔 MANUAL / SYNC 1</button>
-  <button id="random">🎲 RANDOM OFF</button>
+ <button id="auto">▶ AUTO / LEARN</button>
+ <button id="manual" class="manual">🔔 TAP / SYNC</button>
+ <button id="random">🎲 RANDOM OFF</button>
 </div>
-<div class="hint">AUTO＝BPM＋拍追従 ／ MANUAL＝1拍目同期 ／ RANDOM＝3拍目中心のアドリブ</div>
+<div class="hint">AUTO → 曲に合わせてTAPを数回 → LOCK後は1・3拍で自動演奏</div>
 <div class="controls">
- <div class="row"><label>80s度</label><input id="density" type="range" min="0" max="100" value="55"><output id="densityO">55%</output></div>
- <div class="row"><label>カウベル音量</label><input id="volume" type="range" min="0" max="100" value="100"><output id="volumeO">100%</output></div>
- <div class="row"><label>検出感度</label><input id="sens" type="range" min="1" max="100" value="48"><output id="sensO">48</output></div>
+ <div class="row"><label>音量</label><input id="volume" type="range" min="0" max="100" value="100"><output id="volumeO">100%</output></div>
+ <div class="row"><label>同期微調整</label><input id="trim" type="range" min="-80" max="80" value="0"><output id="trimO">0ms</output></div>
 </div>
-<div id="status" class="status">AUTOでBPM検出 → 1拍目でMANUAL。BEAT表示は安定版のまま、発音だけ直前まで追従します。</div>
-<div class="foot">イヤホン推奨：スピーカー再生ではカウベルをマイクが拾う場合があります</div>
+<div id="status" class="status">AUTO / LEARNを押してから、曲の拍に合わせてTAP / SYNCを6〜8回ほど押してください。</div>
+<div class="foot">マイク不使用。追加タップでいつでもテンポと位相を再補正できます。</div>
 </main>
 <script>
-let ctx, analyser, source, stream, running=false, raf=0;
-let lastHit=0, intervals=[], bpm=0, beatNo=0, nextBeat=0, lastBellBeat=-99, synced=false, randomMode=false, ignoreMicUntil=0, phaseErrorMs=0, pendingBells=[];
+let ctx=null, learning=false, locked=false, randomMode=false;
+let taps=[], bpm=0, nextBeat=0, beatNo=0, timer=0, pending=[];
 const $=id=>document.getElementById(id);
-const canvas=$('scope'), g=canvas.getContext('2d');
-['density','volume','sens'].forEach(id=>$(id).oninput=()=>$(id+'O').textContent=$(id).value+(id==='density'||id==='volume'?'%':''));
+$('volume').oninput=()=>$('volumeO').textContent=$('volume').value+'%';
+$('trim').oninput=()=>$('trimO').textContent=(+$('trim').value>0?'+':'')+$('trim').value+'ms';
 
 async function ensureAudio(){
-  if(!ctx || ctx.state==="closed") ctx=new (window.AudioContext||window.webkitAudioContext)();
-  if(ctx.state!=="running"){
-    try{ await ctx.resume(); }catch(e){}
-  }
+ if(!ctx||ctx.state==='closed')ctx=new (window.AudioContext||window.webkitAudioContext)();
+ if(ctx.state!=='running')try{await ctx.resume()}catch(e){}
 }
-function cowbell(t, gainMul=1){
-  // Ignore microphone transients around our own loud cowbell output.
-  if(ctx) ignoreMicUntil=Math.max(ignoreMicUntil, t+0.135);
-  const master=ctx.createGain(), bp=ctx.createBiquadFilter();
-  bp.type='bandpass'; bp.frequency.value=1050; bp.Q.value=1.4;
-  master.gain.setValueAtTime(0.0001,t);
-  master.gain.exponentialRampToValueAtTime(Math.max(.001, Number($('volume').value)/100*.62*gainMul),t+.004);
-  master.gain.exponentialRampToValueAtTime(.0001,t+.12);
-  // Dry signal + subtle 80s-style echo (single short delay, low feedback).
-  const dry=ctx.createGain(), delay=ctx.createDelay(1.0), wet=ctx.createGain(), feedback=ctx.createGain();
-  dry.gain.value=1.0;
-  delay.delayTime.value=0.075;
-  wet.gain.value=0.18;
-  feedback.gain.value=0.12;
-  master.connect(bp);
-  bp.connect(dry).connect(ctx.destination);
-  bp.connect(delay);
-  delay.connect(wet).connect(ctx.destination);
-  delay.connect(feedback).connect(delay);
-  [540,800].forEach((f,i)=>{
-    const o=ctx.createOscillator(), og=ctx.createGain();
-    o.type='square'; o.frequency.value=f;
-    og.gain.value=i?0.65:1; o.connect(og).connect(master); o.start(t); o.stop(t+.14);
-  });
+function bell(t,g=1){
+ const master=ctx.createGain(),bp=ctx.createBiquadFilter(),dry=ctx.createGain(),delay=ctx.createDelay(1),wet=ctx.createGain(),fb=ctx.createGain();
+ bp.type='bandpass';bp.frequency.value=1050;bp.Q.value=1.4;dry.gain.value=1;delay.delayTime.value=.075;wet.gain.value=.18;fb.gain.value=.12;
+ master.gain.setValueAtTime(.0001,t);master.gain.exponentialRampToValueAtTime(Math.max(.001,+$('volume').value/100*.62*g),t+.004);master.gain.exponentialRampToValueAtTime(.0001,t+.12);
+ master.connect(bp);bp.connect(dry).connect(ctx.destination);bp.connect(delay);delay.connect(wet).connect(ctx.destination);delay.connect(fb).connect(delay);
+ [540,800].forEach((f,i)=>{let o=ctx.createOscillator(),og=ctx.createGain();o.type='square';o.frequency.value=f;og.gain.value=i?.65:1;o.connect(og).connect(master);o.start(t);o.stop(t+.14)});
 }
-function median(a){let b=[...a].sort((x,y)=>x-y); return b.length?b[Math.floor(b.length/2)]:0}
-function estimateBpm(){
-  if(intervals.length<5)return 0;
-  let vals=intervals.filter(x=>x>.24&&x<1.5).map(x=>{while(x>.75)x/=2; while(x<.3)x*=2; return x});
-  let m=median(vals); if(!m)return 0;
-  return 60/m; // keep decimals internally to reduce long-term drift
+function median(a){let b=[...a].sort((x,y)=>x-y);return b[Math.floor(b.length/2)]}
+function calcTempo(){
+ if(taps.length<3)return 0;
+ let d=[];for(let i=1;i<taps.length;i++){let x=taps[i]-taps[i-1];if(x>.28&&x<1.2)d.push(x)}
+ if(d.length<2)return 0;
+ let m=median(d), clean=d.filter(x=>Math.abs(x-m)<m*.22);
+ if(clean.length<2)clean=d;
+ let avg=clean.reduce((a,b)=>a+b,0)/clean.length;
+ return 60/avg;
 }
-function randomPlan(n){
-  const beat=(n%4)+1;
-  // 3rd beat is the anchor. Other hits are occasional musical variations.
-  if(beat===3) return Math.random()<0.78 ? [0] : [];
-  if(beat===1) return Math.random()<0.28 ? [0] : [];
-  if(beat===2) return Math.random()<0.10 ? [0] : (Math.random()<0.10 ? [0.5] : []);
-  if(beat===4){
-    let r=Math.random();
-    if(r<0.08) return [0,0.5];
-    if(r<0.20) return [0.5];
-    if(r<0.27) return [0];
-  }
-  return [];
+function groove(n){
+ let b=n%4;
+ if(!randomMode)return (b===0||b===2)?[0]:[];
+ if(b===2)return Math.random()<.82?[0]:[];
+ if(b===0)return Math.random()<.32?[0]:[];
+ if(b===1){let r=Math.random();return r<.08?[0]:r<.16?[.5]:[]}
+ let r=Math.random();return r<.07?[0,.5]:r<.18?[.5]:r<.25?[0]:[];
 }
-function bellPlan(n){
-  if(!synced) return [];
-  if(randomMode) return randomPlan(n);
-  // Basic groove: beats 1 and 3.
-  return ((n%4)===0 || (n%4)===2) ? [0] : [];
-}
-function wrapPhaseError(hitTime, refTime, period){
-  let e=hitTime-refTime;
-  while(e> period/2)e-=period;
-  while(e<-period/2)e+=period;
-  return e;
-}
-function pllCorrect(hitCtxTime){
-  if(!synced || !bpm || !nextBeat) return;
-  const period=60/bpm;
-  // nextBeat is the next grid point. Find the nearest beat-grid point to this hit.
-  let nearest=nextBeat;
-  while(nearest-hitCtxTime>period/2) nearest-=period;
-  while(hitCtxTime-nearest>period/2) nearest+=period;
-  const err=wrapPhaseError(hitCtxTime,nearest,period);
-  // Only trust plausible near-grid transients; ignore syncopation/offbeats.
-  if(Math.abs(err) < Math.min(.11,period*.22)){
-    // Gentle phase correction: 18% of error per accepted transient.
-    const correction=err*.18;
-    nextBeat += correction;
-    // Move not-yet-committed cowbells by the same phase correction.
-    pendingBells.forEach(b=>b.target+=correction);
-    phaseErrorMs=err*1000;
-    // Tiny tempo correction prevents persistent drift without chasing every hit.
-    const targetPeriod=period + err*.012;
-    const targetBpm=60/targetPeriod;
-    bpm=bpm*.985 + targetBpm*.015;
-    $('bpm').textContent=bpm.toFixed(1);
-  }
-}
-function scheduleBeat(){
-  if(!bpm||!running)return;
-  let period=60/bpm, now=ctx.currentTime;
-  if(!nextBeat || nextBeat<now-.2) nextBeat=now+.03;
-  while(nextBeat<now+.12){
-    let n=beatNo++;
-    setTimeout(()=>{ $('beat').textContent=(n%4)+1; $('pulse').classList.add('on'); setTimeout(()=>$('pulse').classList.remove('on'),80)},Math.max(0,(nextBeat-now)*1000));
-    const plan=bellPlan(n);
-    plan.forEach(off=>{
-      const target=nextBeat+period*off;
-      pendingBells.push({target:target, gain:((n%4)===2)?1.08:.94});
-    });
-    nextBeat+=period;
-  }
-}
-async function start(){
- if(running){stop();return}
- try{
-  // Unlock/resume audio first, while still inside the user's button gesture.
-  await ensureAudio();
-  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
-  // getUserMedia can suspend audio on some mobile browsers, so resume once more.
-  if(ctx.state!=='running'){ try{await ctx.resume()}catch(e){} }
-  analyser=ctx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=.15;
-  source=ctx.createMediaStreamSource(stream); source.connect(analyser);
-  running=true;$('start').textContent='■ AUTO停止';$('start').classList.add('active');$('status').textContent='解析中… 音楽を数秒聞かせてください';
-  loop();
- }catch(e){$('status').textContent='マイクを開始できません: '+e.message}
-}
-function stop(){
- running=false;
- cancelAnimationFrame(raf);
- if(source){try{source.disconnect()}catch(e){} source=null}
- if(analyser){try{analyser.disconnect()}catch(e){} analyser=null}
- if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null}
- // Never close the shared AudioContext: MANUAL uses the same output context.
- $('start').textContent='🎙 AUTO：マイク開始';$('start').classList.remove('active');$('bpm').textContent='--';$('beat').textContent='·';
- intervals=[];bpm=0;nextBeat=0;beatNo=0;lastHit=0;lastBellBeat=-99;synced=false;ignoreMicUntil=0;phaseErrorMs=0;pendingBells=[];
- $('status').textContent='MANUALはいつでも使用できます';
-}
-function commitPendingBells(){
-  if(!ctx || !pendingBells.length)return;
-  const now=ctx.currentTime;
-  const keep=[];
-  for(const b of pendingBells){
-    if(b.target <= now+.025){
-      cowbell(Math.max(now+.003,b.target), b.gain);
-    }else{
-      keep.push(b);
-    }
-  }
-  pendingBells=keep;
-}
-function loop(){
- if(!running)return;
- commitPendingBells();
- const data=new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data);
- // emphasize bass/low-mid transient energy
- let lo=0; const bins=Math.min(42,data.length); for(let i=2;i<bins;i++)lo+=data[i]*data[i]; lo=Math.sqrt(lo/bins)/255;
- let now=performance.now()/1000;
- loop.avg=loop.avg===undefined?lo:loop.avg*.965+lo*.035;
- let threshold=loop.avg*(1.12+(101-Number($('sens').value))*.006);
- const ctxNow=ctx.currentTime;
- // Do not let our own loud cowbell retrigger the beat detector.
- if(ctxNow>ignoreMicUntil && lo>threshold && lo>.055 && now-lastHit>.24){
-   if(lastHit){let dt=now-lastHit;if(dt<1.5){intervals.push(dt);if(intervals.length>32)intervals.shift()}}
-   lastHit=now;
-   let nb=estimateBpm();
-   if(nb>=55&&nb<=190){
-     if(!bpm){
-       bpm=nb;
-       if(!synced) nextBeat=ctx.currentTime+.02;
-     }else if(!synced){
-       // Before manual sync, allow faster acquisition.
-       bpm=bpm*.82+nb*.18;
-     }else{
-       // Once synced, tempo must move slowly; phase correction does the tracking.
-       if(Math.abs(nb-bpm)<8) bpm=bpm*.985+nb*.015;
-       pllCorrect(ctxNow);
-     }
-     $('bpm').textContent=bpm.toFixed(1);
-     $('status').textContent=synced
-       ? 'SYNC LOCK  Δ'+Math.round(phaseErrorMs)+'ms  🔔'
-       : 'BPM検出中 '+bpm.toFixed(1);
-   }
+function schedule(){
+ if(!locked||!bpm)return;
+ let now=ctx.currentTime,p=60/bpm;
+ if(!nextBeat||nextBeat<now-.15)nextBeat=now+.02;
+ while(nextBeat<now+.12){
+   let n=beatNo++;
+   let bt=nextBeat;
+   setTimeout(()=>{$('beat').textContent=(n%4)+1;$('pulse').classList.add('on');setTimeout(()=>$('pulse').classList.remove('on'),75)},Math.max(0,(bt-now)*1000));
+   groove(n).forEach(off=>pending.push({t:bt+p*off,g:(n%4===2)?1.08:.94}));
+   nextBeat+=p;
  }
- scheduleBeat();
- g.clearRect(0,0,canvas.width,canvas.height);g.beginPath();
- for(let i=0;i<data.length;i++){let x=i/(data.length-1)*canvas.width,y=canvas.height-data[i]/255*canvas.height;(i?g.lineTo(x,y):g.moveTo(x,y))}
- g.strokeStyle='#4de8ff';g.lineWidth=3;g.stroke();
- raf=requestAnimationFrame(loop);
 }
-$('start').onclick=start;
-let lastManualTap=0;
-async function manualBell(){
-  try{
-    await ensureAudio();
-    if(ctx.state !== 'running'){ try{ await ctx.resume(); }catch(e){} }
-    if(ctx.state !== 'running' && !running){
-      try{ await ctx.close(); }catch(e){}
-      ctx=new (window.AudioContext||window.webkitAudioContext)();
-      await ctx.resume();
-    }
-    const t=ctx.currentTime;
-    // If AUTO has no reliable BPM yet, two manual taps can establish tempo.
-    if(lastManualTap){
-      const dt=t-lastManualTap;
-      if(dt>.30 && dt<1.10){
-        const tapBpm=Math.round(60/dt);
-        if(!bpm) bpm=tapBpm;
-        else bpm=Math.round(bpm*.65+tapBpm*.35);
-        $('bpm').textContent=bpm;
-      }
-    }
-    lastManualTap=t;
-    pendingBells=[];
-    cowbell(t+.006,1.25);
-    synced=true;
-    beatNo=1;                 // manual hit itself is beat 1
-    nextBeat=bpm ? t+(60/bpm) : 0;
-    $('beat').textContent='1';
-    $('pulse').classList.add('on');
-    $('status').textContent=bpm ? 'SYNC：ここを1拍目にしました 🔔' : '1拍目を設定。AUTOでBPM検出、またはもう一度テンポに合わせてタップ';
-    setTimeout(()=>$('pulse').classList.remove('on'),90);
-  }catch(e){
-    $('status').textContent='音声を再開できません。もう一度タップしてください';
-  }
+function commit(){
+ if(!ctx)return;
+ let now=ctx.currentTime,keep=[];
+ for(let x of pending){
+   if(x.t<=now+.025)bell(Math.max(now+.003,x.t+(+$('trim').value/1000)),x.g);else keep.push(x);
+ }
+ pending=keep;
 }
-$('manual').addEventListener('pointerdown', manualBell, {passive:true});
-$('random').addEventListener('pointerdown', ()=>{
-  randomMode=!randomMode;
-  $('random').textContent=randomMode?'🎲 RANDOM ON':'🎲 RANDOM OFF';
-  $('random').classList.toggle('active',randomMode);
-  $('status').textContent=randomMode?'RANDOM：3拍目中心＋時々裏拍/別拍/連打':'BASIC：1拍目・3拍目';
-}, {passive:true});
+function engine(){commit();schedule();timer=requestAnimationFrame(engine)}
+function lockFromTaps(){
+ let nb=calcTempo();if(!nb||nb<50||nb>210)return;
+ bpm=nb;locked=true;
+ // Last human tap is the current beat; next automatic beat follows one period later.
+ nextBeat=taps[taps.length-1]+60/bpm;
+ beatNo=1; pending=[];
+ $('bpm').textContent=bpm.toFixed(1);
+ $('tapcount').textContent='LOCK · '+taps.length+' TAPS';
+ $('status').textContent='LOCK '+bpm.toFixed(1)+' BPM — 追加TAPで再同期できます';
+}
+$('auto').addEventListener('pointerdown',async()=>{
+ await ensureAudio();
+ learning=!learning;
+ if(learning){
+   taps=[];locked=false;pending=[];nextBeat=0;beatNo=0;
+   $('auto').textContent='■ STOP';$('auto').classList.add('active');$('tapcount').textContent='TAP 0';
+   $('status').textContent='曲の1拍ごとにTAP / SYNCを6〜8回ほど押してください';
+   if(!timer)engine();
+ }else{
+   locked=false;pending=[];$('auto').textContent='▶ AUTO / LEARN';$('auto').classList.remove('active');$('tapcount').textContent='READY';$('beat').textContent='·';
+ }
+},{passive:true});
+$('manual').addEventListener('pointerdown',async()=>{
+ await ensureAudio();let t=ctx.currentTime;bell(t+.004,1.2);
+ if(!learning){$('status').textContent='まずAUTO / LEARNを押してください';return}
+ // A long gap starts a fresh learning run.
+ if(taps.length&&t-taps[taps.length-1]>1.5)taps=[];
+ taps.push(t);if(taps.length>12)taps.shift();
+ $('tapcount').textContent='TAP '+taps.length;
+ $('beat').textContent='●';$('pulse').classList.add('on');setTimeout(()=>$('pulse').classList.remove('on'),75);
+ if(taps.length>=4)lockFromTaps();
+},{passive:true});
+$('random').addEventListener('pointerdown',()=>{
+ randomMode=!randomMode;$('random').textContent=randomMode?'🎲 RANDOM ON':'🎲 RANDOM OFF';$('random').classList.toggle('active',randomMode);
+ $('status').textContent=randomMode?'RANDOM：3拍目中心＋時々裏拍/別拍/連打':'BASIC：1拍目・3拍目';
+},{passive:true});
 </script>
 </body></html>
