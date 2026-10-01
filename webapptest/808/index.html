@@ -37,16 +37,17 @@ input[type=range]{width:100%}.status{min-height:24px;text-align:center;color:var
  <div class="row"><label>80s度</label><input id="density" type="range" min="0" max="100" value="55"><output id="densityO">55%</output></div>
  <div class="row"><label>カウベル音量</label><input id="volume" type="range" min="0" max="100" value="100"><output id="volumeO">100%</output></div>
  <div class="row"><label>検出感度</label><input id="sens" type="range" min="1" max="100" value="48"><output id="sensO">48</output></div>
-</div>
-<div id="status" class="status">AUTOでBPM検出 → 1拍目でMANUAL。以後は実音に少しずつ位相追従します。</div>
+ <div class="row"><label>同期微調整</label><input id="trim" type="range" min="-80" max="80" value="0"><output id="trimO">0ms</output></div></div>
+<div id="status" class="status">AUTOでBPM検出 → 1拍目でMANUAL。カウベルも補正後の拍位置へ追従します。</div>
 <div class="foot">イヤホン推奨：スピーカー再生ではカウベルをマイクが拾う場合があります</div>
 </main>
 <script>
 let ctx, analyser, source, stream, running=false, raf=0;
-let lastHit=0, intervals=[], bpm=0, beatNo=0, nextBeat=0, lastBellBeat=-99, synced=false, randomMode=false, ignoreMicUntil=0, phaseErrorMs=0;
+let lastHit=0, intervals=[], bpm=0, beatNo=0, nextBeat=0, lastBellBeat=-99, synced=false, randomMode=false, bellMuteWindows=[], phaseErrorMs=0;
 const $=id=>document.getElementById(id);
 const canvas=$('scope'), g=canvas.getContext('2d');
 ['density','volume','sens'].forEach(id=>$(id).oninput=()=>$(id+'O').textContent=$(id).value+(id==='density'||id==='volume'?'%':''));
+$('trim').oninput=()=>$('trimO').textContent=(Number($('trim').value)>0?'+':'')+$('trim').value+'ms';
 
 async function ensureAudio(){
   if(!ctx || ctx.state==="closed") ctx=new (window.AudioContext||window.webkitAudioContext)();
@@ -55,8 +56,11 @@ async function ensureAudio(){
   }
 }
 function cowbell(t, gainMul=1){
-  // Ignore microphone transients around our own loud cowbell output.
-  if(ctx) ignoreMicUntil=Math.max(ignoreMicUntil, t+0.135);
+  // Mask only the actual output window, not the time before a future scheduled bell.
+  if(ctx){
+    bellMuteWindows.push([t-0.006,t+0.120]);
+    if(bellMuteWindows.length>24) bellMuteWindows.shift();
+  }
   const master=ctx.createGain(), bp=ctx.createBiquadFilter();
   bp.type='bandpass'; bp.frequency.value=1050; bp.Q.value=1.4;
   master.gain.setValueAtTime(0.0001,t);
@@ -136,12 +140,12 @@ function scheduleBeat(){
   if(!bpm||!running)return;
   let period=60/bpm, now=ctx.currentTime;
   if(!nextBeat || nextBeat<now-.2) nextBeat=now+.03;
-  while(nextBeat<now+.12){
+  while(nextBeat<now+.025){
     let n=beatNo++;
     setTimeout(()=>{ $('beat').textContent=(n%4)+1; $('pulse').classList.add('on'); setTimeout(()=>$('pulse').classList.remove('on'),80)},Math.max(0,(nextBeat-now)*1000));
     const plan=bellPlan(n);
     plan.forEach(off=>{
-      const t=nextBeat+period*off;
+      const t=nextBeat+period*off + Number($('trim').value)/1000;
       cowbell(t, ((n%4)===2)?1.08:.94);
     });
     nextBeat+=period;
@@ -169,7 +173,7 @@ function stop(){
  if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null}
  // Never close the shared AudioContext: MANUAL uses the same output context.
  $('start').textContent='🎙 AUTO：マイク開始';$('start').classList.remove('active');$('bpm').textContent='--';$('beat').textContent='·';
- intervals=[];bpm=0;nextBeat=0;beatNo=0;lastHit=0;lastBellBeat=-99;synced=false;ignoreMicUntil=0;phaseErrorMs=0;
+ intervals=[];bpm=0;nextBeat=0;beatNo=0;lastHit=0;lastBellBeat=-99;synced=false;bellMuteWindows=[];phaseErrorMs=0;
  $('status').textContent='MANUALはいつでも使用できます';
 }
 function loop(){
@@ -181,8 +185,10 @@ function loop(){
  loop.avg=loop.avg===undefined?lo:loop.avg*.965+lo*.035;
  let threshold=loop.avg*(1.12+(101-Number($('sens').value))*.006);
  const ctxNow=ctx.currentTime;
+ bellMuteWindows=bellMuteWindows.filter(w=>w[1]>ctxNow-.02);
+ const micMasked=bellMuteWindows.some(w=>ctxNow>=w[0] && ctxNow<=w[1]);
  // Do not let our own loud cowbell retrigger the beat detector.
- if(ctxNow>ignoreMicUntil && lo>threshold && lo>.055 && now-lastHit>.24){
+ if(!micMasked && lo>threshold && lo>.055 && now-lastHit>.24){
    if(lastHit){let dt=now-lastHit;if(dt<1.5){intervals.push(dt);if(intervals.length>32)intervals.shift()}}
    lastHit=now;
    let nb=estimateBpm();
