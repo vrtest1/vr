@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>S65C | 間取りの3Dモデル</title>  <script type="module" crossorigin src="./assets/index-BgGB2esG.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BXg8Sd3v.css">
+</head>
+<body><div id="app">
+<aside><a class="brand" href="./">S65C<span>RESIDENCE STUDY</span></a><div class="rule"></div>
+<p class="eyebrow">SELECT PLAN 2</p><h1>図面から、<br>空間へ。</h1><p class="intro">3LDK + WIC + TR<br>寸法を基準にした住戸の3Dモデル</p>
+<div class="stats"><div><strong>68.88<span> m²</span></strong><small>専有面積 · TR 1.97 m²を含む</small></div><div><strong>13.67<span> m²</span></strong><small>バルコニー面積</small></div></div>
+<p class="eyebrow section-label">VIEW / 視点</p><div class="views"><button data-view="dollhouse" class="active">01 <span>俯瞰</span> ↗</button><button data-view="top">02 <span>真上</span> ↓</button><button data-view="living">03 <span>LDの室内</span> →</button></div>
+<p class="eyebrow section-label">LAYERS / 表示</p><label><input id="labels" type="checkbox" checked>部屋名・天井高</label><label><input id="cutaway" type="checkbox" checked>壁を低くして間取りを見る</label><label><input id="ceilings" type="checkbox">天井</label><label><input id="plan" type="checkbox">元の間取り図と比較</label>
+<div class="finish"><i></i><div>Warm greige<small>texture_sample.png の色味を参考</small></div></div>
+<a class="download" href="./S65C_apartment.glb" download>3Dモデルを保存 <span>GLB ↓</span></a><p class="note">単位：m ／ 記載寸法を優先<br>未記載の寸法・細部は図面から推定。<br>面積表示は原図の値です。</p></aside>
+<main><header><span><i class="status"></i> S65C / 3D FLOOR PLAN</span><button id="reset">視点をリセット ↺</button></header><div id="viewport"></div><div id="room-labels"></div>
+<div class="view-caption"><span id="view-name">DOLLHOUSE</span><p id="view-description">空間のつながりを、立体で。</p></div><div class="scale"><div></div><span>1 m</span></div>
+<div class="help">ドラッグ：回転 <b>·</b> ホイール：拡大 <b>·</b> 右ドラッグ：移動</div><div class="dimension">7,850 × 8,890 mm <span>住戸の基準寸法</span></div>
+<div id="source" hidden><button id="close-source">閉じる ×</button><img src="./assets/matori-CSGjFKc3.png" alt="寸法が記載された元の間取り図"><p>壁芯の寸法を基準にモデル化しています。細部の推定条件は README.md を参照。</p></div>
+</main></div></body></html>
