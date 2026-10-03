@@ -1,11 +1,12 @@
-import {rainResponse} from './rain.js?v=near-rain-4';
+import {Landmarks} from './landmarks.js?v=landmarks-1';
+import {rainResponse} from './rain.js?v=landmarks-1';
 import * as THREE from 'three';
 import {pass} from 'three/tsl';
 import {bloom} from './vendor/BloomNode.js';
-import {Terrain} from './terrain.js?v=near-rain-4';
-import {Weather} from './weather.js?v=near-rain-4';
-import {Lightning} from './lightning.js?v=near-rain-4';
-import {StormAudio} from './audio.js?v=near-rain-4';
+import {Terrain} from './terrain.js?v=landmarks-1';
+import {Weather} from './weather.js?v=landmarks-1';
+import {Lightning} from './lightning.js?v=landmarks-1';
+import {StormAudio} from './audio.js?v=landmarks-1';
 
 const $=id=>document.getElementById(id),
 mobile=matchMedia('(max-width:700px)').matches;
@@ -28,11 +29,12 @@ const presets={
   aso:[32.884,131.104,'阿蘇・カルデラ'],
   fuji:[35.405,138.76,'富士山'],
   tokyo:[35.6812,139.7671,'東京・丸の内'],
+  tokyotower:[35.65858,139.74543,'東京タワー'],
   minatomirai:[35.45458,139.63145,'横浜・みなとみらい']
 };
 
 let renderer,scene,camera,terrain,weather,lightning,post,
-hemi,sun,last=0,elapsed=0,tileTime=0,nextStrike=5,
+landmarks,hemi,sun,last=0,elapsed=0,tileTime=0,nextStrike=5,
 yaw=0,pitch=-.17,started=false,frames=0,frameTime=0,
 failures=0,toastTimer;
 
@@ -246,6 +248,7 @@ $('quality').onchange=()=>{
   resize();
 };
 
+$('buildings').onchange=()=>{landmarks?.setEnabled($('buildings').checked);landmarks?.update(camera);};
 $('surface').onchange=()=>
   terrain?.setLayer($('surface').value);
 
@@ -261,7 +264,7 @@ function setView(mode){
 
   if(!camera)return;
 
-  const h=terrain.height(0,0)??500;
+  const h=(landmarks??terrain).height(0,0)??500;
 
   if(mode==='ground'){
     camera.position.set(0,h+18,0);
@@ -324,6 +327,7 @@ function go(lat,lon,name){
   $('results').replaceChildren();
 
   terrain?.setOrigin(lat,lon);
+  landmarks?.reset();
   lightning?.clear();
   audio.clear();
 
@@ -507,7 +511,7 @@ function strikeAtScreen(x,y,canvas){
   camera.updateMatrixWorld();
   scene.updateMatrixWorld(true);
   ray.setFromCamera(new THREE.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),camera);
-  const hit=ray.intersectObjects(terrain.slots.filter(s=>s.mesh.visible).map(s=>s.mesh),false)[0];
+  const hit=ray.intersectObjects([...terrain.slots.filter(s=>s.mesh.visible).map(s=>s.mesh),...(landmarks?.meshes()??[])],false)[0];
   if(!hit){toast('読み込み済みの地形をタップしてください（空には落雷できません）');return;}
   if(!lightning.strike(camera,true,hit.point))toast('雷の発光が終わってから、もう一度タップしてください');
 }
@@ -716,7 +720,7 @@ function move(dt){
   )
     camera.position.y-=speed;
 
-  const h=terrain.height(
+  const h=(landmarks??terrain).height(
     camera.position.x,
     camera.position.z
   );
@@ -802,6 +806,7 @@ function render(now){
         camera.position
       );
 
+      landmarks?.update(camera);
       const geo=
         terrain.toGeo(
           camera.position.x,
@@ -1142,10 +1147,13 @@ async function init(){
       );
 
 
+    landmarks=new Landmarks(scene,terrain,toast);
+    landmarks.setEnabled($('buildings').checked);
+    landmarks.update(camera);
     lightning=
       new Lightning(
         scene,
-        terrain,
+        landmarks,
         audio,
         (d,type)=>{
 
@@ -1199,6 +1207,7 @@ async function init(){
     window.__VOLT={
       state,
       terrain,
+      landmarks,
       camera,
       weather,
       lightning,

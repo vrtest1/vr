@@ -134,3 +134,5 @@ body.cinema #quickControls { display:none; }
     line-height:1.4;
   }
 }
+
+#buildings{width:24px;height:24px;accent-color:var(--accent);cursor:pointer}

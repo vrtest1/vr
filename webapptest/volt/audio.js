@@ -1,4 +1,4 @@
-import {rainResponse} from './rain.js?v=near-rain-4';
+import {rainResponse} from './rain.js?v=landmarks-1';
 // Normalize filtered noise before applying the envelope: otherwise most energy
 // disappears below 200 Hz and only the short high-frequency click remains audible.
 export function synthesizeThunder(rate,distance,random=Math.random){
