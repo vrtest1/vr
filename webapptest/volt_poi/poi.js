@@ -11,6 +11,7 @@ export class StoreSearch {
     this.$('poiClose').onclick=()=>this.$('poiDialog').close();
     this.$('poiForm').onsubmit=e=>{e.preventDefault();this.search();};
     this.$('poiStrike').onclick=()=>this.strike();
+    this.$('poiStrikeAll').onclick=()=>this.strikeAll();
     this.$('poiMove').onclick=()=>{
       if(!this.selected)return;
       const p=this.selected; this.go(p.lat,p.lng,p.name);
@@ -91,6 +92,28 @@ export class StoreSearch {
     const x=(m.x-t.origin.x)*t.scale,z=(t.origin.y-m.y)*t.scale;
     const y=this.landmarks.height(x,z);
     return y==null?null:new THREE.Vector3(x,y,z);
+  }
+  strikeAll(){
+    if(performance.now()<(this.batchUntil??0)){this.toast('少し待ってからもう一度お試しください。');return;}
+    this.camera.updateMatrixWorld();
+    const meshes=[...this.terrain.slots.filter(s=>s.mesh.visible).map(s=>s.mesh),...this.landmarks.meshes()];
+    for(const mesh of meshes)mesh.updateWorldMatrix(true,false);
+    const ray=new THREE.Raycaster(),targets=[];
+    for(const item of this.items){
+      const target=this.position(item);if(!target)continue;
+      const surface=target.clone();surface.y+=3;
+      const projected=surface.clone().project(this.camera);
+      if(projected.z<=-1||projected.z>=1||Math.abs(projected.x)>1||Math.abs(projected.y)>1)continue;
+      const direction=surface.clone().sub(this.camera.position),distance=direction.length();
+      ray.set(this.camera.position,direction.normalize());ray.far=Math.max(0,distance-5);
+      if(ray.intersectObjects(meshes,false).length)continue;
+      targets.push(target);
+    }
+    if(!targets.length){this.toast('画面内に見える検索結果の店がありません。視点を変えてお試しください。');return;}
+    const count=this.lightning.strikeAll(this.camera,targets);
+    if(!count){this.toast('少し待ってからもう一度お試しください。');return;}
+    this.batchUntil=performance.now()+1200;
+    this.toast(`画面内の${count}店へ一斉に落雷しました`);
   }
   strike(){
     if(!this.selected)return;

@@ -1,4 +1,4 @@
-import {StoreSearch} from './poi.js?v=poi-2';
+import {StoreSearch} from './poi.js?v=poi-3';
 import {Landmarks} from './landmarks.js?v=landmarks-1';
 import {rainResponse} from './rain.js?v=landmarks-1';
 import * as THREE from 'three';
@@ -6,7 +6,7 @@ import {pass} from 'three/tsl';
 import {bloom} from './vendor/BloomNode.js';
 import {Terrain} from './terrain.js?v=landmarks-1';
 import {Weather} from './weather.js?v=landmarks-1';
-import {Lightning} from './lightning.js?v=landmarks-1';
+import {Lightning} from './lightning.js?v=poi-3';
 import {StormAudio} from './audio.js?v=landmarks-1';
 
 const $=id=>document.getElementById(id),
