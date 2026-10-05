@@ -1,0 +1,34 @@
+// Run with a DOMParser implementation (native browser or @xmldom/xmldom in Node).
+// This file tests the actual adapters against captured official XML, not demo events.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const {DOMParser}=require(process.env.XMLDOM_PATH||'@xmldom/xmldom');
+globalThis.DOMParser=class extends DOMParser{parseFromString(...args){const d=super.parseFromString(...args);const p=Object.getPrototypeOf(d.documentElement);if(!Object.getOwnPropertyDescriptor(p,'children'))Object.defineProperty(p,'children',{get(){return [...this.childNodes].filter(n=>n.nodeType===1);}});return d;}};
+const {parseReport,JmaSource}=await import('../jma-source.js');
+const {coordinate,mergeEvents,isExpired,safeUrl}=await import('../events.js');
+const dir=process.env.FIXTURE_DIR||new URL('./fixtures/',import.meta.url);
+const read=n=>fs.readFileSync(typeof dir==='string'?dir+'/'+n:new URL(n,dir),'utf8');
+const qxml=read('quake.xml'),vxml=read('ash.xml');
+const at='2026-10-05T02:30:00Z';
+const q=parseReport(qxml,'https://www.data.jma.go.jp/developer/xml/data/quake.xml',at);
+const v=parseReport(vxml,'https://www.data.jma.go.jp/developer/xml/data/ash.xml',at);
+assert.deepEqual([q.longitude,q.latitude],[130.8,32.8]);
+assert.ok(Math.abs(v.latitude-32.8845)<.000001);
+assert.ok(Math.abs(v.longitude-131.103833333)<.000001);
+assert.ok(v.visualizations.some(x=>x.kind==='polygon'));
+assert.equal(v.informationKind,'official_forecast');
+assert.equal(q.status,'CONFIRMED');assert.equal(q.severity,'information');
+assert.equal(coordinate('invalid'),null);assert.equal(safeUrl('javascript:alert(1)'),null);
+assert.equal(parseReport(qxml.replace('<Status>通常</Status>','<Status>訓練</Status>'),'x',at),null);
+const cancelled=parseReport(qxml.replace('<InfoType>発表</InfoType>','<InfoType>取消</InfoType>'),'x',at);
+assert.equal(cancelled.visualizations.length,0);assert.equal(cancelled.lifecycle,'cancelled');
+assert.equal(mergeEvents([q,{...q,updatedAt:'2099-01-01',title:'訂正'}])[0].title,'訂正');
+assert.equal(isExpired({...v,validUntil:'2000-01-01'}),true);
+const source=new JmaSource();source.lastAttempt=Date.now();await assert.rejects(()=>source.load(()=>{}),/1分/);
+await assert.rejects(()=>source.get('https://example.com/data.xml'),/許可/);
+console.log('PASS: official earthquake / DDM volcano / forecast polygon / trust / training exclusion / cancellation / correction / expiry / URL validation / throttling');
+const regional=parseReport('<Report><Control><Status>通常</Status><Title>土砂災害警戒情報</Title><PublishingOffice>試験</PublishingOffice></Control><Head><Title>地域情報</Title><InfoType>発表</InfoType></Head><Body><Area><Name>横浜市</Name><Code>1410000</Code></Area></Body></Report>','https://example.test/report',at);
+assert.deepEqual(regional.targetAreas,[{name:'横浜市',code:'1410000'}]);assert.equal(regional.latitude,null);assert.equal(regional.visualizations.length,0);
+console.log('PASS: official region name/code retained without inventing coordinates');

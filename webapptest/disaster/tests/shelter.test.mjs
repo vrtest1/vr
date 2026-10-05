@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {parseShelters,SHELTER_LAYERS,ShelterSource,shelterTiles} from '../shelter-source.js';
+const feature={type:'Feature',geometry:{type:'Point',coordinates:[139.76,35.68]},properties:{name:'試験施設',address:'試験住所',disaster1:1,disaster4:'1',remarks:'上階のみ'}};
+const fc={type:'FeatureCollection',features:[feature,{geometry:{type:'Point',coordinates:[NaN,35]}}]};
+const events=parseShelters(fc,SHELTER_LAYERS[0],'https://example.test/a','2026-10-05T00:00:00Z');assert.equal(events.length,1);assert.equal(events[0].openingStatus,'unknown');assert.equal(events[0].publishedAt,null);assert.deepEqual(events[0].hazards,['洪水','地震']);
+let active=0,max=0;globalThis.fetch=async url=>{active++;max=Math.max(max,active);await new Promise(r=>setImmediate(r));active--;return {ok:true,status:200,json:async()=>fc};};
+const result=await new ShelterSource().load(35.68,139.76);assert.ok(max<=3);assert.equal(result.events.length,3);assert.equal(result.events.find(e=>e.facilityKind==='指定緊急避難場所').hazards.length,8);
+for(const lat of [20,35,46])assert.ok(shelterTiles(lat,139).length<=4);
+const many={type:'FeatureCollection',features:Array.from({length:250},(_,i)=>({...feature,properties:{...feature.properties,name:'施設'+i}}))};globalThis.fetch=async()=>({ok:true,status:200,json:async()=>many});const capped=await new ShelterSource().load(35.68,139.76);assert.equal(capped.events.length,200);assert.equal(capped.truncated,550);
+globalThis.fetch=async()=>({ok:false,status:404});const missing=await new ShelterSource().load(35.68,139.76);assert.equal(missing.events.length,0);assert.ok(missing.missing>0);
+globalThis.fetch=async()=>{throw Error('network');};const failed=await new ShelterSource().load(35.68,139.76);assert.ok(failed.errors.length>0);assert.equal(failed.events.length,0);
+const real=JSON.parse(readFileSync(new URL('./fixtures/shelters.json',import.meta.url),'utf8'));assert.ok(parseShelters(real,SHELTER_LAYERS[8],'https://cyberjapandata.gsi.go.jp/xyz/sih/10/909/403.geojson',new Date().toISOString()).length>0);
+console.log('PASS: official live GeoJSON parsing, provenance, unknown opening status, deduplication, radius/tile bounds, concurrency, cap, missing/failure distinction');
