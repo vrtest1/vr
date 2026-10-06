@@ -29,9 +29,12 @@ export class LODTerrain{
   // Queue refreshes, including tiles that complete during the switch.
   t.refreshSlotTexture=slot=>{this.textureJobs.add(slot);return Promise.resolve();};
   for(const slot of t.tiles.values())if(slot.ready)this.textureJobs.add(slot);
- }}
+ }this.refreshTextures();}
  refreshTextures(){
-  while(this.textureJobs.size&&this.textureActive+this.active<4){const slot=this.textureJobs.values().next().value;this.textureJobs.delete(slot);if(!slot.ready||slot.key===null)continue;
+  // Visible tiles first, then distance from the camera's ground position to each tile.
+  const distance=slot=>{const size=this.layers.get(slot.lodZoom).size,p=slot.mesh.position;return Math.hypot(Math.max(p.x-this.position.x,0,this.position.x-p.x-size),Math.max(p.z-this.position.z,0,this.position.z-p.z-size));};
+  const ordered=[...this.textureJobs].sort((a,b)=>Number(b.mesh.visible)-Number(a.mesh.visible)||distance(a)-distance(b)||b.lodZoom-a.lodZoom);
+  while(ordered.length&&this.textureActive+this.active<4){const slot=ordered.shift();this.textureJobs.delete(slot);if(!slot.ready||slot.key===null)continue;
    const t=this.layers.get(slot.lodZoom);this.textureActive++;
    Terrain.prototype.refreshSlotTexture.call(t,slot).finally(()=>{this.textureActive--;});
   }
@@ -43,6 +46,7 @@ export class LODTerrain{
   if(key!==this.lastPlan){this.lastPlan=key;this.tree=planLOD({origin:this.origin,scale:this.scale,position:this.position,eco:this.eco,previous:this.tree.split});
    for(const [z,t] of this.layers){t.wanted=new Set(this.tree.nodes.filter(n=>n.z===z).map(n=>n.key));for(const slot of [...t.tiles.values()])if(!t.wanted.has(slot.key)){this.textureJobs.delete(slot);t.releaseSlot(slot);}}
   }
+  this.applyVisibility();this.refreshTextures();
   // Coarse first guarantees an overview and fallback coverage before refinement.
   const ordered=[...this.tree.nodes].sort((a,b)=>a.z-b.z||Math.hypot(a.left+a.size/2-position.x,a.top+a.size/2-position.z)-Math.hypot(b.left+b.size/2-position.x,b.top+b.size/2-position.z));
   for(const n of ordered){if(this.active+this.textureActive>=4)break;const t=this.layers.get(n.z);if(t.tiles.has(n.key))continue;
