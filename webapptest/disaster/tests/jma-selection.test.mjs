@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),{DOMParser}=require(process.env.XMLDOM_PATH||'@xmldom/xmldom');
+globalThis.DOMParser=class extends DOMParser{parseFromString(...args){const d=super.parseFromString(...args),p=Object.getPrototypeOf(d.documentElement);if(!Object.getOwnPropertyDescriptor(p,'children'))Object.defineProperty(p,'children',{get(){return [...this.childNodes].filter(n=>n.nodeType===1);}});return d;}};
+const {JmaSource,parseReport,reportType}=await import('../jma-source.js');
+const ash=fs.readFileSync(new URL('./fixtures/ash-oct05.xml',import.meta.url),'utf8');
+const event=parseReport(ash,'https://www.data.jma.go.jp/developer/xml/data/20261004230048_0_VFVO53_010000.xml','2026-10-05T07:00:00Z');
+assert.equal(event.visualizations.filter(v=>v.kind==='polygon').length,12);
+const instant=Date.parse('2026-10-05T16:00:00+09:00');assert.equal(event.visualizations.filter(v=>v.kind==='polygon'&&Date.parse(v.validFrom)<=instant&&Date.parse(v.validUntil)>instant).length,2);
+const base='https://www.data.jma.go.jp/developer/xml/';
+const feed='<feed xmlns="http://www.w3.org/2005/Atom">'+Array.from({length:65},(_,i)=>`<entry><title>降灰予報（定時）</title><content>同じ見出し</content><link href="${base}data/${i}.xml"/><updated>2026-10-05T07:00:00Z</updated></entry>`).join('')+`<entry><title>震源・震度に関する情報</title><link href="${base}data/quake.xml"/></entry></feed>`;
+const source=new JmaSource(),urls=[];source.get=async url=>{urls.push(url);return url.includes('/feed/')?feed:ash;};
+const data=await source.load(()=>{},new Set(['volcano']));assert.equal(data.downloaded,65);assert.equal(data.truncated,0);assert.equal(urls.filter(u=>u.includes('/data/')).length,65);assert.equal(urls.some(u=>u.endsWith('quake.xml')),false);assert.equal(urls.some(u=>u.includes('extra')),false);
+assert.equal(reportType('土砂災害警戒情報'),'landslide');
+const weather=new JmaSource(),weatherUrls=[];weather.get=async url=>{weatherUrls.push(url);return '<feed xmlns="http://www.w3.org/2005/Atom"/>';};await weather.load(()=>{},new Set(['rain']));assert.ok(weatherUrls.every(u=>u.includes('extra')));
+console.log('PASS: real ash XML has 12 polygons / 2 valid at reported time; >50 reports fetched, no ash-summary pruning, URL dedup and selected-type feed/body fetching');

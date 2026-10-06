@@ -9,21 +9,48 @@ export function matchArea(results,area){
 }
 export class AreaLocator{
  constructor(){this.cache=new Map();}
- async locate(area){const query=areaQuery(area),hit=this.cache.get(query);if(hit&&Date.now()-hit.at<900000)return hit.value;
-  const sourceUrl='https://msearch.gsi.go.jp/address-search/AddressSearch?q='+encodeURIComponent(query),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+ async locate(area,signal){const query=areaQuery(area),hit=this.cache.get(query);if(hit&&Date.now()-hit.at<900000)return hit.value;
+  const sourceUrl='https://msearch.gsi.go.jp/address-search/AddressSearch?q='+encodeURIComponent(query),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000),abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)controller.abort();
   try{const r=await fetch(sourceUrl,{signal:controller.signal});if(!r.ok)throw Error('HTTP '+r.status);const match=matchArea(await r.json(),area),value=match?{coordinates:match.geometry.coordinates.slice(0,2),matchedName:match.properties.title,query,sourceUrl,resolvedAt:new Date().toISOString()}:null;
    this.cache.set(query,{at:Date.now(),value});if(this.cache.size>256)this.cache.delete(this.cache.keys().next().value);return value;
-  }finally{clearTimeout(timer);}
+  }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
  }
- async enrich(events,progress=()=>{}){
-  let requested=0,mapped=0,unresolved=0;const resolved=new Map();
-  for(const e of events){if(e.latitude!==null||e.lifecycle==='cancelled'||isExpired(e))continue;
-   e.locationBasis='area_representative';e.locationStatus='ESTIMATED';e.areaLocations=[];
-   for(const area of e.targetAreas||[]){const key=areaQuery(area);if(!resolved.has(key)){if(requested>=30){unresolved++;continue;}requested++;progress(`対象地域の代表点を検索中… ${requested}/最大30地域`);try{resolved.set(key,await this.locate(area));}catch{resolved.set(key,null);}}
-    const p=resolved.get(key);if(!p){unresolved++;continue;}const location={...p,areaName:area.name,areaCode:area.code};e.areaLocations.push(location);e.visualizations.push({kind:'point',coordinates:p.coordinates,label:area.name+'（地域代表点・位置推定）',locationStatus:'ESTIMATED',basis:'国土地理院の地名検索結果。実際の災害発生位置・震源・範囲ではない',sourceUrl:p.sourceUrl});mapped++;
+ async enrich(events,progress=()=>{},onChange=()=>{},signal,{representativeOnly=false}={}){
+  const current=()=>{if(signal?.aborted)throw new DOMException('Aborted','AbortError');};
+  const eligible=events.filter(e=>e.latitude===null&&e.lifecycle!=='cancelled'&&!isExpired(e));
+  const results=new Map();let requested=0,mapped=0;
+  for(const e of eligible){if(e.areaSearch)continue;e.areaLocations=[];e.areaSearch={phase:'representative',done:0,total:(e.targetAreas||[]).length,unmatched:0,failed:0};e.visualizations=e.visualizations.filter(v=>v.locationStatus!=='ESTIMATED');e.locationStatus='ESTIMATED';e.locationBasis='area_representative';}
+  const search=async(e,area)=>{current();const key=areaQuery(area);let result=results.get(key);
+   if(!results.has(key)){progress(`地域名を検索中… ${++requested}地域 · ${area.name}`);try{result={value:await this.locate(area,signal)};}catch(err){current();result={error:String(err.message)};}current();results.set(key,result);}
+   e.areaSearch.done++;
+   if(result.error)e.areaSearch.failed++;else if(!result.value)e.areaSearch.unmatched++;
+   else{const p={...result.value,areaName:area.name,areaCode:area.code};if(!e.areaLocations.some(x=>x.areaName===area.name&&x.areaCode===area.code))e.areaLocations.push(p);
+    if(!e.visualizations.some(v=>v.locationStatus==='ESTIMATED'&&v.kind==='point')){e.visualizations.push({kind:'point',coordinates:p.coordinates,label:area.name+'（代表1地点・位置推定）',locationStatus:'ESTIMATED',basis:'地名検索による発表対象地域の代表点。災害発生地点・震源ではない',sourceUrl:p.sourceUrl});mapped++;}
    }
-   // Retain null event coordinates: a regional representative must never become an epicenter.
-   if(e.areaLocations.length)e.details.push(['地図上の位置','地名検索による地域代表点（位置推定）。厳密な中心、災害発生地点、震源、影響範囲を示しません。'],['地域代表点の検索元','国土地理院 地名検索'],['表示できた地域',e.areaLocations.map(p=>p.matchedName).join('、')]);
-  }return {mapped,unresolved,requested};
+   onChange(e);await new Promise(r=>setTimeout(r,0));current();
+  };
+  // Give every bulletin a first-point attempt before any bulletin consumes the rest.
+  for(const e of eligible){if(e.targetAreas?.length&&!e.areaSearch.done)await search(e,e.targetAreas[0]);}
+  if(representativeOnly){for(const e of eligible){if(e.areaSearch.phase!=='complete')e.areaSearch.phase='waiting';onChange(e);}return {mapped,requested,unresolved:eligible.reduce((n,e)=>n+e.areaSearch.failed+e.areaSearch.unmatched,0)};}
+  progress('代表点の表示完了 · 残りの地域をバックグラウンドで検索中…');
+  for(const e of eligible){e.areaSearch.phase='background';onChange(e);while(e.areaSearch.done<e.areaSearch.total){await search(e,e.targetAreas[e.areaSearch.done]);updateReferenceOutline(e);onChange(e);}updateReferenceOutline(e);e.areaSearch.phase='complete';onChange(e);}
+  return {mapped,requested,unresolved:eligible.reduce((n,e)=>n+e.areaSearch.failed+e.areaSearch.unmatched,0)};
  }
+}
+
+// Convex hull of matched municipality representative points. Never a hazard boundary.
+export function convexHull(points){
+ const sorted=[...new Map(points.map(p=>[p.join('/'),p])).values()].sort((a,b)=>a[0]-b[0]||a[1]-b[1]);if(sorted.length<3)return [];
+ const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+ const half=ps=>{const out=[];for(const p of ps){while(out.length>=2&&cross(out[out.length-2],out[out.length-1],p)<=0)out.pop();out.push(p);}return out;};
+ const lower=half(sorted),upper=half([...sorted].reverse());lower.pop();upper.pop();const ring=lower.concat(upper);return ring.length>=3?[...ring,ring[0]]:[];
+}
+export function updateReferenceOutline(e){
+ // Do not mix prefecture/forecast-area centers with municipality centers.
+ // Qualified subareas such as “excluding ...” are not silently broadened to the city.
+ const municipalities=e.areaLocations.filter(p=>/[市町村]$/.test(p.areaName)&&!/[（(]/.test(p.areaName));
+ const coords=convexHull(municipalities.map(p=>p.coordinates));
+ e.visualizations=e.visualizations.filter(v=>v.kind!=='reference outline');
+ e.referenceOutline={pointCount:municipalities.length,available:coords.length>0,label:'市町村代表点を結んだ参考範囲（推定）',disclaimer:'公式の警報区域・被害範囲ではありません。未検索・未特定地域は含まれず、対象外の地域や海域を含む場合があります。'};
+ if(coords.length)e.visualizations.push({kind:'reference outline',coordinates:coords,label:e.referenceOutline.label,locationStatus:'ESTIMATED',basis:e.referenceOutline.disclaimer,sourceUrls:municipalities.map(p=>p.sourceUrl)});
 }

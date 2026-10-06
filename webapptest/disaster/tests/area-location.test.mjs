@@ -12,7 +12,7 @@ const make=()=>({latitude:null,longitude:null,type:'earthquake',status:'CONFIRME
 const a=make(),b={...make(),latitude:32.8,longitude:130.8},c={...make(),lifecycle:'cancelled'};
 const stats=await locator.enrich([a,b,c]);assert.equal(stats.mapped,1);assert.equal(a.latitude,null);assert.equal(a.status,'CONFIRMED');assert.equal(a.locationStatus,'ESTIMATED');assert.equal(a.visualizations[0].locationStatus,'ESTIMATED');assert.equal(b.visualizations.length,0);assert.equal(c.visualizations.length,0);
 await locator.enrich([make()]);assert.equal(calls,1);
-const many=make();many.targetAreas=Array.from({length:50},(_,i)=>({name:'未特定'+i}));const limited=await locator.enrich([many]);assert.equal(limited.requested,30);assert.equal(limited.mapped,0);assert.equal(limited.unresolved,50);
-console.log('PASS: administrative context, exact match, ambiguous/partial rejection, source versus position trust, official coordinate preservation, cancellation exclusion, cache and request cap');
+const many=make();many.targetAreas=Array.from({length:50},(_,i)=>({name:'未特定'+i}));const limited=await locator.enrich([many]);assert.equal(limited.requested,50);assert.equal(limited.mapped,0);assert.equal(limited.unresolved,50);
+console.log('PASS: administrative context, exact match, ambiguous/partial rejection, source versus position trust, official coordinate preservation, cancellation exclusion, cache and complete background search');
 
 assert.ok(matchArea(JSON.parse(readFileSync(new URL('./fixtures/geocode.json',import.meta.url),'utf8')),{name:'横浜市',code:'1410000'}));

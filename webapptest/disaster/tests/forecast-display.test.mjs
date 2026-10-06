@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {forecastState} from '../forecast-display.js';
+const slot=(a,b)=>({kind:'polygon',validFrom:`2026-10-06T${a}:00:00+09:00`,validUntil:`2026-10-06T${b}:00:00+09:00`});
+const first=slot('09','12'),second=slot('12','15');
+const event={informationKind:'official_forecast',visualizations:[first,{...first},second]};
+const at=h=>Date.parse(`2026-10-06T${h}:00:00+09:00`);
+assert.equal(forecastState(event,first,at('08')),'upcoming');
+assert.equal(forecastState(event,second,at('08')),'hidden');
+assert.equal(forecastState(event,first,at('09')),'current');
+assert.equal(forecastState(event,second,at('09')),'hidden');
+assert.equal(forecastState(event,first,at('12')),'hidden');
+assert.equal(forecastState(event,second,at('12')),'current');
+assert.equal(forecastState(event,second,at('15')),'hidden');
+assert.equal(forecastState({...event,lifecycle:'cancelled'},first,at('08')),'hidden');
+assert.equal(forecastState({...event,validUntil:first.validFrom},second,at('10')),'hidden');
+assert.equal(forecastState({...event,informationKind:'official_bulletin'},first,at('08')),'hidden');
+console.log('PASS: pre-start gap, current/next slot, end boundaries, cancellation and expiry');

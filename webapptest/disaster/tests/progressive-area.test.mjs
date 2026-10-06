@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {AreaLocator,convexHull} from '../area-location.js';
+const make=(names)=>({id:names[0],latitude:null,status:'CONFIRMED',targetAreas:names.map(name=>({name})),visualizations:[],details:[]});
+const loc=new AreaLocator(),calls=[],changes=[];
+const coordinates={'長崎県':[129.5,32.8],'長崎市':[129.8,32.7],'諫早市':[130,32.85],'大村市':[129.95,32.95],'佐賀県':[130.3,33.3]};
+loc.locate=async a=>{calls.push(a.name);return coordinates[a.name]?{coordinates:coordinates[a.name],matchedName:a.name,sourceUrl:'https://example.test'}:null;};
+const a=make(['長崎県','南部','長崎市','諫早市','大村市']),b=make(['佐賀県']);
+await loc.enrich([a,b],()=>{},e=>changes.push({id:e.id,done:e.areaSearch.done,point:e.visualizations.some(v=>v.kind==='point'),hull:e.visualizations.some(v=>v.kind==='reference outline')}));
+assert.deepEqual(calls.slice(0,2),['長崎県','佐賀県']);assert.ok(changes.some(x=>x.id==='長崎県'&&x.done===1&&x.point&&!x.hull));
+assert.equal(a.visualizations.filter(v=>v.kind==='point').length,1);assert.equal(a.referenceOutline.pointCount,3);assert.equal(a.referenceOutline.available,true);assert.equal(a.areaSearch.unmatched,1);assert.equal(a.areaSearch.phase,'complete');assert.equal(a.latitude,null);assert.equal(a.status,'CONFIRMED');
+assert.equal(a.visualizations.find(v=>v.kind==='reference outline').coordinates.some(p=>p[0]===129.5),false);
+assert.deepEqual(convexHull([[1,1],[2,2],[3,3]]),[]);assert.deepEqual(convexHull([[1,1],[1,1]]),[]);
+const fallback=make(['不明','長崎市']);await loc.enrich([fallback]);assert.equal(fallback.areaLocations[0].areaName,'長崎市');
+const official={...make(['長崎市']),latitude:32};await loc.enrich([official]);assert.equal(official.areaSearch,undefined);
+const ac=new AbortController(),cancelled=make(['長崎県','大村市']);await assert.rejects(()=>loc.enrich([cancelled],()=>{},()=>ac.abort(),ac.signal),{name:'AbortError'});assert.equal(cancelled.areaSearch.done,1);
+console.log('PASS: immediate first point, fair first-pass order, deferred hull, municipality-only hull, single marker, fallback, degenerate hulls, official-coordinate preservation and cancellation');

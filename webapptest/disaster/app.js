@@ -1,3 +1,4 @@
+import {installMapGestures,panOffset} from './map-gestures.js';
 import {DisasterUI} from './disaster-ui.js';
 import * as THREE from 'three';
 
@@ -177,7 +178,7 @@ $('aerial').onclick=()=>setView('aerial');
 $('reset').onclick=()=>setView('aerial');
 $('region').onclick=()=>setView('region');
 
-function go(lat,lon,name){
+function go(lat,lon,name,view='aerial'){
 
   if(
     lat<20 ||
@@ -203,7 +204,7 @@ function go(lat,lon,name){
   $('results').replaceChildren();
 
   terrain?.setOrigin(lat,lon);
-  setView('aerial');
+  setView(view);
   // Start destination tiles immediately, without waiting for the periodic update.
   terrain?.update(camera.position);
   disasters?.refreshMap();
@@ -236,6 +237,7 @@ $('searchForm').onsubmit=async e=>{
   const q=$('query').value.trim();
 
   if(!q)return;
+  $('query').blur();
 
   searchAbort?.abort();
 
@@ -368,93 +370,13 @@ for(const b of document.querySelectorAll('[data-move]')){
 }
 
 function initControls(canvas){
-
-  const pointers=new Map();
-
-  let previousDistance=0;
-
-
-  canvas.addEventListener('pointerdown',e=>{
-    pointers.set(
-      e.pointerId,
-      {
-        x:e.clientX,
-        y:e.clientY
-      }
-    );
-
-    canvas.setPointerCapture(e.pointerId);
-  });
-
-  canvas.addEventListener('pointermove',e=>{
-    const prev=pointers.get(e.pointerId);
-
-    if(!prev)return;
-
-    const dx=e.clientX-prev.x;
-    const dy=e.clientY-prev.y;
-
-    pointers.set(
-      e.pointerId,
-      {
-        x:e.clientX,
-        y:e.clientY
-      }
-    );
-
-    if(pointers.size===1){
-
-      yaw-=dx*.003;
-
-      pitch=Math.max(
-        -1.5,
-        Math.min(
-          1.5,
-          pitch-dy*.003
-        )
-      );
-
-    }else{
-
-      const [a,b]=[...pointers.values()];
-
-      const d=Math.hypot(
-        a.x-b.x,
-        a.y-b.y
-      );
-
-      if(previousDistance)
-        moveForward(
-          (d-previousDistance)*10
-        );
-
-      previousDistance=d;
-    }
-  });
-
-  const end=e=>{
-    pointers.delete(e.pointerId);
-    previousDistance=0;
-  };
-
-  canvas.addEventListener('pointerup',end);
-  canvas.addEventListener('pointercancel',end);
-  canvas.addEventListener('lostpointercapture',end);
-
-
-  canvas.addEventListener(
-    'wheel',
-    e=>{
-      e.preventDefault();
-      moveForward(-e.deltaY*3);
-    },
-    {passive:false}
-  );
-
-  canvas.addEventListener(
-    'contextmenu',
-    e=>e.preventDefault()
-  );
+ installMapGestures(canvas,{
+  pan(dx,dy){const h=terrain.height(camera.position.x,camera.position.z)??0;const offset=panOffset(dx,dy,yaw,camera.position.y-h,camera.fov,canvas.clientHeight,pitch);camera.position.x+=offset.x;camera.position.z+=offset.z;},
+  look(dx,dy,angle){yaw-=dx*.003+angle;pitch=Math.max(-1.55,Math.min(1.5,pitch-dy*.003));},
+  zoom(ratio,wheel){if(ratio===null){moveForward(wheel);return;}const h=terrain.height(camera.position.x,camera.position.z)??0,range=Math.max(80,camera.position.y-h)/Math.max(.25,Math.abs(Math.sin(pitch))),direction=new THREE.Vector3();camera.getWorldDirection(direction);camera.position.addScaledVector(direction,range*(1-1/ratio));},
+  tap(x,y){canvas.dispatchEvent(new CustomEvent('maptap',{detail:{x,y}}));}
+ });
+ if(matchMedia('(pointer:coarse)').matches)document.querySelector('.instructions').textContent='1本指：地図移動 · 2本指：拡大縮小・回転 · 2本指を上下：傾き';
 }
 
 function moveForward(n){

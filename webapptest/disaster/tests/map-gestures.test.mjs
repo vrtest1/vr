@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {installMapGestures,panOffset} from '../map-gestures.js';
+const handlers={},surfaceHandlers={},calls=[];
+const canvas={addEventListener:(n,f)=>handlers[n]=f,setPointerCapture(){}};
+installMapGestures(canvas,{pan:(...v)=>calls.push(['pan',...v]),look:(...v)=>calls.push(['look',...v]),zoom:(...v)=>calls.push(['zoom',...v]),tap:(...v)=>calls.push(['tap',...v])},{addEventListener:(n,f)=>surfaceHandlers[n]=f});
+const send=(type,id,x,y,pointerType='touch')=>handlers[type]({type,pointerId:id,clientX:x,clientY:y,pointerType,button:0,preventDefault(){}});
+send('pointerdown',1,100,100);send('pointermove',1,120,130);assert.deepEqual(calls.pop(),['pan',20,30]);send('pointerup',1,120,130);assert.equal(calls.length,0);
+send('pointerdown',1,100,100);send('pointerup',1,100,100);assert.deepEqual(calls.pop(),['tap',100,100]);
+send('pointerdown',1,0,0);send('pointerdown',2,100,0);send('pointermove',2,120,20);assert.equal(calls[0][0],'zoom');assert.ok(calls[0][1]>1);assert.equal(calls[1][0],'look');assert.ok(calls[1][3]>0);calls.length=0;send('pointerup',2,120,20);send('pointermove',1,10,0);assert.deepEqual(calls.pop(),['pan',10,0]);send('pointerup',1,10,0);assert.equal(calls.length,0);
+send('pointerdown',1,10,10,'mouse');send('pointermove',1,20,30,'mouse');assert.deepEqual(calls.pop(),['look',10,20,0]);send('pointercancel',1,20,30,'mouse');assert.equal(calls.length,0);
+send('pointerdown',1,0,0);surfaceHandlers.blur();send('pointermove',1,50,50);assert.equal(calls.length,0);
+handlers.wheel({deltaY:10,preventDefault(){}});assert.deepEqual(calls.pop(),['zoom',null,-30]);
+const n=panOffset(10,10,0,1800,62,800,-.5);assert.ok(n.x<0&&n.z<0);const east=panOffset(10,0,Math.PI/2,1800,62,800,-.5);assert.ok(east.z>0);assert.ok(Object.values(panOffset(1,1,0,0,62,0,0)).every(Number.isFinite));
+console.log('PASS: touch pan, pinch/twist/tilt, 2-to-1 transition, gesture tap suppression, mouse and wheel retained, cancellation/blur, yaw-relative pan and finite limits');

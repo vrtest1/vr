@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {AreaLocator} from '../area-location.js';
+const locator=new AreaLocator(),calls=[];
+locator.locate=async a=>{calls.push(a.name);return {coordinates:({A市:[130,30],B市:[131,30],C市:[130,31],D市:[132,32]})[a.name],sourceUrl:'https://example.test'};};
+const make=names=>({latitude:null,targetAreas:names.map(name=>({name})),visualizations:[]});
+const a=make(['A市','B市','C市']),b=make(['D市','B市']);
+await locator.enrich([a,b],undefined,undefined,undefined,{representativeOnly:true});
+assert.deepEqual(calls,['A市','D市']);assert.equal(a.areaSearch.phase,'waiting');assert.equal(a.visualizations.length,1);assert.equal(a.referenceOutline,undefined);
+await locator.enrich([a]);assert.deepEqual(calls,['A市','D市','B市','C市']);assert.equal(a.referenceOutline.available,true);assert.equal(b.areaSearch.done,1);
+await locator.enrich([a]);assert.equal(calls.length,4);assert.equal(a.visualizations.filter(v=>v.kind==='point').length,1);
+console.log('PASS: one query per bulletin initially, selected-only expansion, resume and no repeated requests');

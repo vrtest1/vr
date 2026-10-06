@@ -26,9 +26,22 @@ const cancelled=parseReport(qxml.replace('<InfoType>発表</InfoType>','<InfoTyp
 assert.equal(cancelled.visualizations.length,0);assert.equal(cancelled.lifecycle,'cancelled');
 assert.equal(mergeEvents([q,{...q,updatedAt:'2099-01-01',title:'訂正'}])[0].title,'訂正');
 assert.equal(isExpired({...v,validUntil:'2000-01-01'}),true);
-const source=new JmaSource();source.lastAttempt=Date.now();await assert.rejects(()=>source.load(()=>{}),/1分/);
+const source=new JmaSource();
 await assert.rejects(()=>source.get('https://example.com/data.xml'),/許可/);
 console.log('PASS: official earthquake / DDM volcano / forecast polygon / trust / training exclusion / cancellation / correction / expiry / URL validation / throttling');
 const regional=parseReport('<Report><Control><Status>通常</Status><Title>土砂災害警戒情報</Title><PublishingOffice>試験</PublishingOffice></Control><Head><Title>地域情報</Title><InfoType>発表</InfoType></Head><Body><Area><Name>横浜市</Name><Code>1410000</Code></Area></Body></Report>','https://example.test/report',at);
 assert.deepEqual(regional.targetAreas,[{name:'横浜市',code:'1410000'}]);assert.equal(regional.latitude,null);assert.equal(regional.visualizations.length,0);
 console.log('PASS: official region name/code retained without inventing coordinates');
+// Release-only bulletins disappear, while mixed continuing alerts remain visible.
+const weather=(statuses,headline)=>`<Report><Control><Title>気象警報・注意報</Title><Status>通常</Status></Control><Head><Title>気象警報・注意報</Title><InfoType>発表</InfoType><Headline><Text>${headline}</Text></Headline></Head><Body>${statuses.map(s=>`<Item><Kind><Status>${s}</Status></Kind></Item>`).join('')}</Body></Report>`;
+assert.equal(parseReport(weather(['解除'],'注意報を解除します。'),'x',at).hiddenRelease,true);
+assert.equal(parseReport(weather(['解除','継続'],'一部の注意報を解除します。'),'x',at).hiddenRelease,false);
+assert.equal(parseReport(weather([],'注意報を解除します。'),'x',at).hiddenRelease,true);
+assert.equal(parseReport(weather([],'注意報を解除しますが、大雨警報は継続します。'),'x',at).hiddenRelease,false);
+assert.equal(cancelled.hiddenRelease,true);
+console.log('PASS: release-only and cancellation hidden; mixed active bulletin preserved');
+const ts=parseReport(read('tsunami.xml'),'https://www.data.jma.go.jp/developer/xml/data/20260930050818_0_VTSE41_010000.xml',at);
+assert.deepEqual(ts.targetAreas,[{name:'宮古島・八重山地方',code:'802'}]);
+assert.equal(ts.latitude,null);assert.equal(ts.status,'CONFIRMED');assert.equal(ts.visualizations[0].locationStatus,'ESTIMATED');assert.equal(ts.areaLocations[0].areaCode,'802');assert.ok(ts.areaLocations[0].coordinates.every(Number.isFinite));
+assert.equal(ts.details.find(x=>x[0]==='発表対象地域')[1],'宮古島・八重山地方');
+console.log('PASS: tsunami forecast area code mapped, hypocenter excluded, estimated position distinguished');

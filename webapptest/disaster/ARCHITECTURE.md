@@ -94,3 +94,6 @@ DATA_SOURCES.md参照。気象庁のヘッダー実測により直接取得を�
 静的HTML/ES modulesとして配置可能。取得先のCORS変更はPagesでは解決できません。公開CORSプロキシへの自動切替はしません。
 ODPT等の秘密キーが必要なサービスを将来使う場合、公開JSへ埋め込まず、別の認証・中継構成を設計する必要があります。
 長期の状態保存や公式発表の全履歴を突き合わせる現在有効性の管理は、この静的初期版の範囲外です。
+
+## v3.5追記
+AreaLocator.enrichはonChangeコールバックにより代表1点と推定参考凸包を段階通知。DisasterUIは公式スナップショットを先に表示し、AbortControllerで背景地域検索の世代を分離。reference outlineはESTIMATEDのLineDashedMaterial。種類別取得は選択時にキューへ追加し、結果を種類単位で置き換える。

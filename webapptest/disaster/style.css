@@ -94,3 +94,16 @@ input[type="range"] { touch-action: none; }
 
 /* Reduce the storm-era vignette while retaining readable HUD edges. */
 .vignette{background:linear-gradient(90deg,#07101430,transparent 28%,transparent 75%,#07101420),linear-gradient(0deg,#050d1460,transparent 20%,transparent 84%,#050d1440)}
+
+/* Mobile map gestures stay on the canvas; panels retain scrolling and page pinch zoom. */
+html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,a,input,select,label{touch-action:manipulation}
+#viewport canvas,#touchMove button,input[type=range]{touch-action:none}
+.panel,.data-panel,#results,dialog{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+@media (pointer:coarse){
+ input:not([type=checkbox]):not([type=range]),select,textarea,form input{font-size:16px!important}
+ .instructions{font-size:11px;max-width:280px}
+}
+
+.earthquake-ring{position:fixed;transform:translate(-50%,-50%);border-style:dashed;border-radius:50%;box-sizing:border-box;pointer-events:none;filter:drop-shadow(0 1px 2px #000)}
+.map-label.earthquake-label{transform:translate(-50%,-100%);max-width:none;font-size:12px;font-weight:700;z-index:1}
