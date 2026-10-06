@@ -46,6 +46,18 @@ export function parseReport(s,url,fetchedAt){
   const texts=[...new Set(all(body,'Text').map(n=>n.textContent.trim()).filter(Boolean))];
   event.details.push(['公式本文',texts.join('\n').slice(0,16000)]);
  }
+ // Use actual active warning names, not a generic product title such as 暴風（雪）.
+ if(type==='rain'){
+  const warnings=all(body,'Warning').filter(w=>/気象/.test(w.getAttribute('type')||''));
+  const activeNames=[...new Set(warnings.flatMap(w=>all(w,'Kind').filter(k=>/発表|継続|切替|切り替え|警報から注意報/.test(ctext(k,'Status'))&&!/解除|取消|なし/.test(ctext(k,'Status'))).map(k=>ctext(k,'Name')).filter(Boolean)))];
+  if(activeNames.length){
+   const prefecture=warnings.find(w=>/府県予報区/.test(w.getAttribute('type')||''));
+   const region=txt(prefecture,'Area')?ctext(first(prefecture,'Area'),'Name'):'';
+   event.originalTitle=title;event.activeWarningNames=activeNames;
+   event.title=(region?region+'：':'')+activeNames.join('・');
+   event.details.push(['元の発表見出し',title],['発表・継続中の項目',activeNames.join('、')]);
+  }
+ }
  // Preserve names/codes from official XML; these are report subjects, not damage coordinates.
  if(event.latitude===null){const names=new Map();for(const a of all(type==='tsunami'?first(first(body,'Tsunami'),'Forecast'):body,'Area')){const name=ctext(a,'Name'),code=ctext(a,'Code');if(name)names.set(code+'/'+name,{name,code});}for(const a of all(first(body,'Observation'),'City')){const name=ctext(a,'Name'),code=ctext(a,'Code');if(name)names.set(code+'/'+name,{name,code});}event.targetAreas=[...names.values()];}
  if(type==='tsunami'){

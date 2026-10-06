@@ -372,7 +372,7 @@ for(const b of document.querySelectorAll('[data-move]')){
 function initControls(canvas){
  installMapGestures(canvas,{
   pan(dx,dy){const h=terrain.height(camera.position.x,camera.position.z)??0;const offset=panOffset(dx,dy,yaw,camera.position.y-h,camera.fov,canvas.clientHeight,pitch);camera.position.x+=offset.x;camera.position.z+=offset.z;},
-  look(dx,dy,angle){yaw-=dx*.003+angle;pitch=Math.max(-1.55,Math.min(1.5,pitch-dy*.003));},
+  look(dx,dy,angle){yaw-=dx*.003-angle;pitch=Math.max(-1.55,Math.min(1.5,pitch-dy*.003));},
   zoom(ratio,wheel){if(ratio===null){moveForward(wheel);return;}const h=terrain.height(camera.position.x,camera.position.z)??0,range=Math.max(80,camera.position.y-h)/Math.max(.25,Math.abs(Math.sin(pitch))),direction=new THREE.Vector3();camera.getWorldDirection(direction);camera.position.addScaledVector(direction,range*(1-1/ratio));},
   tap(x,y){canvas.dispatchEvent(new CustomEvent('maptap',{detail:{x,y}}));}
  });

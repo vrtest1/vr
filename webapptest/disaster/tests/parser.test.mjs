@@ -45,3 +45,9 @@ assert.deepEqual(ts.targetAreas,[{name:'宮古島・八重山地方',code:'802'}
 assert.equal(ts.latitude,null);assert.equal(ts.status,'CONFIRMED');assert.equal(ts.visualizations[0].locationStatus,'ESTIMATED');assert.equal(ts.areaLocations[0].areaCode,'802');assert.ok(ts.areaLocations[0].coordinates.every(Number.isFinite));
 assert.equal(ts.details.find(x=>x[0]==='発表対象地域')[1],'宮古島・八重山地方');
 console.log('PASS: tsunami forecast area code mapped, hypocenter excluded, estimated position distinguished');
+const windxml=read('chiba-wind.xml');
+const wind=parseReport(windxml,'https://www.data.jma.go.jp/developer/xml/data/20261005221136_0_VPWW58_120000.xml',at);
+assert.equal(wind.title,'千葉県：強風注意報');assert.deepEqual(wind.activeWarningNames,['強風注意報']);assert.ok(wind.originalTitle.includes('暴風（雪）'));
+const snow=parseReport(windxml.replaceAll('強風注意報','風雪注意報'),'x',at);assert.equal(snow.title,'千葉県：風雪注意報');
+const ended=parseReport(windxml.replaceAll('<Status>発表</Status>','<Status>解除</Status>'),'x',at);assert.equal(ended.activeWarningNames,undefined);assert.equal(ended.hiddenRelease,true);
+console.log('PASS: actual active warning titles, genuine snow retained, released warnings excluded');
