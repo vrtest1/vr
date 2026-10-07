@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Walkman 3D">
+<meta name="theme-color" content="#0f0f12">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>TPS-L2風 3Dビューアー</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;background:#0f0f12;color:#eee;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;height:100dvh;overflow:hidden;display:flex;justify-content:center;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+.wm-wrap{width:100%;max-width:430px;height:100dvh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;font-size:12px;letter-spacing:.1em;opacity:.9;flex:0 0 auto}
+.top-right{display:flex;align-items:center;gap:8px}
+#btn-lock,#btn-view{background:#1c1e26;color:#8a93a8;border:1px solid #333;border-radius:20px;padding:5px 10px;font-size:11px}
+#btn-lock.on{background:#0f5c22;color:#b8ffc8;border-color:#1f7a33}
+.pill{background:#222;color:#aaa;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700}
+.pill.play{background:#b87a00;color:#fff4d6}
+.stage{flex:1 1 auto;position:relative;min-height:0;touch-action:none}
+.stage canvas{display:block;width:100%;height:100%}
+#loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;letter-spacing:.2em;color:#667}
+.ctrl{flex:0 0 auto;display:flex;gap:8px;padding:10px 12px calc(12px + env(safe-area-inset-bottom))}
+.ctrl button{flex:1;background:#1c1e26;color:#ddd;border:1px solid #333;border-radius:10px;padding:13px 0;font-size:15px}
+.ctrl button.on{background:#36568f;color:#fff}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div class="wm-wrap">
+<div class="topbar"><span>TPS-L2風 3D</span><span class="top-right"><button id="btn-view">⟲ 正面</button><button id="btn-lock" aria-pressed="false">☾ OFF</button><span id="stat" class="pill">STOP</span></span></div>
+<div class="stage" id="stage"><div id="loading">LOADING…</div></div>
+<div class="ctrl">
+<button id="k-rew">◀◀</button>
+<button id="k-play">▶</button>
+<button id="k-ff">▶▶</button>
+<button id="k-stop">■</button>
+<button id="k-eject" aria-pressed="false">⏏</button>
+</div>
+<video id="nosleep" loop muted playsinline preload="auto" src="silent.mp4" style="position:fixed;width:2px;height:2px;opacity:.01;pointer-events:none;bottom:0;left:0"></video>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ---------- transport state (same model as the 2D version) ---------- */
+const stat = document.getElementById('stat');
+let playing = false, speedMul = 1, pos = 0;
+const keyEl = { rew: 'k-rew', play: 'k-play', ff: 'k-ff', stop: 'k-stop' };
+function mode() { return !playing ? 'stop' : speedMul > 1 ? 'ff' : speedMul < -1 ? 'rew' : 'play'; }
+function setStat() {
+  const m = mode();
+  stat.textContent = lidTarget && !playing ? 'OPEN ⏏' : { stop: 'STOP', play: 'PLAY ▶', ff: 'FF ▶▶', rew: 'REW ◀◀' }[m];
+  stat.classList.toggle('play', playing);
+  for (const [k, id] of Object.entries(keyEl)) document.getElementById(id).classList.toggle('on', k === m);
+  ejectBtn.classList.toggle('on', lidTarget === 1);
+  ejectBtn.setAttribute('aria-pressed', lidTarget === 1);
+  if (m === 'stop') stopTapAt = performance.now();
+}
+let stopTapAt = 0;
+/* lid: 0 = closed, 1 = open. Transport keys while open close the lid first, then start. */
+const ejectBtn = document.getElementById('k-eject');
+let lidTarget = 0, lidU = 0, pendingMul = null;
+function start(mul) {
+  if (lidTarget || lidU > 0) { pendingMul = mul; lidTarget = 0; setStat(); return; }
+  playing = true; speedMul = mul; setStat();
+}
+document.getElementById('k-play').onclick = () => start(1);
+document.getElementById('k-ff').onclick = () => start(6);
+document.getElementById('k-rew').onclick = () => start(-6);
+document.getElementById('k-stop').onclick = () => { playing = false; speedMul = 1; pendingMul = null; setStat(); };
+ejectBtn.onclick = () => {
+  pendingMul = null;
+  if (lidTarget === 0) { playing = false; speedMul = 1; lidTarget = 1; }   // STOP/EJECT
+  else lidTarget = 0;
+  setStat();
+};
+setStat();
+
+/* ---------- keep the screen awake ---------- */
+let wakeLock = null, wantLock = false;
+const lockBtn = document.getElementById('btn-lock');
+const nosleep = document.getElementById('nosleep');
+async function videoOn() { try { nosleep.muted = true; nosleep.setAttribute('muted', ''); await nosleep.play(); } catch (e) {} }
+function videoOff() { try { nosleep.pause(); } catch (e) {} }
+async function applyLock() {
+  const native = 'wakeLock' in navigator;
+  try {
+    if (wantLock) {
+      if (native) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; } }
+      await videoOn();
+    } else {
+      if (wakeLock) { try { await wakeLock.release(); } catch (e) {} wakeLock = null; }
+      videoOff();
+    }
+  } catch (e) {}
+  lockBtn.textContent = wantLock ? '☀ ON' : '☾ OFF';
+  lockBtn.classList.toggle('on', wantLock);
+  lockBtn.setAttribute('aria-pressed', wantLock);
+}
+lockBtn.onclick = async () => { wantLock = !wantLock; await applyLock(); };
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && wantLock) {
+    if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
+    await videoOn();
+  }
+});
+
+/* ---------- 3D scene ---------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.85;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0f0f12);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.55;
+const key = new THREE.DirectionalLight(0xffffff, 0.9);
+key.position.set(0.3, 0.6, 1);
+scene.add(key);
+
+const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 5);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.enablePan = false;
+controls.minPolarAngle = Math.PI * 0.15;
+controls.maxPolarAngle = Math.PI * 0.85;
+
+// walkman size (m): width incl. the side keys, height incl. the top button, depth
+const MODEL_W = 0.092, MODEL_H = 0.1355, MODEL_D = 0.029, FIT_MARGIN = 1.03;
+function frontDistance() {
+  // fit the front face (the part nearest the camera) to the stage as tightly as possible
+  const t = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const dH = (MODEL_H / 2) / t;
+  const dW = (MODEL_W / 2) / (t * camera.aspect);
+  return Math.max(dH, dW) * FIT_MARGIN + MODEL_D / 2;
+}
+// pinch / wheel zoom from close-up detail to a little zoomed out
+let userMoved = false;
+controls.addEventListener('start', () => { userMoved = true; });
+function resetView() {
+  const d = frontDistance();
+  controls.target.set(0, 0, 0);
+  camera.position.set(0, 0, d);
+  controls.minDistance = d * 0.35;
+  controls.maxDistance = d * 1.6;
+  controls.update();
+  userMoved = false;
+}
+document.getElementById('btn-view').onclick = resetView;
+let ready = false;
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  if (ready && !userMoved) resetView();   // keep the fit on rotation / toolbar changes until the user moves the view
+}
+new ResizeObserver(() => { resize(); }).observe(stage);
+resize();
+
+const loader = new GLTFLoader();
+const [wGltf, cGltf] = await Promise.all([loader.loadAsync('walkman.glb'), loader.loadAsync('sony_cassette.glb')]);
+document.getElementById('loading').remove();
+
+const walkman = wGltf.scene, cassette = cGltf.scene;
+// glTF has the walkman lying face-up (+Y); stand it up facing the camera (+Z)
+const holder = new THREE.Group();
+holder.rotation.x = Math.PI / 2;
+holder.add(walkman);
+scene.add(holder);
+// the cassette tilts out about its top edge (the edge away from the heads)
+const CAS_HINGE_Z = -0.0319;
+const casPivot = new THREE.Group();
+casPivot.position.set(0, 0, CAS_HINGE_Z);
+cassette.position.set(0, 0, -CAS_HINGE_Z);
+casPivot.add(cassette);
+walkman.getObjectByName('CassetteSlot').add(casPivot);
+// centre the device
+holder.updateMatrixWorld(true);
+const box = new THREE.Box3().setFromObject(walkman.getObjectByName('Body'));
+holder.position.sub(box.getCenter(new THREE.Vector3()));
+
+// translucent parts: shell first, smoked door glass on top
+walkman.traverse((o) => { if (o.isMesh && o.material.transparent) { o.material.depthWrite = false; o.renderOrder = 2; } });
+cassette.traverse((o) => { if (o.isMesh && o.material.transparent) { o.material.depthWrite = false; o.renderOrder = 1; } });
+
+// reels: in the walkman the cassette's Reel_R sits on top (take-up), Reel_L at the bottom (supply)
+function tapePack(reel) {
+  let pack = null;
+  reel.traverse((o) => { if (o.isMesh && o.material.name === 'CS_Tape') pack = o; });
+  return pack;
+}
+const reelTop = cassette.getObjectByName('Reel_R'), reelBot = cassette.getObjectByName('Reel_L');
+const packTop = tapePack(reelTop), packBot = tapePack(reelBot);
+const PACK_R = { top: 1.45, bot: 1.85 };   // modelled outer radius of each pack (cm)
+const spTop = walkman.getObjectByName('Spindle_Top'), spBot = walkman.getObjectByName('Spindle_Bottom');
+
+// side keys latch while their mode is active; STOP springs back
+const keys = {};
+for (const k of ['Rew', 'Play', 'FF', 'Stop']) {
+  const o = walkman.getObjectByName('Key_' + k);
+  keys[k.toLowerCase()] = { o, x0: o.position.x, d: 0 };
+}
+
+const door = walkman.getObjectByName('Door');   // hinged on its long left edge, opens about Z
+
+resetView();
+ready = true;
+
+/* ---------- animation ---------- */
+const DOOR_OPEN = THREE.MathUtils.degToRad(35), CAS_TILT = THREE.MathUtils.degToRad(-14), CAS_LIFT = 0.0025;
+const LID_TIME = 1.3;   // seconds for the full open (or close) sequence
+const ease = (x) => { x = THREE.MathUtils.clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+function updateLid(dt) {
+  const step = dt / LID_TIME;
+  lidU = lidTarget ? Math.min(1, lidU + step) : Math.max(0, lidU - step);
+  // opening: door first, then the cassette slides out; closing runs the same timeline backwards
+  const d = ease(lidU / 0.55), c = ease((lidU - 0.5) / 0.5);
+  door.rotation.z = DOOR_OPEN * d;
+  casPivot.rotation.x = CAS_TILT * c;
+  casPivot.position.y = CAS_LIFT * c;
+  if (lidU === 0 && pendingMul !== null) { const m = pendingMul; pendingMul = null; start(m); }
+}
+let angTop = 0, angBot = 0, lastT = performance.now();
+function setPackRadius(pack, r, modelR) {
+  const s = r / modelR;
+  pack.scale.set(s, 1, s);   // pack is centred on the reel origin, local Y = reel axis
+}
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  if (playing) {
+    const slow = Math.abs(speedMul) > 1 ? 1 : 0.0181;
+    pos += dt * 0.02 * slow * speedMul;
+    if (pos >= 1) { pos = 1; playing = false; speedMul = 1; setStat(); }
+    if (pos <= 0) { pos = 0; playing = false; speedMul = 1; setStat(); }
+    const V = 4.76, rTop = 1.1 + 1.3 * pos, rBot = 2.4 - 1.3 * pos;
+    // counter-clockwise seen from the front while playing
+    angTop += (V / rTop) * speedMul * dt;
+    angBot += (V / rBot) * speedMul * dt;
+  }
+  updateLid(dt);
+  const rTop = 1.1 + 1.3 * pos, rBot = 2.4 - 1.3 * pos;
+  setPackRadius(packTop, rTop, PACK_R.top);
+  setPackRadius(packBot, rBot, PACK_R.bot);
+  reelTop.rotation.y = spTop.rotation.y = angTop;
+  reelBot.rotation.y = spBot.rotation.y = angBot;
+
+  const m = mode();
+  const stopHeld = now - stopTapAt < 160;
+  for (const [name, k] of Object.entries(keys)) {
+    const down = name === 'stop' ? stopHeld : name === m;
+    k.d += ((down ? 0.0028 : 0) - k.d) * Math.min(1, dt * 20);
+    k.o.position.x = k.x0 - k.d;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
