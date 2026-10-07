@@ -132,5 +132,31 @@ reelL.style.transform=`rotate(${angL}deg)`;reelR.style.transform=`rotate(${angR}
 updateTape();}
 requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script>
+<script>
+/* Safari page zoom (ぁあ) below 100% makes the CSS viewport wider than the 430px design.
+   In that case scale the whole player up to fill the screen instead of leaving black sides. */
+(() => {
+  const wrap = document.querySelector('.wm-wrap');
+  const DESIGN_W = 430, DESIGN_H = 700;
+  function fit() {
+    const cs = getComputedStyle(document.body);
+    const W = document.body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const H = document.body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const s = Math.max(1, Math.min(W / DESIGN_W, H / DESIGN_H));
+    if (s > 1) {
+      wrap.style.transformOrigin = 'top center';
+      wrap.style.transform = `scale(${s})`;
+      wrap.style.flex = '0 0 auto';
+      wrap.style.width = Math.min(DESIGN_W, W / s) + 'px';
+      wrap.style.height = (H / s) + 'px';
+    } else {
+      wrap.style.transform = wrap.style.flex = wrap.style.width = wrap.style.height = '';
+    }
+  }
+  addEventListener('resize', fit);
+  if (window.visualViewport) visualViewport.addEventListener('resize', fit);
+  fit();
+})();
+</script>
 </body>
 </html>
