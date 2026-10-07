@@ -144,13 +144,13 @@ requestAnimationFrame(loop)}requestAnimationFrame(loop);
     const H = document.body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     const s = Math.max(1, Math.min(W / DESIGN_W, H / DESIGN_H));
     if (s > 1) {
-      wrap.style.transformOrigin = 'top center';
-      wrap.style.transform = `scale(${s})`;
+      // CSS zoom re-lays out at the larger size (no compositing seams / blur, unlike transform: scale)
+      wrap.style.zoom = s;
       wrap.style.flex = '0 0 auto';
       wrap.style.width = Math.min(DESIGN_W, W / s) + 'px';
       wrap.style.height = (H / s) + 'px';
     } else {
-      wrap.style.transform = wrap.style.flex = wrap.style.width = wrap.style.height = '';
+      wrap.style.zoom = wrap.style.flex = wrap.style.width = wrap.style.height = '';
     }
   }
   addEventListener('resize', fit);
