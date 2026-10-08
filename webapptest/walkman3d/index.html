@@ -26,7 +26,12 @@ body{margin:0;background:#0f0f12;color:#eee;font-family:-apple-system,"Hiragino 
 .stage canvas{position:absolute;inset:0;display:block;width:100%;height:100%}
 #loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;letter-spacing:.2em;color:#667}
 .ctrl{width:100%;max-width:560px;align-self:center;flex:0 0 auto;display:flex;gap:8px;padding:10px 12px calc(12px + env(safe-area-inset-bottom))}
-.ctrl button{flex:1;background:#1c1e26;color:#ddd;border:1px solid #333;border-radius:10px;padding:13px 0;font-size:15px}
+.ctrl button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;flex:1;background:#1c1e26;color:#ddd;border:1px solid #333;border-radius:10px;padding:13px 0;font-size:15px}
+.ctrl .sq{display:inline-block;width:.8em;height:.8em;background:currentColor;border-radius:1px;vertical-align:-.04em}   /* ■ glyph is tiny; match the ▶ marks */
+.ctrl .ej{display:inline-block;position:relative;width:.9em;height:.8em;vertical-align:-.04em}   /* ⏏ likewise */
+.ctrl .ej::before,.ctrl .ej::after{content:"";position:absolute;left:0;right:0;background:currentColor}
+.ctrl .ej::before{top:0;height:.52em;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.ctrl .ej::after{bottom:0;height:.16em;border-radius:1px}
 .ctrl button.on{background:#36568f;color:#fff}
 </style>
 <script type="importmap">
@@ -44,8 +49,8 @@ body{margin:0;background:#0f0f12;color:#eee;font-family:-apple-system,"Hiragino 
 <button id="k-rew">◀◀</button>
 <button id="k-play">▶</button>
 <button id="k-ff">▶▶</button>
-<button id="k-stop">■</button>
-<button id="k-eject" aria-pressed="false">⏏</button>
+<button id="k-stop" aria-label="停止"><span class="sq"></span></button>
+<button id="k-eject" aria-pressed="false" aria-label="取り出し"><span class="ej"></span></button>
 </div>
 <video id="nosleep" loop muted playsinline preload="auto" src="silent.mp4" style="position:fixed;width:2px;height:2px;opacity:.01;pointer-events:none;bottom:0;left:0"></video>
 </div>
@@ -66,12 +71,14 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /* ---------- transport state (same model as the 2D version) ---------- */
 const stat = document.getElementById('stat');
-let playing = false, speedMul = 1, pos = 0;
+let playing = false, speedMul = 1, pos = 0, tapeSide = 'A';
+let flipU = null;   // turning the cassette over: null = idle, else 0..1 progress
 const keyEl = { rew: 'k-rew', play: 'k-play', ff: 'k-ff', stop: 'k-stop' };
 function mode() { return !playing ? 'stop' : speedMul > 1 ? 'ff' : speedMul < -1 ? 'rew' : 'play'; }
 function setStat() {
   const m = mode();
-  stat.textContent = lidTarget && !playing ? 'OPEN ⏏' : { stop: 'STOP', play: 'PLAY ▶', ff: 'FF ▶▶', rew: 'REW ◀◀' }[m];
+  const label = { stop: 'STOP', play: 'PLAY ▶', ff: 'FF ▶▶', rew: 'REW ◀◀' }[m] + (turbo && (m === 'ff' || m === 'rew') ? ' ×10' : '');
+  stat.textContent = (lidTarget && !playing ? 'OPEN ⏏' : label) + ' · ' + tapeSide;
   stat.classList.toggle('play', playing);
   for (const [k, id] of Object.entries(keyEl)) document.getElementById(id).classList.toggle('on', k === m);
   ejectBtn.classList.toggle('on', lidTarget === 1);
@@ -83,14 +90,31 @@ let stopTapAt = 0;
 const ejectBtn = document.getElementById('k-eject');
 let lidTarget = 0, lidU = 0, pendingMul = null;
 function start(mul) {
+  if (flipU !== null) return;   // wait until the cassette is back in
   if (lidTarget || lidU > 0) { pendingMul = mul; lidTarget = 0; setStat(); return; }
   playing = true; speedMul = mul; setStat();
 }
 document.getElementById('k-play').onclick = () => start(1);
 document.getElementById('k-ff').onclick = () => start(6);
 document.getElementById('k-rew').onclick = () => start(-6);
+// holding FF / REW winds at turbo speed until released, then carries on at normal speed
+let turbo = false;
+for (const [id, mul] of [['k-ff', 6], ['k-rew', -6]]) {
+  const el = document.getElementById(id);
+  let holdTimer = null;
+  const release = () => {
+    clearTimeout(holdTimer); holdTimer = null;
+    if (turbo) { turbo = false; setStat(); }
+  };
+  el.addEventListener('pointerdown', () => {
+    holdTimer = setTimeout(() => { start(mul); turbo = true; setStat(); }, 400);
+  });
+  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(t, release);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());   // no long-press menu on phones
+}
 document.getElementById('k-stop').onclick = () => { playing = false; speedMul = 1; pendingMul = null; setStat(); };
 ejectBtn.onclick = () => {
+  if (flipU !== null) return;
   pendingMul = null;
   if (lidTarget === 0) { playing = false; speedMul = 1; lidTarget = 1; }   // STOP/EJECT
   else lidTarget = 0;
@@ -184,7 +208,7 @@ function syncSize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  if (!ready) return;
+  if (!ready || flipU !== null) return;   // the flip animation drives the camera itself
   if (!userMoved) resetView();   // keep the fit on rotation / toolbar changes until the user moves the view
   else { const d = frontDistance(); controls.minDistance = d * 0.35; controls.maxDistance = d; }
 }
@@ -200,12 +224,19 @@ const holder = new THREE.Group();
 holder.rotation.x = Math.PI / 2;
 holder.add(walkman);
 scene.add(holder);
-// the cassette tilts out about its top edge (the edge away from the heads)
-const CAS_HINGE_Z = -0.0319;
+// the cassette tilts out about its front long edge on the door-hinge side,
+// so it swings away from the body wall instead of into it
+const CAS_HINGE_Y = 0.0125, CAS_HINGE_Z = -0.0319;
 const casPivot = new THREE.Group();
-casPivot.position.set(0, 0, CAS_HINGE_Z);
-cassette.position.set(0, 0, -CAS_HINGE_Z);
-casPivot.add(cassette);
+casPivot.position.set(0, CAS_HINGE_Y, CAS_HINGE_Z);
+// casMove slides the cassette out sideways (+z = toward the heads = screen right);
+// casFlip turns it over about that same axis, through the middle of its thickness
+const CAS_MID_Y = 0.006;
+const casMove = new THREE.Group(), casFlip = new THREE.Group();
+casMove.position.set(0, -CAS_HINGE_Y, -CAS_HINGE_Z);
+casFlip.position.set(0, CAS_MID_Y, 0);
+cassette.position.set(0, -CAS_MID_Y, 0);
+casPivot.add(casMove); casMove.add(casFlip); casFlip.add(cassette);
 walkman.getObjectByName('CassetteSlot').add(casPivot);
 // centre the device
 holder.updateMatrixWorld(true);
@@ -216,25 +247,73 @@ holder.position.sub(box.getCenter(new THREE.Vector3()));
 walkman.traverse((o) => { if (o.isMesh && o.material.transparent) { o.material.depthWrite = false; o.renderOrder = 2; } });
 cassette.traverse((o) => { if (o.isMesh && o.material.transparent) { o.material.depthWrite = false; o.renderOrder = 1; } });
 
-// reels: in the walkman the cassette's Reel_R sits on top (take-up), Reel_L at the bottom (supply)
+// reels: on side A the cassette's Reel_R sits on top (take-up) and Reel_L at the bottom
+// (supply); turning the cassette over to side B swaps them
 function tapePack(reel) {
   let pack = null;
   reel.traverse((o) => { if (o.isMesh && o.material.name === 'CS_Tape') pack = o; });
   return pack;
 }
-const reelTop = cassette.getObjectByName('Reel_R'), reelBot = cassette.getObjectByName('Reel_L');
-const packTop = tapePack(reelTop), packBot = tapePack(reelBot);
-const PACK_R = { top: 1.45, bot: 1.85 };   // modelled outer radius of each pack (cm)
+const reelR = cassette.getObjectByName('Reel_R'), reelL = cassette.getObjectByName('Reel_L');
+const packOf = new Map([[reelR, tapePack(reelR)], [reelL, tapePack(reelL)]]);
+const packTop = packOf.get(reelR);
+const topReel = () => (tapeSide === 'A' ? reelR : reelL), botReel = () => (tapeSide === 'A' ? reelL : reelR);
 const spTop = walkman.getObjectByName('Spindle_Top'), spBot = walkman.getObjectByName('Spindle_Bottom');
 
-// side keys latch while their mode is active; STOP springs back
+// tape running from each pack to its guide roller, redrawn every frame so it always leaves
+// the pack tangentially at its current radius (cassette space: x along, y height, z to the heads)
+const TAPE_Y0 = 0.0041, TAPE_Y1 = 0.0079, ROLLER_X = 0.036 + 0.00202, ROLLER_Z = 0.0255;
+function tapeSpan(reel, side) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3));
+  g.setIndex([0, 1, 2, 1, 3, 2]);
+  const mesh = new THREE.Mesh(g, packTop.material);
+  mesh.frustumCulled = false;
+  cassette.add(mesh);
+  return { g, reel, side, qx: side * ROLLER_X };
+}
+// each span belongs to one reel and its roller (fixed in cassette space, so it flips with it)
+const spanOf = new Map([[reelR, tapeSpan(reelR, 1)], [reelL, tapeSpan(reelL, -1)]]);
+function updateSpan(s, rCm) {
+  const cx = s.reel.position.x, cz = s.reel.position.z, r = rCm / 100;
+  const dx = s.qx - cx, dz = ROLLER_Z - cz, d = Math.hypot(dx, dz);
+  const base = Math.atan2(dz, dx), a = Math.acos(Math.min(1, r / d));
+  // of the two tangent points take the one on the cassette's outer side
+  const t1 = base + a, t2 = base - a;
+  const t = s.side * Math.cos(t1) > s.side * Math.cos(t2) ? t1 : t2;
+  const tx = cx + r * Math.cos(t), tz = cz + r * Math.sin(t);
+  const p = s.g.attributes.position;
+  p.setXYZ(0, tx, TAPE_Y0, tz); p.setXYZ(1, tx, TAPE_Y1, tz);
+  p.setXYZ(2, s.qx, TAPE_Y0, ROLLER_Z); p.setXYZ(3, s.qx, TAPE_Y1, ROLLER_Z);
+  p.needsUpdate = true;
+  s.g.computeVertexNormals();
+}
+
+// side keys latch while their mode is active; STOP springs back.
+// The marks match the real unit: PLAY ▲ and ▲▲ point up the device, so the top key
+// (node Key_Rew) is fast-forward and the middle one (node Key_FF) is rewind.
 const keys = {};
-for (const k of ['Rew', 'Play', 'FF', 'Stop']) {
-  const o = walkman.getObjectByName('Key_' + k);
-  keys[k.toLowerCase()] = { o, x0: o.position.x, d: 0 };
+for (const [mode, node] of [['rew', 'FF'], ['play', 'Play'], ['ff', 'Rew'], ['stop', 'Stop']]) {
+  const o = walkman.getObjectByName('Key_' + node);
+  keys[mode] = { o, x0: o.position.x, d: 0 };
 }
 
 const door = walkman.getObjectByName('Door');   // hinged on its long left edge, opens about Z
+
+// OPERATION lamp: glows while the tape runs (PLAY / FF / REW), dark red otherwise
+let ledMat = null;
+walkman.traverse((o) => { if (o.isMesh && o.material.name === 'WM_LEDRed') ledMat = o.material; });
+const LED_ON = new THREE.Color(0.5, 0, 0.005), LED_OFF = new THREE.Color(0.1, 0, 0.002);
+// skip tone mapping so the bright lamp stays pure red instead of drifting to orange
+if (ledMat) ledMat.toneMapped = false;
+let ledLit = null;
+function updateLed() {
+  if (!ledMat || ledLit === playing) return;
+  ledLit = playing;
+  ledMat.color.copy(playing ? LED_ON : LED_OFF);
+  ledMat.emissive.setRGB(1, 0, 0.01);
+  ledMat.emissiveIntensity = playing ? 0.85 : 0;
+}
 
 lastW = lastH = 0; syncSize();   // re-measure after loading
 resetView();
@@ -251,32 +330,130 @@ function updateLid(dt) {
   const d = ease(lidU / 0.55), c = ease((lidU - 0.5) / 0.5);
   door.rotation.z = DOOR_OPEN * d;
   casPivot.rotation.x = CAS_TILT * c;
-  casPivot.position.y = CAS_LIFT * c;
+  casPivot.position.y = CAS_HINGE_Y + CAS_LIFT * c;
   if (lidU === 0 && pendingMul !== null) { const m = pendingMul; pendingMul = null; start(m); }
 }
+/* turning the tape over: with the lid fully open, click the cassette. It slides out to the
+   right (clear of the body), turns over about that sideways axis and slides back in. */
+const FLIP_TIME = 2.6, FLIP_PULL = 0.095, FLIP_LIFT = 0.003;
+const FLIP_SHIFT = 0.034, FLIP_ZOOM = 0.75;   // camera follows so the pulled-out tape stays in view
+let flipBase = 0, flipCam = null;
+function startFlip() {
+  if (flipU !== null || lidTarget !== 1 || lidU < 1) return;
+  flipU = 0;
+  flipBase = casFlip.rotation.z;
+  // the reel on top becomes the bottom one: the tape on it is now what is left to play
+  tapeSide = tapeSide === 'A' ? 'B' : 'A';
+  pos = 1 - pos;
+  flipCam = { target: controls.target.clone(), off: camera.position.clone().sub(controls.target) };
+  controls.enabled = false;
+  controls.maxDistance = Infinity;
+  setStat();
+}
+function updateFlip(dt) {
+  if (flipU === null) return;
+  flipU = Math.min(1, flipU + dt / FLIP_TIME);
+  const out = ease(flipU / 0.35) * (1 - ease((flipU - 0.65) / 0.35));
+  casMove.position.z = -CAS_HINGE_Z + FLIP_PULL * out;
+  casMove.position.y = -CAS_HINGE_Y + FLIP_LIFT * out;
+  casFlip.rotation.z = flipBase + Math.PI * ease((flipU - 0.3) / 0.4);
+  controls.target.copy(flipCam.target).x += FLIP_SHIFT * out;
+  camera.position.copy(flipCam.off).multiplyScalar(1 + FLIP_ZOOM * out).add(controls.target);
+  if (flipU === 1) {
+    flipU = null;
+    casFlip.rotation.z = (flipBase + Math.PI) % (2 * Math.PI);
+    controls.target.copy(flipCam.target);
+    camera.position.copy(flipCam.off).add(flipCam.target);
+    controls.enabled = true;
+    lastW = lastH = 0; syncSize();   // pick up any resize skipped during the flip
+    controls.maxDistance = frontDistance();
+    setStat();
+  }
+}
+// a click (not a drag) on the cassette while the lid is open
+const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
+  downAt = null;
+  if (flipU !== null || lidTarget !== 1 || lidU < 1) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  if (raycaster.intersectObject(cassette, true).length) startFlip();
+});
 let angTop = 0, angBot = 0, lastT = performance.now();
-function setPackRadius(pack, r, modelR) {
-  const s = r / modelR;
-  pack.scale.set(s, 1, s);   // pack is centred on the reel origin, local Y = reel axis
+/* tape transport (cm, s). C60: 30 min a side at 4.76 cm/s. pos = fraction of the side on the
+   take-up (top) reel. Each pack's radius follows from its wound length (constant tape area):
+   r = sqrt(r0^2 + len * thickness / pi), so the take-up reel grows fast at first, then slows. */
+const TAPE_V = 4.76, SIDE_SEC = 30 * 60, TAPE_LEN = TAPE_V * SIDE_SEC;
+const WIND_SPEED = SIDE_SEC / 150;   // FF / REW: a whole side in 2 min 30 s, as on the TPS-L2 (12x play speed)
+const TURBO = 10;   // FF / REW held down: 10x faster still (a side in 15 s)
+const MAX_SPIN =2.2 * 2 * Math.PI;   // drawn reel spin limit (rad/s): under 30°/frame even at ~30 fps
+// The emptiest pack stays a little wider than the 1.1 cm hub so their sides never coincide
+// (that z-fought as black/white stripes); a full side fills a pack out to 2.4 cm.
+const PACK_MIN = 1.13, PACK_MAX = 2.4;
+const TAPE_K = (PACK_MAX ** 2 - PACK_MIN ** 2) / TAPE_LEN;   // thickness / pi (≈ 17 µm tape)
+const packR = (len) => Math.sqrt(PACK_MIN ** 2 + TAPE_K * len);
+const packTopR = (p) => packR(p * TAPE_LEN), packBotR = (p) => packR((1 - p) * TAPE_LEN);
+// leader: one turn of the 1.1 cm hub, after which the brown tape starts to show
+const LEADER = (2 * Math.PI * 1.1) / TAPE_LEN;
+// The pack is a ring hugging the 11 mm hub. Only its outer wall moves; scaling the whole mesh
+// would also widen the inner hole and open a gap between the tape and the hub.
+const HUB_R = 0.011;
+function setPackRadius(pack, r) {
+  const p = pack.geometry.attributes.position;
+  if (!pack.userData.base) {   // pack is centred on the reel origin, local Y = reel axis
+    pack.userData.base = Float32Array.from(p.array);
+    pack.userData.lastR = -1;
+  }
+  if (pack.userData.lastR === r) return;
+  pack.userData.lastR = r;
+  const b = pack.userData.base, R = r / 100;
+  for (let i = 0; i < p.count; i++) {
+    const x = b[3 * i], z = b[3 * i + 2], d = Math.hypot(x, z);
+    if (d < HUB_R + 0.0005) continue;           // inner wall stays on the hub
+    p.setXYZ(i, x * R / d, b[3 * i + 1], z * R / d);
+  }
+  p.needsUpdate = true;
+  pack.geometry.computeBoundingSphere();
 }
 function loop(now) {
   const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
   if (playing) {
-    const slow = Math.abs(speedMul) > 1 ? 1 : 0.0181;
-    pos += dt * 0.02 * slow * speedMul;
+    // tape speed (cm/s, + = toward the top reel)
+    const v = TAPE_V * (Math.abs(speedMul) > 1 ? WIND_SPEED * (turbo ? TURBO : 1) : 1) * Math.sign(speedMul);
+    pos += (v * dt) / TAPE_LEN;
     if (pos >= 1) { pos = 1; playing = false; speedMul = 1; setStat(); }
     if (pos <= 0) { pos = 0; playing = false; speedMul = 1; setStat(); }
-    const V = 4.76, rTop = 1.1 + 1.3 * pos, rBot = 2.4 - 1.3 * pos;
-    // counter-clockwise seen from the front while playing
-    angTop += (V / rTop) * speedMul * dt;
-    angBot += (V / rBot) * speedMul * dt;
+    // each reel turns at tape speed / its own pack radius; counter-clockwise from the front while playing
+    let dTop = (v / packTopR(pos)) * dt, dBot = (v / packBotR(pos)) * dt;
+    // FF / REW spin the reels at 10+ rev/s, which at 60 fps strobes (the 60°-symmetric hubs
+    // look stopped or turning backwards). Cap the drawn spin, keeping the two reels' ratio.
+    const lim = MAX_SPIN * dt, worst = Math.max(Math.abs(dTop), Math.abs(dBot));
+    if (worst > lim) { dTop *= lim / worst; dBot *= lim / worst; }
+    angTop += dTop; angBot += dBot;
+    // a turned-over cassette has its reel axes reversed, so its hubs turn the other way locally
+    const s = tapeSide === 'A' ? 1 : -1;
+    topReel().rotation.y += dTop * s;
+    botReel().rotation.y += dBot * s;
   }
   updateLid(dt);
-  const rTop = 1.1 + 1.3 * pos, rBot = 2.4 - 1.3 * pos;
-  setPackRadius(packTop, rTop, PACK_R.top);
-  setPackRadius(packBot, rBot, PACK_R.bot);
-  reelTop.rotation.y = spTop.rotation.y = angTop;
-  reelBot.rotation.y = spBot.rotation.y = angBot;
+  updateFlip(dt);
+  updateLed();
+  const rTop = packTopR(pos), rBot = packBotR(pos);
+  const pTop = packOf.get(topReel()), pBot = packOf.get(botReel());
+  setPackRadius(pTop, rTop);
+  setPackRadius(pBot, rBot);
+  // an (almost) empty reel shows just its white hub; the brown tape appears once the
+  // leader has wound on (and vanishes from the supply reel at the very end)
+  pTop.visible = pos > LEADER;
+  pBot.visible = pos < 1 - LEADER;
+  updateSpan(spanOf.get(topReel()), rTop);
+  updateSpan(spanOf.get(botReel()), rBot);
+  spTop.rotation.y = angTop;
+  spBot.rotation.y = angBot;
 
   const m = mode();
   const stopHeld = now - stopTapAt < 160;
