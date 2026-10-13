@@ -1,0 +1,104 @@
+{
+  "method": "Numerical mesh contact checks; no device/browser rendering test",
+  "triangle_count": 189067,
+  "centerline_step_m": 4,
+  "centerline_contact_misses": 0,
+  "main_peak_roll_degrees": 29.98097665964012,
+  "mini_peak_roll_degrees": 15.006931226038029,
+  "lap_transition": "passed",
+  "latest_10_laps": "passed",
+  "banking": "estimated, not surveyed",
+  "v05": {
+    "geometry": "binary geometry unchanged; only vertex colors updated",
+    "vr_map": "texture update, position right of speed panel, shared position marker, visibility wiring passed",
+    "browser_and_device_test": "not performed"
+  },
+  "v06": {
+    "engine_state": "6 gears, no up/down shift oscillation, RPM range and shift drop passed",
+    "web_audio": "API mock tests: single context, parameter bounds, mute/pause targets, settings persistence",
+    "listening_browser_device_test": "not performed"
+  },
+  "v07": {
+    "fix": "Generate missing vertex normals before assigning the lit track material",
+    "browser": "Chromium 153 headless WebGL / SwiftShader",
+    "location_m": 940,
+    "visual": "Road gray and surroundings green verified from screenshot",
+    "page_errors": []
+  },
+  "v08": {
+    "feature": "Roadside woodland from OpenStreetMap forest/wood/scrub polygons (tools/make_trees.py -> assets/trees.json), drawn with procedural-lowpoly-trees createInstanced",
+    "trees": {
+      "spruce": 3203,
+      "beech": 2768,
+      "birch": 1367,
+      "shrub": 2923
+    },
+    "placed_on_surface": 10260,
+    "placement": "9-43.5 m from any centreline; heights from GLB surface",
+    "browser": "Chrome headless WebGL / SwiftShader",
+    "locations_m": [
+      300,
+      1500,
+      8000,
+      12100,
+      18500
+    ],
+    "max_rendered_triangles": 257614,
+    "page_errors": [],
+    "car": {
+      "model": "car.js: lofted front-engine V10 supercar (LFA-inspired, no brand marks), clear-coat paint with sky env map, 10-spoke wheels, triple exhaust, rear wing, contact shadow",
+      "paints": [
+        "rosso",
+        "white",
+        "orange",
+        "yellow",
+        "black"
+      ],
+      "paint_storage": "localStorage nur.paint (optional)",
+      "wheel_contact_points": "unchanged (x ±0.94, z ±1.32)",
+      "cockpit_eye": [
+        0,
+        1.1,
+        0.3
+      ],
+      "checked": "tools/car_viewer.html 4 angles; in-game chase, cockpit, paint switch; no page errors"
+    }
+  },
+  "v09": {
+    "feature": "vehicle.js: 4-wheel planar dynamics (combined-slip magic-formula tyres, load transfer, wheel spin with semi-implicit integration, V10 560PS torque curve, 6-speed AT/MT, aero drag/downforce, slope+bank gravity from GLB contact), ABS/TCS/steering+stability assists",
+    "headless_node": "tools/physics_test.mjs",
+    "results": {
+      "0_100_s": 4.1,
+      "0_200_s": 10.77,
+      "0_300_s": 26.9,
+      "vmax_kmh_straight": 333.7,
+      "brake_100_0_m": 34.2,
+      "brake_100_0_noABS_m": 37.4,
+      "peak_lateral_g": [
+        1.05,
+        1.07,
+        1.12,
+        1.19
+      ],
+      "ai_lap": "10:40.2 (conservative AI), vmax 302.9 km/h, 0 s off-road, no NaN"
+    },
+    "browser": "Chrome headless: full-throttle run on Döttinger Höhe, auto shifts 1-6, HUD gear/rpm, help dialog assists; page_errors []",
+    "not_tested": "real devices (iPhone, Quest 3), gamepad shift buttons, audio listening",
+    "tuning_high_grip": {
+      "tyre_mu": 1.4,
+      "brake_torque_Nm": 5600,
+      "0_100_s": 3.81,
+      "0_200_s": 10.43,
+      "vmax_kmh_straight": 334.4,
+      "brake_100_0_m": 29.0,
+      "brake_100_0_noABS_m": 31.5,
+      "peak_lateral_g": [
+        1.24,
+        1.27,
+        1.32,
+        1.39
+      ],
+      "ai_lap": "10:37.5, vmax 303.1 km/h, 0 s off-road"
+    }
+  }
+}
