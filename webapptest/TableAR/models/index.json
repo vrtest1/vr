@@ -1,0 +1,4 @@
+{"models":[
+ {"id":"branz","name":"BRANZタワー横浜北仲","file":"branz.glb","trees":"branz.trees.json",
+  "center":[8,-14,10],"defaultScale":0.0025,"note":"metres; center = point of the model placed on the table origin (display base bottom centre)"}
+]}
