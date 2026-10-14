@@ -29,3 +29,5 @@ body.touch #chat{bottom:calc(max(35px,env(safe-area-inset-bottom)) + 100px);widt
 @media(max-width:750px){#chat{left:max(12px,env(safe-area-inset-left));width:calc(100% - 24px);bottom:300px}body.touch #chat{bottom:300px;width:calc(100% - 170px)}#chatLog{max-height:110px}#chatLog li{font-size:12px}#chat.open{bottom:auto;top:110px;width:calc(100% - 24px)}}
 @media(max-height:520px) and (orientation:landscape){body.touch #chat{left:50%;transform:translateX(-50%);bottom:auto;top:58px;width:min(360px,46%)}#chatLog{max-height:72px}#chatLog li{font-size:12px;padding:2px 8px}#chat.open #chatLog{max-height:90px}}
 #playerList li.away i{opacity:.4}#playerList li.away span{color:#8fa5b3}#playerList li.away small{color:#8fa5b3}
+/* iOS WebKit only honours touch-action:manipulation (it drops 'none'), which is what turns off double-tap zoom there. */
+html,body,button,label,input,select,#touch,.steering,.pedals button{touch-action:manipulation}body,.steering,.pedals button,button{touch-action:none}.card,dialog,#chatLog{touch-action:pan-y}

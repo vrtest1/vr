@@ -1,14 +1,14 @@
-import {EngineAudio} from './engine-audio.js?v=12';
-import {TrackSurface} from './surface.js?v=12';
-import {recordLap} from './lap-history.js?v=12';
+import {EngineAudio} from './engine-audio.js?v=13';
+import {TrackSurface} from './surface.js?v=13';
+import {recordLap} from './lap-history.js?v=13';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {Route,clamp} from './drive.js?v=12';
-import {Vehicle} from './vehicle.js?v=12';
-import {SkidMarks} from './skidmarks.js?v=12';
-import {plantForest} from './forest.js?v=12';
-import {buildCar,PAINTS,paintHex,DRIVER_EYE} from './car.js?v=12';
-import {Multiplayer,cleanName,cleanRoom} from './net.js?v=12';
+import {Route,clamp} from './drive.js?v=13';
+import {Vehicle} from './vehicle.js?v=13';
+import {SkidMarks} from './skidmarks.js?v=13';
+import {plantForest} from './forest.js?v=13';
+import {buildCar,PAINTS,paintHex,DRIVER_EYE} from './car.js?v=13';
+import {Multiplayer,cleanName,cleanRoom} from './net.js?v=13';
 const $=id=>document.getElementById(id), status=$('status');
 const touch=matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0;document.body.classList.toggle('touch',touch);
 let renderer,route,drive,surface,skids=null,forest=null,contact=null,ready=false,running=false,paused=false,view='chase',last=0,elapsed=0,xrSession=null,lastLap=1,toastUntil=0;
@@ -177,6 +177,12 @@ function toggleView(){if(xrSession)return;view=view==='chase'?'cockpit':'chase';
 $('start').onclick=()=>{if(!$('name').value.trim()){$('name').focus();$('name').reportValidity();return;}goOnline();unlockAudio();running=true;paused=false;$('gate').hidden=true;last=0;resetCamera();notify(touch?'左でハンドル、右でアクセル':'W / ↑ でアクセル');};$('pause').onclick=()=>{if(running)setPaused(!paused);};$('reset').onclick=reset;$('camera').onclick=toggleView;
 let helpWasPaused=false;$('help').onclick=()=>{helpWasPaused=paused;if(running)setPaused(true);$('instructions').showModal();};$('closeHelp').onclick=()=>$('instructions').close();$('instructions').addEventListener('close',()=>{if(running&&!helpWasPaused)setPaused(false);});
 addEventListener('keydown',e=>{if($('instructions').open||e.target.matches?.('input'))return;if((e.code==='Enter'||e.code==='NumpadEnter'||e.code==='KeyT')&&mp&&chatOn&&running&&!e.repeat){e.preventDefault();openChat();return;}if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();keys.add(e.code);if(e.repeat)return;if(e.code==='KeyC')toggleView();if(e.code==='KeyE')shiftGear(1);if(e.code==='KeyQ')shiftGear(-1);if(e.code==='KeyR')reset();if(e.code==='KeyP'&&running)setPaused(!paused);});addEventListener('keyup',e=>keys.delete(e.code));addEventListener('blur',()=>{clearInputs();if(running&&!xrSession)setPaused(true);});document.addEventListener('visibilitychange',()=>{if(document.hidden){engine.silence();clearInputs();if(running&&!xrSession)setPaused(true);}});
+// iOS Safari ignores user-scalable=no and pointer preventDefault: stop double-tap and pinch zoom at the touch level.
+// The controls only use pointer events, so cancelling their touches loses nothing. Buttons get touch-action:manipulation in CSS;
+// on the bare canvas and panels a quick second tap is cancelled (never on buttons, so tapping two buttons in a row still works).
+for(const id of ['throttle','brake','steering'])$(id).addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+{let lastTap=0;document.addEventListener('touchend',e=>{if(e.target.closest('#touch,button,input,textarea,select,label,[role=button],dialog'))return;const t=e.timeStamp;if(t-lastTap<350)e.preventDefault();lastTap=t;},{passive:false});}
+for(const evt of ['gesturestart','gesturechange'])document.addEventListener(evt,e=>e.preventDefault(),{passive:false});
 for(const id of ['throttle','brake']){const button=$(id),pointers=new Set();button.addEventListener('pointerdown',e=>{e.preventDefault();button.setPointerCapture(e.pointerId);pointers.add(e.pointerId);touchInput[id]=1;button.classList.add('held');});const release=e=>{pointers.delete(e.pointerId);touchInput[id]=pointers.size?1:0;button.classList.toggle('held',!!pointers.size);};for(const evt of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(evt,release);}
 const steering=$('steering');function steerMove(e){if(e.pointerId!==steerPointer)return;const rect=steering.getBoundingClientRect();touchInput.steer=clamp((e.clientX-rect.left-rect.width/2)/(rect.width/2-38),-1,1);$('knob').style.marginLeft=`${touchInput.steer*(rect.width/2-38)}px`;steering.setAttribute('aria-valuenow',Math.round(touchInput.steer*100));}steering.addEventListener('pointerdown',e=>{e.preventDefault();if(steerPointer!==null)return;steerPointer=e.pointerId;steering.setPointerCapture(e.pointerId);steerMove(e);});steering.addEventListener('pointermove',steerMove);for(const evt of ['pointerup','pointercancel','lostpointercapture'])steering.addEventListener(evt,e=>{if(e.pointerId===steerPointer){steerPointer=null;touchInput.steer=0;$('knob').style.marginLeft='0px';steering.setAttribute('aria-valuenow','0');}});
 function dead(v){return Math.abs(v)<.12?0:Math.sign(v)*(Math.abs(v)-.12)/.88;}
