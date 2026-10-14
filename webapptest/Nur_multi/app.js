@@ -1,14 +1,14 @@
-import {EngineAudio} from './engine-audio.js?v=13';
-import {TrackSurface} from './surface.js?v=13';
-import {recordLap} from './lap-history.js?v=13';
+import {EngineAudio} from './engine-audio.js?v=14';
+import {TrackSurface} from './surface.js?v=14';
+import {recordLap} from './lap-history.js?v=14';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {Route,clamp} from './drive.js?v=13';
-import {Vehicle} from './vehicle.js?v=13';
-import {SkidMarks} from './skidmarks.js?v=13';
-import {plantForest} from './forest.js?v=13';
-import {buildCar,PAINTS,paintHex,DRIVER_EYE} from './car.js?v=13';
-import {Multiplayer,cleanName,cleanRoom} from './net.js?v=13';
+import {Route,clamp} from './drive.js?v=14';
+import {Vehicle} from './vehicle.js?v=14';
+import {SkidMarks} from './skidmarks.js?v=14';
+import {plantForest} from './forest.js?v=14';
+import {buildCar,PAINTS,paintHex,DRIVER_EYE} from './car.js?v=14';
+import {Multiplayer,cleanName,cleanRoom} from './net.js?v=14';
 const $=id=>document.getElementById(id), status=$('status');
 const touch=matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0;document.body.classList.toggle('touch',touch);
 let renderer,route,drive,surface,skids=null,forest=null,contact=null,ready=false,running=false,paused=false,view='chase',last=0,elapsed=0,xrSession=null,lastLap=1,toastUntil=0;
@@ -180,7 +180,12 @@ addEventListener('keydown',e=>{if($('instructions').open||e.target.matches?.('in
 // iOS Safari ignores user-scalable=no and pointer preventDefault: stop double-tap and pinch zoom at the touch level.
 // The controls only use pointer events, so cancelling their touches loses nothing. Buttons get touch-action:manipulation in CSS;
 // on the bare canvas and panels a quick second tap is cancelled (never on buttons, so tapping two buttons in a row still works).
-for(const id of ['throttle','brake','steering'])$(id).addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+// Steering with one thumb while holding a pedal with the other looks like a pinch to iOS, which judges it from touchmove.
+for(const id of ['throttle','brake','steering'])for(const evt of ['touchstart','touchmove'])$(id).addEventListener(evt,e=>e.preventDefault(),{passive:false});
+document.addEventListener('touchmove',e=>{if(e.touches.length>1||(e.scale&&e.scale!==1))e.preventDefault();},{passive:false});
+document.addEventListener('touchstart',e=>{if(e.touches.length>1&&!e.target.closest('button,input,textarea,select,label'))e.preventDefault();},{passive:false});
+// Last resort: if iOS zooms anyway, re-applying the viewport with maximum-scale=1 snaps it back.
+{const vp=document.querySelector('meta[name=viewport]'),base=vp.content;let fixing=false;visualViewport?.addEventListener('resize',()=>{if(fixing||visualViewport.scale<1.01||document.activeElement?.matches('input'))return;fixing=true;vp.content=base+',maximum-scale=1';setTimeout(()=>{vp.content=base;fixing=false;},400);});}
 {let lastTap=0;document.addEventListener('touchend',e=>{if(e.target.closest('#touch,button,input,textarea,select,label,[role=button],dialog'))return;const t=e.timeStamp;if(t-lastTap<350)e.preventDefault();lastTap=t;},{passive:false});}
 for(const evt of ['gesturestart','gesturechange'])document.addEventListener(evt,e=>e.preventDefault(),{passive:false});
 for(const id of ['throttle','brake']){const button=$(id),pointers=new Set();button.addEventListener('pointerdown',e=>{e.preventDefault();button.setPointerCapture(e.pointerId);pointers.add(e.pointerId);touchInput[id]=1;button.classList.add('held');});const release=e=>{pointers.delete(e.pointerId);touchInput[id]=pointers.size?1:0;button.classList.toggle('held',!!pointers.size);};for(const evt of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(evt,release);}
