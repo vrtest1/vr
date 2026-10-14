@@ -1,0 +1,19 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>Car Viewer</title>
+<style>html,body{margin:0;height:100%;background:#a7c8d4;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"../vendor/build/three.module.js","three/addons/":"../vendor/examples/jsm/"}}</script></head><body>
+<!-- Dev tool: renders car.js from four angles. Optional ?paint=orange -->
+<script type="module">
+import * as THREE from 'three';
+import {buildCar} from '../car.js?dev';
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(1);
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;document.body.append(renderer.domElement);
+const scene=new THREE.Scene();scene.background=new THREE.Color('#a7c8d4');
+scene.add(new THREE.HemisphereLight('#eaf8ff','#5b6945',2.4));const sun=new THREE.DirectionalLight('#fff3d6',2.3);sun.position.set(-100,200,70);scene.add(sun);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshStandardMaterial({color:'#4b4d4f',roughness:.95}));ground.rotation.x=-Math.PI/2;scene.add(ground);
+const {car}=buildCar(THREE,renderer,new URLSearchParams(location.search).get('paint')||'rosso');scene.add(car);
+const cam=new THREE.PerspectiveCamera(30,1,.1,100);
+const views=[[-4.6,1.7,-5.2],[5.4,1.2,4.6],[7.5,.55,0],[0,1.6,7.5]];
+const W=innerWidth/2,H=innerHeight/2;cam.aspect=W/H;cam.updateProjectionMatrix();renderer.setScissorTest(true);
+views.forEach(([x,y,z],i)=>{const vx=(i%2)*W,vy=(1-Math.floor(i/2))*H;renderer.setViewport(vx,vy,W,H);renderer.setScissor(vx,vy,W,H);cam.position.set(x,y,z);cam.lookAt(0,.55,0);renderer.render(scene,cam);});
+window.__done=true;
+</script></body></html>
