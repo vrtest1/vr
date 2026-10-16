@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>コスモクロック21 - リアルタイム3Dシミュレーター</title>
+  <style>
+    :root {
+      --bg-glass: rgba(15, 23, 42, 0.75);
+      --border-glass: rgba(255, 255, 255, 0.16);
+      --accent: #38bdf8;
+      --accent-pink: #f43f5e;
+      --led-orange: #ff5511;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: #0f172a;
+      color: #f8fafc;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+    }
+    #bg-video, #bg-image {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
+      display: none;
+      pointer-events: none;
+    }
+    /* Top Left HUD: Title & Live Clock Status */
+    .hud-top-left {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: var(--bg-glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-glass);
+      border-radius: 16px;
+      padding: 18px 22px;
+      min-width: 310px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .title-row h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: #fff;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+    }
+    .subtitle {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 14px;
+    }
+    .digital-readout {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      background: rgba(5, 8, 15, 0.85);
+      border: 1px solid rgba(255, 100, 30, 0.35);
+      border-radius: 10px;
+      padding: 10px 16px;
+      margin-bottom: 12px;
+      font-family: "Courier New", Consolas, monospace;
+    }
+    .digital-readout .label {
+      font-size: 11px;
+      color: #94a3b8;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+    }
+    .digital-readout .time-str {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--led-orange);
+      text-shadow: 0 0 12px rgba(255, 85, 17, 0.8);
+      letter-spacing: 2px;
+    }
+    .specs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .spec-item {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 7px 10px;
+      border-radius: 8px;
+    }
+    .spec-item .k {
+      color: #94a3b8;
+      font-size: 10px;
+      display: block;
+    }
+    .spec-item .v {
+      color: #f1f5f9;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    /* Bottom Control Bar */
+    .hud-bottom {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: var(--bg-glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-glass);
+      border-radius: 16px;
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      max-width: 94vw;
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .control-label {
+      font-size: 12px;
+      color: #cbd5e1;
+      font-weight: 600;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+    .btn {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+    .btn.active {
+      background: rgba(56, 189, 248, 0.25);
+      color: #38bdf8;
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+    }
+    .btn.active-pink {
+      background: rgba(244, 63, 94, 0.28);
+      color: #fda4af;
+      border-color: #f43f5e;
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.3);
+    }
+    .divider {
+      width: 1px;
+      height: 26px;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    #btn-toggle-ui {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 20;
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glass);
+      color: #f8fafc;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    body.ui-hidden .hud-top-left,
+    body.ui-hidden .hud-bottom {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px);
+    }
+    .hud-top-left, .hud-bottom {
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    @media (max-width: 768px) {
+      .hud-top-left {
+        top: 12px;
+        left: 12px;
+        right: 110px;
+        min-width: unset;
+        padding: 10px 14px;
+        border-radius: 12px;
+      }
+      .title-row h1 {
+        font-size: 14px;
+      }
+      .badge {
+        font-size: 10px;
+        padding: 2px 6px;
+      }
+      .subtitle {
+        display: none;
+      }
+      .digital-readout {
+        padding: 6px 10px;
+        margin-bottom: 6px;
+      }
+      .digital-readout .time-str {
+        font-size: 20px;
+      }
+      .specs-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+      }
+      .spec-item {
+        padding: 4px 7px;
+      }
+      .spec-item:nth-child(1),
+      .spec-item:nth-child(3) {
+        display: none;
+      }
+      .hud-bottom {
+        bottom: max(12px, env(safe-area-inset-bottom));
+        left: 10px;
+        right: 10px;
+        transform: none;
+        max-width: none;
+        padding: 10px 12px;
+        gap: 8px;
+        border-radius: 14px;
+      }
+      body.ui-hidden .hud-bottom {
+        transform: translateY(15px);
+      }
+      .control-group {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+      .control-group::-webkit-scrollbar {
+        display: none;
+      }
+      .divider {
+        display: none;
+      }
+      .btn {
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+    }
+
+    /* Loading Overlay */
+    #loading-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      transition: opacity 0.5s ease;
+    }
+    .spinner {
+      width: 52px;
+      height: 52px;
+      border: 4px solid rgba(255, 255, 255, 0.15);
+      border-top-color: #f43f5e;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    #loading-text {
+      font-size: 15px;
+      color: #e2e8f0;
+      letter-spacing: 0.04em;
+    }
+    #file-fallback {
+      display: none;
+      margin-top: 12px;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 16px 24px;
+      border-radius: 12px;
+      border: 1px dashed rgba(255, 255, 255, 0.3);
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="loading-overlay">
+    <div class="spinner" id="loading-spinner"></div>
+    <div id="loading-text">コスモクロック21 3Dモデル (CosmoClock21.glb) を読み込み中...</div>
+    <div id="file-fallback">
+      <div style="font-size: 13px; color: #cbd5e1;">ローカルファイル制限のため、同じフォルダの <b>CosmoClock21.glb</b> を選択してください：</div>
+      <input type="file" id="glb-file-input" accept=".glb,.gltf" class="btn active" />
+    </div>
+  </div>
+
+  <video id="bg-video" autoplay playsinline muted></video>
+  <img id="bg-image" alt="Background" />
+  <input type="file" id="bg-file-input" accept="image/*" style="display: none;" />
+  <button id="btn-toggle-ui">👁️ UI表示/非表示</button>
+
+  <div id="canvas-container"></div>
+
+  <!-- Top Left HUD -->
+  <div class="hud-top-left">
+    <div class="title-row">
+      <h1>COSMO CLOCK 21</h1>
+      <span class="badge" id="speed-badge">実寸・実速度 (1周15分)</span>
+    </div>
+    <div class="subtitle">よこはまコスモワールド 大観覧車 リアルタイム3D</div>
+    <div class="digital-readout">
+      <span class="label">CITIZEN LED CLOCK</span>
+      <span class="time-str" id="hud-clock">00:00:00</span>
+    </div>
+    <div class="specs-grid">
+      <div class="spec-item">
+        <span class="k">全高 / 回転輪直径</span>
+        <span class="v">112.5m / 100.0m</span>
+      </div>
+      <div class="spec-item">
+        <span class="k">現在の角速度 / 回転角</span>
+        <span class="v" id="hud-angle">0.40°/秒 (0.0°)</span>
+      </div>
+      <div class="spec-item">
+        <span class="k">ゴンドラ総数</span>
+        <span class="v">60台 (シースルー4台)</span>
+      </div>
+      <div class="spec-item">
+        <span class="k">スポーク秒針</span>
+        <span class="v" id="hud-sec-spoke">No.00 点灯中</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Controls -->
+  <div class="hud-bottom">
+    <div class="control-group">
+      <span class="control-label">回転速度:</span>
+      <button class="btn active" data-speed="1">1x (実速度: 1周15分)</button>
+      <button class="btn" data-speed="10">10x (1周90秒)</button>
+      <button class="btn" data-speed="60">60x (1周15秒)</button>
+      <button class="btn" data-speed="0">一時停止</button>
+    </div>
+    <div class="divider"></div>
+    <div class="control-group">
+      <span class="control-label">時間帯・背景:</span>
+      <button class="btn active" id="mode-day">昼</button>
+      <button class="btn" id="mode-sunset">夕景</button>
+      <button class="btn" id="mode-night">夜 (フルカラーLED)</button>
+      <button class="btn" id="btn-ar-camera">📷 カメラ背景 (AR)</button>
+      <button class="btn" id="btn-bg-image">🖼️ 背景画像を選択</button>
+    </div>
+    <div class="divider"></div>
+    <div class="control-group">
+      <span class="control-label">カメラ視点:</span>
+      <button class="btn active" data-cam="front">正面全景</button>
+      <button class="btn" data-cam="clock">中央時計アップ</button>
+      <button class="btn" data-cam="low">見上げアングル</button>
+      <button class="btn" data-cam="ride">ゴンドラ乗車視点</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const container = document.getElementById('canvas-container');
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      logarithmicDepthBuffer: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setClearColor(0x000000, 0);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    container.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x5b8fd1);
+    scene.fog = new THREE.FogExp2(0x7aa8e0, 0.0012);
+
+    // Note: glTF exports from Blender with +Y up, where Blender (X, Y, Z) -> Three.js (X, Z, -Y)
+    // So Blender Z=62.5m (wheel hub height) is Three.js Y = 62.5m!
+    // And Blender's front (-Y) is Three.js +Z!
+    const HUB_Y = 62.5;
+    const R_AXLE = 49.85;
+    const N_GONDOLAS = 60;
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 1200);
+    camera.position.set(22, 50, 145);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 56, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxDistance = 400;
+    controls.minDistance = 2;
+
+    // Lights
+    const ambientLight = new THREE.HemisphereLight(0xdbeafe, 0x334155, 1.35);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffbeb, 2.6);
+    sunLight.position.set(80, 140, 120);
+    scene.add(sunLight);
+
+    const backLight = new THREE.DirectionalLight(0x93c5fd, 1.0);
+    backLight.position.set(-70, 60, -110);
+    scene.add(backLight);
+
+    // Subtle waterfront water plane at Y = -1.2m
+    const waterGeo = new THREE.PlaneGeometry(800, 800);
+    const waterMat = new THREE.MeshStandardMaterial({
+      color: 0x0c4a6e,
+      roughness: 0.22,
+      metalness: 0.75,
+    });
+    const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+    waterMesh.rotation.x = -Math.PI / 2;
+    waterMesh.position.y = -1.2;
+    scene.add(waterMesh);
+
+    // Dynamic 7-Segment + Matrix Canvas Texture for the Citizen Digital Clock (front +Z and back -Z)
+    const clockCanvas = document.createElement('canvas');
+    clockCanvas.width = 1024;
+    clockCanvas.height = 280;
+    const clockCtx = clockCanvas.getContext('2d');
+    const clockTex = new THREE.CanvasTexture(clockCanvas);
+    clockTex.colorSpace = THREE.SRGBColorSpace;
+
+    // Create front and back LED display planes placed cleanly in front of Clock_Panel_Body (which ends at Z = +-6.50m)
+    const screenPlaneGeo = new THREE.PlaneGeometry(8.6, 2.68);
+    const screenPlaneMat = new THREE.MeshBasicMaterial({
+      map: clockTex,
+      transparent: true,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    const clockPlaneFront = new THREE.Mesh(screenPlaneGeo, screenPlaneMat);
+    clockPlaneFront.position.set(0, 53.2, 6.56);
+    scene.add(clockPlaneFront);
+
+    const clockPlaneBack = new THREE.Mesh(screenPlaneGeo, screenPlaneMat);
+    clockPlaneBack.position.set(0, 53.2, -6.56);
+    clockPlaneBack.rotation.y = Math.PI;
+    scene.add(clockPlaneBack);
+
+    // 60 Second-Hand LED Bars along the 60 spokes (for analog clock second-hand sweep & night illumination)
+    const spokeLedGroup = new THREE.Group();
+    spokeLedGroup.position.set(0, HUB_Y, 0);
+    scene.add(spokeLedGroup);
+
+    const spokeLedMeshes = [];
+    const spokeLedMats = [];
+    const ledBarGeo = new THREE.BoxGeometry(0.22, 41.5, 4.45);
+    ledBarGeo.translate(0, 24.5, 0); // From R=3.8m to R=45.3m along the spoke
+
+    for (let i = 0; i < N_GONDOLAS; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xff3366,
+        transparent: true,
+        opacity: 0.0,
+      });
+      const mesh = new THREE.Mesh(ledBarGeo, mat);
+      // Angle i * 6 deg clockwise when viewed from front (+Z) -> rotation.z = -i * 2*PI/60
+      mesh.rotation.z = -(i / N_GONDOLAS) * Math.PI * 2;
+      spokeLedGroup.add(mesh);
+      spokeLedMeshes.push(mesh);
+      spokeLedMats.push(mat);
+    }
+
+    // Draw authentic 7-segment LED clock on canvas
+    function drawSevenSegDigit(ctx, char, x, y, w, h, colorOn, colorOff) {
+      const t = 18; // segment thickness
+      const pad = 4;
+      const hw = w - t;
+      const hh = (h - t) / 2;
+
+      // Segment definitions: [A, B, C, D, E, F, G]
+      const segMap = {
+        '0': [1,1,1,1,1,1,0],
+        '1': [0,1,1,0,0,0,0],
+        '2': [1,1,0,1,1,0,1],
+        '3': [1,1,1,1,0,0,1],
+        '4': [0,1,1,0,0,1,1],
+        '5': [1,0,1,1,0,1,1],
+        '6': [1,0,1,1,1,1,1],
+        '7': [1,1,1,0,0,0,0],
+        '8': [1,1,1,1,1,1,1],
+        '9': [1,1,1,1,0,1,1],
+      };
+      const mask = segMap[char] || [0,0,0,0,0,0,0];
+
+      function drawH(sx, sy, active) {
+        ctx.fillStyle = active ? colorOn : colorOff;
+        ctx.shadowColor = active ? colorOn : 'transparent';
+        ctx.shadowBlur = active ? 18 : 0;
+        ctx.beginPath();
+        ctx.roundRect(sx + pad, sy, hw - pad * 2, t, 5);
+        ctx.fill();
+      }
+      function drawV(sx, sy, active) {
+        ctx.fillStyle = active ? colorOn : colorOff;
+        ctx.shadowColor = active ? colorOn : 'transparent';
+        ctx.shadowBlur = active ? 18 : 0;
+        ctx.beginPath();
+        ctx.roundRect(sx, sy + pad, t, hh - pad * 2, 5);
+        ctx.fill();
+      }
+
+      // A (top), G (mid), D (bottom)
+      drawH(x + t / 2, y, mask[0]);
+      drawH(x + t / 2, y + hh, mask[6]);
+      drawH(x + t / 2, y + hh * 2, mask[3]);
+      // F (top-left), B (top-right), E (bot-left), C (bot-right)
+      drawV(x, y + t / 2, mask[5]);
+      drawV(x + hw, y + t / 2, mask[1]);
+      drawV(x, y + hh + t / 2, mask[4]);
+      drawV(x + hw, y + hh + t / 2, mask[2]);
+    }
+
+    let lastClockKey = '';
+    function updateClockCanvas(now, isNight) {
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      const blink = now.getMilliseconds() < 500;
+      const key = `${hh}:${mm}:${blink}:${isNight}`;
+      document.getElementById('hud-clock').textContent = `${hh}:${mm}:${ss}`;
+      if (key === lastClockKey) return;
+      lastClockKey = key;
+
+      const ctx = clockCtx;
+      ctx.clearRect(0, 0, clockCanvas.width, clockCanvas.height);
+
+      // 4 dark recessed digit boxes + center colon box
+      const boxPositions = [38, 260, 564, 786];
+      ctx.fillStyle = '#090b10';
+      for (const bx of boxPositions) {
+        ctx.fillRect(bx - 16, 14, 200, 252);
+      }
+      ctx.fillRect(472, 14, 76, 252);
+
+      const colorOn = '#ff5210';
+      const colorOff = '#1f1918';
+
+      const digits = [hh[0], hh[1], mm[0], mm[1]];
+      for (let i = 0; i < 4; i++) {
+        drawSevenSegDigit(ctx, digits[i], boxPositions[i], 30, 168, 220, colorOn, colorOff);
+      }
+
+      // Blinking colon ':'
+      ctx.fillStyle = blink ? colorOn : '#351c14';
+      ctx.shadowColor = blink ? colorOn : 'transparent';
+      ctx.shadowBlur = blink ? 18 : 0;
+      ctx.beginPath();
+      ctx.roundRect(496, 78, 28, 28, 6);
+      ctx.roundRect(496, 174, 28, 28, 6);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      clockTex.needsUpdate = true;
+    }
+
+    // References to loaded GLB objects
+    const wheelObjects = [];
+    const gondolaObjects = []; // { obj, index }
+    const wheelMaterials = {};
+
+    function processLoadedGLTF(gltf) {
+      const root = gltf.scene;
+      scene.add(root);
+
+      root.traverse((child) => {
+        if (!child.isMesh && !child.isObject3D) return;
+        if (child.name.startsWith('Clock_Panel_Screen') || child.name.startsWith('Clock_Panel_LED')) {
+          child.visible = false;
+          return;
+        }
+        if (child.name.startsWith('Wheel_')) {
+          wheelObjects.push(child);
+        }
+        const m = child.name.match(/^Gondola_(\d+)_/);
+        if (m) {
+          gondolaObjects.push({
+            obj: child,
+            index: parseInt(m[1], 10),
+          });
+        }
+        if (child.isMesh && child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          for (const mat of mats) {
+            if (mat.name) wheelMaterials[mat.name] = mat;
+          }
+        }
+      });
+
+      document.getElementById('loading-overlay').style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('loading-overlay').style.display = 'none';
+      }, 500);
+    }
+
+    const loader = new GLTFLoader();
+    loader.load(
+      './CosmoClock21.glb',
+      (gltf) => processLoadedGLTF(gltf),
+      undefined,
+      (err) => {
+        console.warn('Fetch load failed, showing file input fallback:', err);
+        document.getElementById('loading-spinner').style.display = 'none';
+        document.getElementById('loading-text').textContent = 'ブラウザのセキュリティ設定により直接読み込みがブロックされました';
+        document.getElementById('file-fallback').style.display = 'flex';
+      }
+    );
+
+    document.getElementById('glb-file-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      document.getElementById('loading-spinner').style.display = 'block';
+      loader.load(url, (gltf) => processLoadedGLTF(gltf));
+    });
+
+    // Simulation state
+    // Real Cosmo Clock 21 speed: 1 full revolution per 15 minutes (900 seconds)
+    // Angular velocity omega = 2 * PI / 900 rad/s = 0.4 degrees/s
+    const REAL_OMEGA = (Math.PI * 2) / 900.0;
+    let speedMultiplier = 1.0;
+    let wheelAngle = 0.0; // radians clockwise when viewed from front (+Z)
+    let lightingMode = 'day'; // 'day' | 'sunset' | 'night'
+    let cameraMode = 'front';
+    let lastTime = performance.now();
+
+    // Speed buttons
+    document.querySelectorAll('[data-speed]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-speed]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        speedMultiplier = parseFloat(btn.dataset.speed);
+        const badge = document.getElementById('speed-badge');
+        if (speedMultiplier === 1) badge.textContent = '実寸・実速度 (1周15分)';
+        else if (speedMultiplier === 0) badge.textContent = '一時停止中';
+        else badge.textContent = `${speedMultiplier}倍速モード`;
+      });
+    });
+
+    // Background video / image state
+    const bgVideo = document.getElementById('bg-video');
+    const bgImage = document.getElementById('bg-image');
+    const bgFileInput = document.getElementById('bg-file-input');
+    const btnArCamera = document.getElementById('btn-ar-camera');
+    const btnBgImage = document.getElementById('btn-bg-image');
+    let activeStream = null;
+    let transparentBgActive = false;
+
+    function stopCameraStream() {
+      if (activeStream) {
+        activeStream.getTracks().forEach((t) => t.stop());
+        activeStream = null;
+      }
+      bgVideo.srcObject = null;
+      bgVideo.style.display = 'none';
+      btnArCamera.classList.remove('active', 'active-pink');
+      btnArCamera.textContent = '📷 カメラ背景 (AR)';
+    }
+
+    function applySkyOrTransparent() {
+      if (transparentBgActive) {
+        scene.background = null;
+        scene.fog = null;
+        waterMesh.visible = false;
+      } else {
+        waterMesh.visible = true;
+        if (lightingMode === 'day') {
+          scene.background = new THREE.Color(0x5b8fd1);
+          scene.fog = new THREE.FogExp2(0x7aa8e0, 0.0012);
+        } else if (lightingMode === 'sunset') {
+          scene.background = new THREE.Color(0xc25953);
+          scene.fog = new THREE.FogExp2(0xd97757, 0.0012);
+        } else if (lightingMode === 'night') {
+          scene.background = new THREE.Color(0x050814);
+          scene.fog = new THREE.FogExp2(0x070b19, 0.0012);
+        }
+      }
+    }
+
+    // Lighting Mode buttons
+    function setLightingMode(mode, disableTransparent = false) {
+      lightingMode = mode;
+      if (disableTransparent) {
+        stopCameraStream();
+        bgImage.style.display = 'none';
+        btnBgImage.classList.remove('active');
+        transparentBgActive = false;
+      }
+      document.getElementById('mode-day').classList.toggle('active', mode === 'day');
+      document.getElementById('mode-sunset').classList.toggle('active', mode === 'sunset');
+      document.getElementById('mode-night').classList.toggle('active-pink', mode === 'night');
+      document.getElementById('mode-night').classList.toggle('active', false);
+
+      if (mode === 'day') {
+        ambientLight.intensity = 1.35;
+        sunLight.intensity = 2.6;
+        sunLight.color.setHex(0xfffbeb);
+        waterMat.color.setHex(0x0c4a6e);
+      } else if (mode === 'sunset') {
+        ambientLight.intensity = 0.9;
+        sunLight.intensity = 2.2;
+        sunLight.color.setHex(0xff9e5e);
+        waterMat.color.setHex(0x1e293b);
+      } else if (mode === 'night') {
+        ambientLight.intensity = 0.45;
+        sunLight.intensity = 0.55;
+        sunLight.color.setHex(0x60a5fa);
+        waterMat.color.setHex(0x020617);
+      }
+      applySkyOrTransparent();
+    }
+
+    document.getElementById('mode-day').addEventListener('click', () => setLightingMode('day', false));
+    document.getElementById('mode-sunset').addEventListener('click', () => setLightingMode('sunset', false));
+    document.getElementById('mode-night').addEventListener('click', () => setLightingMode('night', false));
+
+    // Live Camera (AR) button handler
+    btnArCamera.addEventListener('click', async () => {
+      if (activeStream) {
+        // Turn off camera and restore sky
+        stopCameraStream();
+        transparentBgActive = false;
+        applySkyOrTransparent();
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false
+        });
+        activeStream = stream;
+        bgImage.style.display = 'none';
+        btnBgImage.classList.remove('active');
+        bgVideo.srcObject = stream;
+        bgVideo.style.display = 'block';
+        transparentBgActive = true;
+        btnArCamera.classList.add('active-pink');
+        btnArCamera.textContent = '📷 カメラOFF';
+        applySkyOrTransparent();
+      } catch (err) {
+        alert('カメラの起動に失敗しました（カメラ権限を許可してください）: ' + err.message);
+      }
+    });
+
+    // Custom Background Image button handler
+    btnBgImage.addEventListener('click', () => {
+      if (bgImage.style.display === 'block') {
+        bgImage.style.display = 'none';
+        btnBgImage.classList.remove('active');
+        btnBgImage.textContent = '🖼️ 背景画像を選択';
+        transparentBgActive = false;
+        applySkyOrTransparent();
+      } else {
+        bgFileInput.click();
+      }
+    });
+
+    bgFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      stopCameraStream();
+      const url = URL.createObjectURL(file);
+      bgImage.src = url;
+      bgImage.style.display = 'block';
+      transparentBgActive = true;
+      btnBgImage.classList.add('active');
+      btnBgImage.textContent = '🖼️ 背景画像を解除';
+      applySkyOrTransparent();
+      bgFileInput.value = '';
+    });
+
+    // UI toggle button (useful on smartphones and for AR screenshots)
+    const btnToggleUi = document.getElementById('btn-toggle-ui');
+    btnToggleUi.addEventListener('click', () => {
+      const hidden = document.body.classList.toggle('ui-hidden');
+      btnToggleUi.textContent = hidden ? '👁️ UIを表示' : '👁️ UI表示/非表示';
+    });
+
+    // Camera preset buttons
+    document.querySelectorAll('[data-cam]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-cam]').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        cameraMode = btn.dataset.cam;
+        if (cameraMode === 'front') {
+          camera.position.set(22, 50, 145);
+          controls.target.set(0, 56, 0);
+        } else if (cameraMode === 'clock') {
+          camera.position.set(0, 53.5, 28);
+          controls.target.set(0, 54.5, 0);
+        } else if (cameraMode === 'low') {
+          camera.position.set(-28, 12, 62);
+          controls.target.set(0, 64, 0);
+        }
+      });
+    });
+
+    // Animation loop
+    function animate(nowPerf) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((nowPerf - lastTime) / 1000, 0.1);
+      lastTime = nowPerf;
+
+      const now = new Date();
+      updateClockCanvas(now, lightingMode === 'night');
+
+      // Advance wheel rotation at exact real speed * multiplier
+      wheelAngle = (wheelAngle + REAL_OMEGA * speedMultiplier * dt) % (Math.PI * 2);
+      const degPerSec = (REAL_OMEGA * speedMultiplier * 180) / Math.PI;
+      const totalDeg = ((wheelAngle * 180) / Math.PI) % 360;
+      document.getElementById('hud-angle').textContent = `${degPerSec.toFixed(2)}°/秒 (${totalDeg.toFixed(1)}°)`;
+
+      // Rotate the 4 Wheel_* objects around the hub axis (Three.js Z axis, clockwise = -wheelAngle)
+      for (const wObj of wheelObjects) {
+        wObj.rotation.z = -wheelAngle;
+      }
+
+      // Move the 60 Gondola objects along the rim while keeping their orientation upright (gravity-hung!)
+      for (const g of gondolaObjects) {
+        const theta = (g.index / N_GONDOLAS) * Math.PI * 2 + wheelAngle;
+        const gx = R_AXLE * Math.sin(theta);
+        const gy = HUB_Y + R_AXLE * Math.cos(theta);
+        g.obj.position.set(gx, gy, 0);
+        g.obj.rotation.set(0, 0, 0); // Always vertical due to gravity!
+      }
+
+      // Ride camera mode: attach camera inside Gondola #08 (See-Through Gondola)
+      if (cameraMode === 'ride') {
+        const rideTheta = (8 / N_GONDOLAS) * Math.PI * 2 + wheelAngle;
+        const gx = R_AXLE * Math.sin(rideTheta);
+        const gy = HUB_Y + R_AXLE * Math.cos(rideTheta) - 1.3;
+        camera.position.set(gx, gy, 2.2);
+        controls.target.set(gx * 0.6, gy - 4.0, -25.0);
+      }
+
+      // Update the 60 Spoke Second-Hand LED bars
+      const sec = now.getSeconds();
+      const ms = now.getMilliseconds() / 1000;
+      document.getElementById('hud-sec-spoke').textContent = `No.${String(sec).padStart(2, '0')} (${sec}秒)`;
+
+      spokeLedGroup.rotation.z = -wheelAngle;
+      for (let i = 0; i < N_GONDOLAS; i++) {
+        const mat = spokeLedMats[i];
+        if (i === sec) {
+          // Active second hand spoke!
+          mat.opacity = lightingMode === 'day' ? 0.45 : 0.95;
+          mat.color.setHex(0xffffff);
+        } else if (lightingMode === 'night' || lightingMode === 'sunset') {
+          // Full-color rainbow illumination ("Art of Light") + analog second trail
+          const hue = ((i / N_GONDOLAS) + nowPerf * 0.00012) % 1.0;
+          mat.color.setHSL(hue, 0.92, 0.58);
+          const behind = (sec - i + 60) % 60;
+          mat.opacity = behind <= 5 ? 0.72 : (lightingMode === 'night' ? 0.42 : 0.22);
+        } else {
+          mat.opacity = 0.0;
+        }
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    requestAnimationFrame(animate);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
