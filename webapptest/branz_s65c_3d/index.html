@@ -226,6 +226,8 @@ table.spec td:last-child { text-align: right; font-family: ui-monospace, Consola
           <button class="btn" data-add="desk">＋デスク</button>
           <button class="btn" data-add="shelf">＋棚</button>
           <button class="btn" data-add="ledge">＋窓台の小物</button>
+          <button class="btn" data-add="tv42">＋TV 42Z1</button>
+          <button class="btn" data-add="spk8341">＋Genelec 8341A</button>
           <button class="btn primary" data-add="box">＋自由サイズ</button>
         </div>
         <div class="card" id="insp">
@@ -283,6 +285,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
@@ -698,7 +702,10 @@ const DEFAULT_FURN = [
   { id: 'f_fridge', name: '冷蔵庫（R置場）', x: 2056, z: 2455, y: 0, w: 680, d: 700, h: 1820, col: '#8d8780' },
   { id: 'f_table', name: 'ダイニングテーブル', x: 3500, z: 3450, y: 0, w: 1400, d: 850, h: 720, col: '#9a8573' },
   { id: 'f_sofa', name: '3人掛けソファ', x: 2560, z: 6600, y: 0, w: 880, d: 2000, h: 780, col: '#a39d96' },
-  { id: 'f_tv', name: 'TVボード', x: 4730, z: 6600, y: 0, w: 420, d: 1800, h: 450, col: '#8a7a6c' },
+  { id: 'f_tv', name: 'TVボード', x: 4730, z: 7600, y: 0, w: 420, d: 1800, h: 450, col: '#8a7a6c' },
+  { id: 'f_tv42', name: 'テレビ 東芝 42Z1', kind: 'tv', rot: 1, x: 4730, z: 7600, y: 450, w: 338, d: 1020, h: 704, col: '#1a1b1e' },
+  { id: 'f_spkL', name: 'Genelec 8341A（左）', kind: 'spk', rot: 1, x: 4730, z: 6870, y: 450, w: 243, d: 237, h: 370, col: '#2b2d31' },
+  { id: 'f_spkR', name: 'Genelec 8341A（右）', kind: 'spk', rot: 1, x: 4730, z: 8330, y: 450, w: 243, d: 237, h: 370, col: '#2b2d31' },
   { id: 'f_bed1', name: 'ダブルベッド（洋室1）', x: 6250, z: 7400, y: 0, w: 1400, d: 1950, h: 500, col: '#e2ddd5' },
   { id: 'f_bed2', name: 'シングルベッド（洋室2）', x: 660, z: 6200, y: 0, w: 1000, d: 1950, h: 480, col: '#dedad3' },
   { id: 'f_desk2', name: 'デスク（洋室2 窓前）', x: 1040, z: 8320, y: 0, w: 1200, d: 600, h: 720, col: '#9e8a76' },
@@ -707,13 +714,60 @@ const DEFAULT_FURN = [
   { id: 'f_ledge2', name: 'スピーカー（洋室2 窓台）', x: 1140, z: 8760, y: 800, w: 400, d: 180, h: 250, col: '#7b8591' },
 ];
 let furn = store.get(FKEY, null) || structuredClone(DEFAULT_FURN);
+// 保存済みの配置にも42Z1を一度だけ追加（削除した後は復活させない）
+if (!store.get('s65c_furn_tv42_added', false)) {
+  if (!furn.some((f) => f.id === 'f_tv42')) furn.push(structuredClone(DEFAULT_FURN.find((f) => f.id === 'f_tv42')));
+  store.set('s65c_furn_tv42_added', true);
+}
+// 42Z1をTVボード（保存済みの位置）の天板中央へ一度だけ合わせる
+if (!store.get('s65c_furn_tv42_centered', false)) {
+  const board = furn.find((f) => f.id === 'f_tv'), tv = furn.find((f) => f.id === 'f_tv42');
+  if (board && tv) Object.assign(tv, { x: board.x, z: board.z, y: board.y + board.h });
+  store.set('s65c_furn_tv42_centered', true);
+}
+// 旧データのTV向き(face)を rot（90°単位の回転数）へ変換
+for (const f of furn) if (f.kind && f.rot == null) { f.rot = f.d > f.w ? (f.face < 0 ? 1 : 3) : (f.face < 0 ? 2 : 0); delete f.face; }
+// 8341AをTVの左右（間隔100mm）に一度だけ追加
+if (!store.get('s65c_furn_8341_added', false)) {
+  const tv = furn.find((f) => f.id === 'f_tv42');
+  for (const [id, sgn] of [['f_spkL', -1], ['f_spkR', 1]]) {
+    if (furn.some((f) => f.id === id)) continue;
+    const s = structuredClone(DEFAULT_FURN.find((f) => f.id === id));
+    if (tv) {
+      const alongZ = tv.d > tv.w, off = (alongZ ? tv.d : tv.w) / 2 + 100 + 237 / 2;
+      Object.assign(s, { x: tv.x + (alongZ ? 0 : sgn * off), z: tv.z + (alongZ ? sgn * off : 0), y: tv.y, rot: tv.rot });
+      if (!alongZ) [s.w, s.d] = [s.d, s.w];
+    }
+    furn.push(s);
+  }
+  store.set('s65c_furn_8341_added', true);
+}
+// TVボードを Z=7600 へ移した変更を保存済みの配置にも一度だけ反映（テレビ・スピーカーも同じだけ移動）
+if (!store.get('s65c_furn_tvboard_z7600', false)) {
+  const board = furn.find((f) => f.id === 'f_tv');
+  if (board) {
+    const dz = 7600 - board.z;
+    for (const f of furn) if (['f_tv', 'f_tv42', 'f_spkL', 'f_spkR'].includes(f.id)) f.z += dz;
+  }
+  store.set('s65c_furn_tvboard_z7600', true);
+}
 let selId = furn[0]?.id || null;
 const furnGroup = new THREE.Group();
 furnGroup.name = 'furniture';
 scene.add(furnGroup);
 const furnMeshes = new Map();
 
+const { createDetailed, modelBuilder } = await import('./src/furniture.js' + BUST);
+const DETAILED = createDetailed(THREE, { RoundedBoxGeometry });
+// Blenderで手直しした 8341A（models/Genelec8341A.fbx → tools/fbx_to_glb.py で GLB）があれば差し替え、無ければ組み込みの形
+const SPK_MODEL = await new GLTFLoader().loadAsync('./models/Genelec8341A.glb' + BUST).then(
+  (gltf) => modelBuilder(THREE, gltf.scene),
+  (err) => { console.warn('models/Genelec8341A.glb を読めないので組み込みの8341Aを使います', err); return null; },
+);
+if (SPK_MODEL) DETAILED.spk = SPK_MODEL.build;
+
 function buildFurnMesh(f) {
+  if (DETAILED[f.kind]) return DETAILED[f.kind](f);
   const g = new THREE.Group();
   g.name = f.name;
   const mat = new THREE.MeshStandardMaterial({ color: f.col, roughness: 0.75 });
@@ -733,12 +787,16 @@ function syncFurn() {
     if (!g) { g = buildFurnMesh(f); furnMeshes.set(f.id, g); furnGroup.add(g); }
     g.scale.set(f.w * S, f.h * S, f.d * S);
     g.position.set(f.x * S, (f.y + f.h / 2) * S, f.z * S);
+    // rot: 0=南向き, 1=西, 2=北, 3=東
+    if (g.userData.inner) g.userData.inner.rotation.y = -(f.rot ?? 0) * Math.PI / 2;
     const sel = f.id === selId;
-    g.userData.body.material.color.set(f.col);
-    g.userData.body.material.emissive.set(sel ? 0x1c5fd0 : 0x000000);
-    g.userData.body.material.emissiveIntensity = sel ? 0.28 : 0;
+    if (!g.userData.ownColors) g.userData.body.material.color.set(f.col);
+    for (const m of g.userData.hlMats ?? [g.userData.body.material]) {
+      m.emissive.set(sel ? 0x1c5fd0 : 0x000000);
+      m.emissiveIntensity = sel ? 0.28 : 0;
+    }
     g.userData.edges.material.color.set(sel ? 0x1c7ed6 : 0x222222);
-    g.userData.edges.material.opacity = sel ? 1 : 0.45;
+    g.userData.edges.material.opacity = sel ? 1 : g.userData.idleEdgeOpacity ?? 0.45;
   }
   store.set(FKEY, furn);
   renderFurnUI();
@@ -755,7 +813,18 @@ const PRESET_ITEMS = {
   shelf: { name: '棚', w: 800, d: 400, h: 1800, col: '#8f7c69' },
   ledge: { name: '窓台の小物', w: 450, d: 180, h: 300, col: '#6b9474', y: 800, x: 6050, z: 8760 },
   box: { name: '自由サイズの箱', w: 1000, d: 500, h: 800, col: '#c47f5e' },
+  tv42: { name: 'テレビ 東芝 42Z1', kind: 'tv', rot: 1, y: 450, w: 338, d: 1020, h: 704, col: '#1a1b1e' },
+  spk8341: { name: 'Genelec 8341A', kind: 'spk', rot: 1, y: 450, w: 243, d: 237, h: 370, col: '#2b2d31' },
 };
+// 差し替えモデルの実寸に合わせる（向きはそのまま。rotが奇数なら幅と奥行が入れ替わる）
+if (SPK_MODEL) {
+  const { W, H, D } = SPK_MODEL.dims;
+  for (const f of [...furn, ...DEFAULT_FURN, PRESET_ITEMS.spk8341]) {
+    if (f.kind !== 'spk') continue;
+    const odd = (f.rot ?? 0) % 2 === 1;
+    Object.assign(f, { w: odd ? D : W, d: odd ? W : D, h: H });
+  }
+}
 document.querySelectorAll('[data-add]').forEach((b) => (b.onclick = () => {
   const p = PRESET_ITEMS[b.dataset.add];
   const c = viewCenterFloor();
@@ -797,7 +866,13 @@ for (const [id, key] of [['fW', 'w'], ['fD', 'd'], ['fH', 'h'], ['fX', 'x'], ['f
   };
 }
 $('selName').oninput = () => { const s = sel(); if (s) { s.name = $('selName').value || '家具'; syncFurn(); } };
-$('rotBtn').onclick = () => { const s = sel(); if (s) { [s.w, s.d] = [s.d, s.w]; syncFurn(); } };
+$('rotBtn').onclick = () => {
+  const s = sel(); if (!s) return;
+  [s.w, s.d] = [s.d, s.w];
+  // 形のある家具は向きも回す（西→北→東→南…）
+  if (s.kind) s.rot = ((s.rot ?? 0) + 1) % 4;
+  syncFurn();
+};
 $('dupBtn').onclick = () => { const s = sel(); if (s) { const c = { ...s, id: 'f' + Date.now(), x: s.x + 200, z: s.z + 200, name: s.name + ' (複製)' }; furn.push(c); selId = c.id; syncFurn(); } };
 $('delBtn').onclick = () => { furn = furn.filter((f) => f.id !== selId); selId = furn[0]?.id || null; syncFurn(); };
 $('resetBtn').onclick = () => { furn = structuredClone(DEFAULT_FURN); selId = furn[0].id; syncFurn(); };
@@ -880,7 +955,8 @@ el.addEventListener('pointerdown', (e) => {
   if (pointers.size > 1) { drag = null; lookDrag = null; return; }
   if (measuring) return;
   setNdc(e);
-  const hit = editMode && furnGroup.visible ? ray.intersectObjects(furnGroup.children, true).find((h) => h.object.userData.fid) : null;
+  // 枠線(LineSegments)は Raycaster の Line.threshold(既定1=1m)で遠くからでも当たってしまうので、メッシュだけを対象にする
+  const hit = editMode && furnGroup.visible ? ray.intersectObjects(furnGroup.children, true).find((h) => h.object.isMesh && h.object.userData.fid) : null;
   if (hit) {
     const f = furn.find((x) => x.id === hit.object.userData.fid);
     selId = f.id;
@@ -1083,6 +1159,13 @@ $('glbBtn').onclick = () => {
   if (furnGroup.visible) {
     const fg = new THREE.Group(); fg.name = 'furniture';
     for (const f of furn) {
+      if (DETAILED[f.kind]) {
+        const t = furnMeshes.get(f.id).clone(true);
+        const lines = []; t.traverse((o) => { if (o.isLineSegments) lines.push(o); else if (o.isMesh) { o.material = o.material.clone(); if (o.material.emissive && !o.material.userData.keepEmissive) o.material.emissive.set(0x000000); } });
+        lines.forEach((o) => o.parent.remove(o));
+        t.name = f.name; fg.add(t);
+        continue;
+      }
       const m = new THREE.Mesh(new THREE.BoxGeometry(f.w * S, f.h * S, f.d * S), new THREE.MeshStandardMaterial({ color: f.col, roughness: 0.75 }));
       m.position.set(f.x * S, (f.y + f.h / 2) * S, f.z * S); m.name = f.name; fg.add(m);
     }
