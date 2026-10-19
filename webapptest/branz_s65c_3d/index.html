@@ -110,9 +110,11 @@ table.spec td:last-child { text-align: right; font-family: ui-monospace, Consola
 .empty { color: var(--muted); padding: 8px 0; }
 
 /* mobile joystick */
-#joy { position: absolute; left: 18px; bottom: 18px; width: 116px; height: 116px; border-radius: 50%; background: rgba(255,255,255,.28);
+#joy { --joy: clamp(150px, 44vw, 180px); --knob: calc(var(--joy) * 0.38);
+  position: absolute; left: 16px; bottom: 18px; width: var(--joy); height: var(--joy); border-radius: 50%; background: rgba(255,255,255,.28);
   border: 1px solid rgba(0,0,0,.15); display: none; touch-action: none; backdrop-filter: blur(4px); }
-#joy i { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; background: rgba(255,255,255,.9); box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+#joy::before { content: ''; position: absolute; inset: 22%; border-radius: 50%; border: 1px dashed rgba(0,0,0,.18); pointer-events: none; }
+#joy i { position: absolute; left: 50%; top: 50%; width: var(--knob); height: var(--knob); transform: translate(-50%, -50%); border-radius: 50%; background: rgba(255,255,255,.9); box-shadow: 0 2px 8px rgba(0,0,0,.25); pointer-events: none; }
 #upDown { position: absolute; right: 14px; bottom: 60px; display: none; flex-direction: column; gap: 8px; }
 #upDown button { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 90%, transparent); font-size: 18px; box-shadow: var(--shadow); }
 .handle { display: none; }
@@ -845,7 +847,7 @@ function renderFurnUI() {
     d.className = 'fi' + (f.id === selId ? ' on' : '');
     d.innerHTML = `<span></span><span>${Math.round(f.w / 10)}×${Math.round(f.d / 10)}×H${Math.round(f.h / 10)}</span>`;
     d.firstChild.textContent = f.name;
-    d.onclick = () => { selId = f.id; syncFurn(); };
+    d.onclick = () => { selId = selId === f.id ? null : f.id; syncFurn(); };
     list.appendChild(d);
   }
   const s = sel();
@@ -959,9 +961,10 @@ el.addEventListener('pointerdown', (e) => {
   const hit = editMode && furnGroup.visible ? ray.intersectObjects(furnGroup.children, true).find((h) => h.object.isMesh && h.object.userData.fid) : null;
   if (hit) {
     const f = furn.find((x) => x.id === hit.object.userData.fid);
+    const wasSel = selId === f.id;
     selId = f.id;
     const p = floorPoint(e, f.y * S);
-    drag = { f, off: p ? { x: f.x * S - p.x, z: f.z * S - p.z } : { x: 0, z: 0 }, id: e.pointerId, moved: false };
+    drag = { f, off: p ? { x: f.x * S - p.x, z: f.z * S - p.z } : { x: 0, z: 0 }, id: e.pointerId, moved: false, wasSel, sx: e.clientX, sy: e.clientY };
     controls.enabled = orthoControls.enabled = false;
     el.setPointerCapture(e.pointerId);
     syncFurn();
@@ -975,6 +978,8 @@ el.addEventListener('pointerdown', (e) => {
 el.addEventListener('pointermove', (e) => {
   if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (drag && e.pointerId === drag.id) {
+    // 7px動くまではタップ扱い（指のぶれで家具がずれないように）
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 7) return;
     const p = floorPoint(e, drag.f.y * S);
     if (p) {
       drag.f.x = Math.round((p.x + drag.off.x) / S / 10) * 10;
@@ -997,7 +1002,11 @@ el.addEventListener('pointermove', (e) => {
 });
 function endPointer(e) {
   pointers.delete(e.pointerId);
-  if (drag && e.pointerId === drag.id) { drag = null; controls.enabled = mode === 'orbit'; orthoControls.enabled = mode === 'top'; }
+  if (drag && e.pointerId === drag.id) {
+    // 選択中の家具を、動かさずにもう一度タップ／クリックしたら選択を外す
+    if (e.type === 'pointerup' && drag.wasSel && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 7) { selId = null; syncFurn(); }
+    drag = null; controls.enabled = mode === 'orbit'; orthoControls.enabled = mode === 'top';
+  }
   lookDrag = null;
 }
 el.addEventListener('pointerup', (e) => {
@@ -1064,12 +1073,15 @@ joyEl.addEventListener('pointermove', (e) => { if (e.pointerId === joy.id) moveJ
 const endJoy = () => { joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; };
 joyEl.addEventListener('pointerup', endJoy);
 joyEl.addEventListener('pointercancel', endJoy);
+// ストローク = 外周から少しはみ出すまで（直径の48%）。中心付近は遊び、ゆっくり倒すと微速になるようカーブを付ける
+const JOY_DEAD = 0.1, JOY_CURVE = 1.6;
 function moveJoy(e) {
-  const r = joyEl.getBoundingClientRect();
-  let dx = (e.clientX - r.left - r.width / 2) / (r.width / 2), dy = (e.clientY - r.top - r.height / 2) / (r.height / 2);
+  const r = joyEl.getBoundingClientRect(), travel = r.width * 0.48;
+  let dx = (e.clientX - r.left - r.width / 2) / travel, dy = (e.clientY - r.top - r.height / 2) / travel;
   const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
-  joy.x = dx; joy.y = dy;
-  knob.style.transform = `translate(${dx * 34}px, ${dy * 34}px)`;
+  knob.style.transform = `translate(calc(-50% + ${dx * travel}px), calc(-50% + ${dy * travel}px))`;
+  const m = Math.min(1, l), k = m <= JOY_DEAD ? 0 : ((m - JOY_DEAD) / (1 - JOY_DEAD)) ** JOY_CURVE / (m || 1);
+  joy.x = dx * k; joy.y = dy * k;
   requestRender();
 }
 let upDown = 0;
