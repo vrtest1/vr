@@ -1,5 +1,5 @@
 /** Pointer-based map gestures. UI scrolling is handled by CSS, outside the canvas. */
-export function installMapGestures(canvas,{pan,look,zoom,tap},surface=globalThis){
+export function installMapGestures(canvas,{pan,look,zoom,tap,orbit},surface=globalThis){
  const points=new Map();let pair=null;
  const measure=()=>{const [a,b]=[...points.values()];return {distance:Math.hypot(b.x-a.x,b.y-a.y),angle:Math.atan2(b.y-a.y,b.x-a.x),y:(a.y+b.y)/2};};
  const reset=()=>{points.clear();pair=null;};
@@ -10,7 +10,8 @@ export function installMapGestures(canvas,{pan,look,zoom,tap},surface=globalThis
  canvas.addEventListener('pointermove',e=>{const p=points.get(e.pointerId);if(!p)return;e.preventDefault();const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
   if(Math.hypot(p.x-p.startX,p.y-p.startY)>6)p.moved=true;
   if(points.size===1){if(p.type==='touch')pan(dx,dy);else look(dx,dy,0);}
-  else if(points.size===2){const next=measure();if(pair&&pair.distance>10&&next.distance>10){const angle=Math.atan2(Math.sin(next.angle-pair.angle),Math.cos(next.angle-pair.angle));zoom(Math.max(.8,Math.min(1.25,next.distance/pair.distance)));look(0,next.y-pair.y,angle);}pair=next;}
+  else if(points.size===2){const next=measure();if(pair&&pair.distance>10&&next.distance>10){const angle=Math.atan2(Math.sin(next.angle-pair.angle),Math.cos(next.angle-pair.angle));zoom(Math.max(.8,Math.min(1.25,next.distance/pair.distance)));// Two fingers turn and tilt the map about the view centre, like map apps; look() is the fallback.
+   if(orbit)orbit(next.y-pair.y,angle);else look(0,next.y-pair.y,angle);}pair=next;}
  });
  const end=e=>{const p=points.get(e.pointerId);points.delete(e.pointerId);pair=points.size===2?measure():null;
   if(e.type==='pointerup'&&p&&!p.multi&&!p.moved&&Math.hypot(e.clientX-p.startX,e.clientY-p.startY)<=6)tap(e.clientX,e.clientY);
@@ -26,5 +27,6 @@ export function installMapGestures(canvas,{pan,look,zoom,tap},surface=globalThis
 }
 export function panOffset(dx,dy,yaw,height,fov,viewportHeight,pitch){
  const scale=2*Math.max(25,height)*Math.tan(fov*Math.PI/360)/Math.max(1,viewportHeight),forward=dy/Math.max(.25,Math.abs(Math.sin(pitch)));
- return {x:(-dx*Math.cos(yaw)+forward*Math.sin(yaw))*scale,z:(dx*Math.sin(yaw)-forward*Math.cos(yaw))*scale};
+ // Ground moves with the finger: right = (cos yaw, −sin yaw), forward = (−sin yaw, −cos yaw).
+ return {x:(-dx*Math.cos(yaw)-forward*Math.sin(yaw))*scale,z:(dx*Math.sin(yaw)-forward*Math.cos(yaw))*scale};
 }

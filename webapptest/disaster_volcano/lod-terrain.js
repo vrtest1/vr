@@ -4,8 +4,9 @@ import {TileCache} from './tile-cache.js';
 import {planLOD,visibleLOD} from './lod-plan.js';
 import {DetailTextures} from './detail-texture.js';
 import {NearImagery} from './near-imagery.js';
+import {NearTerrain} from './near-terrain.js';
 import {MeshStandardNodeMaterial} from 'three';
-import {texture as textureNode} from 'three/tsl';
+import {positionLocal,texture as textureNode} from 'three/tsl';
 /** Reuses VOLT tile decode, fixed GPU buffers, DEM sampling and same-LOD seam stitching. */
 export class LODTerrain{
  constructor(scene,onStatus){
@@ -20,20 +21,20 @@ export class LODTerrain{
    t.requestStitch=()=>this.requestStitch();
    // Node material per slot: its own texture node (no shared .map reference) with the near-camera imagery on top.
    const create=t.createSlot.bind(t);t.createSlot=(...args)=>{const slot=create(...args),material=new MeshStandardNodeMaterial({roughness:.75,metalness:.06});
-    material.colorNode=this.near.blend(textureNode(slot.texture));slot.material.dispose();slot.material=material;slot.mesh.material=material;return slot;};
+    material.colorNode=this.fine.clip(this.near.blend(textureNode(slot.texture)));material.positionNode=this.fine.lower(positionLocal);slot.material.dispose();slot.material=material;slot.mesh.material=material;return slot;};
    if(z===13){const assign=t.assignSlot.bind(t),release=t.releaseSlot.bind(t);t.assignSlot=(slot,...args)=>{this.detail?.drop(slot);return assign(slot,...args);};t.releaseSlot=slot=>{this.detail?.drop(slot);release(slot);};}
    this.layers.set(z,t);
   }
-  this.near=new NearImagery(this);this.detail=new DetailTextures(this);
+  this.near=new NearImagery(this);this.fine=new NearTerrain(this);this.detail=new DetailTextures(this);
  }
  requestStitch(){if(this.seamScheduled)return;this.seamScheduled=true;requestAnimationFrame(()=>{this.seamScheduled=false;stitchVisible(this.layers);});}
  get slots(){return [...this.layers.values()].flatMap(t=>t.slots);}
  get active(){return [...this.layers.values()].reduce((a,t)=>a+t.active,0);}
  setQuality(eco){if(this.eco===eco)return;this.eco=eco;this.lastPlan='';}
- setOrigin(lat,lon){this.generation++;this.detail.clear();this.lat=lat;this.lon=lon;this.origin=mercator(lat,lon);this.scale=Math.cos(lat*Math.PI/180);this.near.reset();for(const t of this.layers.values())t.setOrigin(lat,lon);this.tree={roots:[],nodes:[],split:new Set()};this.textureJobs.clear();this.lastPlan='';}
+ setOrigin(lat,lon){this.generation++;this.detail.clear();this.lat=lat;this.lon=lon;this.origin=mercator(lat,lon);this.scale=Math.cos(lat*Math.PI/180);this.near.reset();this.fine.reset();for(const t of this.layers.values())t.setOrigin(lat,lon);this.tree={roots:[],nodes:[],split:new Set()};this.textureJobs.clear();this.lastPlan='';}
  toGeo(x,z){return this.layers.get(13).toGeo(x,z);}
- height(x,z){for(let zoom=13;zoom>=9;zoom--){const h=this.layers.get(zoom).height(x,z);if(h!==null)return h;}return null;}
- setLayer(layer){if(layer===this.layer)return;this.layer=layer;this.detail.clear();this.near.clear();for(const t of this.layers.values()){
+ height(x,z){const fine=this.fine?.height(x,z);if(fine!=null)return fine;for(let zoom=13;zoom>=9;zoom--){const h=this.layers.get(zoom).height(x,z);if(h!==null)return h;}return null;}
+ setLayer(layer){if(layer===this.layer)return;this.layer=layer;this.detail.clear();this.near.clear();this.fine.clear();for(const t of this.layers.values()){
   t.layer=layer;t.layerGeneration++;
   // Queue refreshes, including tiles that complete during the switch.
   t.refreshSlotTexture=slot=>{this.textureJobs.add(slot);return Promise.resolve();};
@@ -62,7 +63,7 @@ export class LODTerrain{
    let slot=t.getFreeSlot();if(!slot&&t.slots.length<64){slot=t.createSlot(t.slots.length);slot.lodZoom=n.z;t.slots.push(slot);}if(!slot)continue;
    const token=t.assignSlot(slot,n.x,n.y,n.key);t.loadSlot(slot,n.x,n.y,n.key,token,t.epoch);
   }
-  this.refreshTextures();this.applyVisibility();this.detail.update();this.near.update(position);
+  this.refreshTextures();this.applyVisibility();this.detail.update();this.near.update(position);this.fine.update(position);
   const missing=this.tree.nodes.filter(n=>this.layers.get(n.z).tiles.get(n.key)?.missing).length;
   const loaded=this.tree.nodes.filter(n=>this.layers.get(n.z).tiles.get(n.key)?.ready).length;
   this.stats={selected:this.tree.nodes.length,visible:this.visibleCount||0,detail:this.detail.shown,allocated:this.slots.length,active:this.active,counts:Object.fromEntries(this.tree.counts||[])};

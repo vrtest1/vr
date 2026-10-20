@@ -13,6 +13,7 @@
 <div class="buttons"><button id="follow">新着を自動表示：OFF</button><button id="reloadFeed">再読込</button><button id="hidePlume">噴煙を消す</button></div>
 <div class="divider"></div>
 <div class="row"><label for="surface">地表</label><select id="surface"><option value="seamlessphoto">航空写真</option><option value="std">地図</option></select></div><div class="row"><label for="quality">描画品質</label><select id="quality"><option value="auto">自動</option><option value="high">高画質</option><option value="eco">省電力</option></select></div>
+<div class="row"><label for="fine">詳細地形（5 m）</label><input type="checkbox" id="fine" class="switch" checked></div>
 <div class="row"><span>建物（PLATEAU）</span></div><div class="segmented" id="buildings" role="group" aria-label="建物"><button data-bldg="off" class="active">オフ</button><button data-bldg="lod1">LOD1</button><button data-bldg="lod2">LOD2</button></div><div class="row"><label for="extend">LOD2の範囲を10倍</label><input type="checkbox" id="extend" class="switch"></div><p class="muted" id="buildingStatus"></p>
 <div class="control"><label for="brightness">明るさ <output id="brightnessVal">1.25×</output></label><input id="brightness" type="range" min="0.6" max="2" step="0.05" value="1.25"></div>
 <p class="muted">噴煙は発表された高さ・流向と上空の風から描いた見た目の再現で、降灰の範囲を計算したものではありません。</p>

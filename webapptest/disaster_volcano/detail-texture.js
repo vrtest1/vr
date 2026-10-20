@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {texture as textureNode} from 'three/tsl';
+import {positionLocal,texture as textureNode} from 'three/tsl';
 /**
  * Sharper surface imagery near the camera: the nearest visible z13 tiles borrow a 1024 px texture
  * built from 4×4 z15 GSI tiles (≈4 m/px instead of ≈16 m/px). Terrain meshes and DEM are unchanged.
@@ -18,7 +18,7 @@ export class DetailTextures{
   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;
   texture.wrapS=texture.wrapT=THREE.ClampToEdgeWrapping;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.magFilter=THREE.LinearFilter;texture.generateMipmaps=true;
   // Own material per entry with an explicit texture node (no shared .map reference, see plateau.js).
-  const material=new THREE.MeshStandardNodeMaterial({roughness:.75,metalness:.06});material.colorNode=this.terrain.near.blend(textureNode(texture));
+  const material=new THREE.MeshStandardNodeMaterial({roughness:.75,metalness:.06});material.colorNode=this.terrain.fine.clip(this.terrain.near.blend(textureNode(texture)));material.positionNode=this.terrain.fine.lower(positionLocal);
   e={canvas,ctx:canvas.getContext('2d',{alpha:false}),texture,material,slot:null,abort:null,shown:false};this.entries.push(e);return e;
  }
  // Called whenever a z13 slot is reassigned or released, so old imagery never shows on a new tile.

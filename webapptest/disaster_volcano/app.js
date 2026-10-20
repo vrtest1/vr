@@ -32,6 +32,7 @@ for(const b of document.querySelectorAll('[data-bldg]'))b.onclick=()=>{
  $('plateauCredit').hidden=mode==='off';buildings.setMode(mode);buildings.update(camera.position);b.blur();
  if(mode==='lod2'&&mobile)toast('LOD2はスマホでは重くなる場合があります');
 };
+$('fine').onchange=()=>{$('fine').blur();if(!terrain)return;terrain.fine.setEnabled($('fine').checked);terrain.update(camera.position);};
 $('extend').onchange=()=>{const on=$('extend').checked;$('extend').blur();if(!buildings)return;buildings.setExtended(on);buildings.update(camera.position);
  if(on)toast(`LOD2を半径${mobile?10:20} kmまで広げます（読み込みとメモリが大きく増えます）`);};
 $('surface').onchange=()=>{terrain?.setLayer($('surface').value);$('surface').blur();};
@@ -120,6 +121,7 @@ function initControls(canvas){
   pan(dx,dy){const h=terrain.height(camera.position.x,camera.position.z)??0;const offset=panOffset(dx,dy,yaw,camera.position.y-h,camera.fov,canvas.clientHeight,pitch);camera.position.x+=offset.x;camera.position.z+=offset.z;},
   look(dx,dy,angle){yaw-=dx*.003-angle;pitch=Math.max(-1.55,Math.min(1.5,pitch-dy*.003));},
   zoom(ratio,wheel){if(ratio===null){moveForward(wheel);return;}const h=terrain.height(camera.position.x,camera.position.z)??0,range=Math.max(80,camera.position.y-h)/Math.max(.25,Math.abs(Math.sin(pitch))),direction=new THREE.Vector3();camera.getWorldDirection(direction);camera.position.addScaledVector(direction,range*(1-1/ratio));},
+  orbit(dy,angle){orbit(dy,angle);},
   tap(){if(lastPointer==='mouse')canvas.requestPointerLock?.()?.catch?.(()=>{});}
  });
  // FPS-style look: a click locks the mouse to the view, the next click (or Esc) releases it.
@@ -130,6 +132,16 @@ function initControls(canvas){
  document.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas){yaw-=e.movementX*.0025;pitch=Math.max(-1.55,Math.min(1.5,pitch-e.movementY*.0025));}});
  document.addEventListener('pointerlockchange',()=>{const on=document.pointerLockElement===canvas;document.body.classList.toggle('mouselook',on);if(on)toast('マウスで視点操作中 · クリックまたは Esc で解除');});
  if(matchMedia('(pointer:coarse)').matches)document.querySelector('.instructions').textContent='1本指：地図移動 · 2本指：拡大縮小・回転 · 2本指を上下：傾き';
+}
+// Touch: turn (angle) and tilt (two-finger vertical drag) about the ground point at the view centre, as map apps do.
+function orbit(dy,angle){
+ // Looking near or above the horizon (ground view) there is no centre point: turn and tilt in place.
+ if(pitch>-.1){yaw+=angle;pitch=Math.max(-1.55,Math.min(1.5,pitch-dy*.003));return;}
+ const c=camera.position,ground=terrain.height(c.x,c.z)??0,dist=Math.min(20000,Math.max(20,c.y-ground)/Math.max(.08,-Math.sin(pitch)));
+ const dir=p=>new THREE.Vector3(-Math.sin(yaw)*Math.cos(p),Math.sin(p),-Math.cos(yaw)*Math.cos(p));
+ const pivot=c.clone().addScaledVector(dir(pitch),dist);
+ yaw+=angle;pitch=Math.max(-1.55,Math.min(-.08,pitch-dy*.003));
+ c.copy(pivot).addScaledVector(dir(pitch),-dist);
 }
 function moveForward(n){if(!camera)return;const d=new THREE.Vector3();camera.getWorldDirection(d);camera.position.addScaledVector(d,n*Math.max(1,camera.position.y/3500));}
 function move(dt){
