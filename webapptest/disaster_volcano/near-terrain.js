@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {Discard,Fn,If,clamp,floor,min,modelWorldMatrix,positionWorld,select,texture,uniform,vec2,vec3,vec4} from 'three/tsl';
 /**
  * Finer terrain shape around the camera (stage 1). A G×G grid of z15 tiles (~1 km each near 35°N) is meshed from
- * GSI DEM5A (laser, 5 m) → DEM5B (photogrammetry, 5 m) → DEM10B (z14 dem_png, 10 m), per sample, and drawn instead
+ * GSI DEM5A (laser, 5 m) → DEM5B (photogrammetry, 5 m) → DEM10B (z14 dem_png, 10 m), the finest one per tile, and drawn instead
  * of the coarse LOD terrain: coarse materials discard fragments over ready fine tiles (clip()) and their vertices
  * there are pushed just below the fine surface (lower()), so a hidden coarse hill cannot open a hole. Skirts hide the
  * cracks at the patch edge. Shared edges are stitched as in the VOLT LOD terrain: each edge vertex takes the mean
@@ -12,6 +12,17 @@ import {Discard,Fn,If,clamp,floor,min,modelWorldMatrix,positionWorld,select,text
 const WORLD=40075016.68557849,ZOOM=15,PX=256;
 const mobile=matchMedia('(pointer:coarse)').matches;
 const G=mobile?3:5,SEG=mobile?64:128,SKIRT=40,MAX_HEIGHT=5000,N=G*SEG+1,NONE=-1e4,MARGIN=.3;// grid side (odd), quads per tile side, skirt depth, max camera height above ground
+// Breadth-first fill of NaN samples with the mean of already-known 4-neighbours. False when all are NaN.
+function fillHoles(h,w){
+ let queue=[];for(let k=0;k<h.length;k++)if(Number.isNaN(h[k])&&[k-w,k+w,k%w?k-1:-1,(k+1)%w?k+1:-1].some(q=>q>=0&&q<h.length&&!Number.isNaN(h[q])))queue.push(k);
+ if(!queue.length)return !h.some(Number.isNaN);
+ while(queue.length){const next=[],done=[];
+  for(const k of queue){if(!Number.isNaN(h[k]))continue;let sum=0,c=0;for(const q of [k-w,k+w,k%w?k-1:-1,(k+1)%w?k+1:-1])if(q>=0&&q<h.length&&!Number.isNaN(h[q])){sum+=h[q];c++;}if(c)done.push([k,sum/c]);}
+  for(const [k,v] of done)h[k]=v;
+  for(const [k] of done)for(const q of [k-w,k+w,k%w?k-1:-1,(k+1)%w?k+1:-1])if(q>=0&&q<h.length&&Number.isNaN(h[q]))next.push(q);
+  queue=next;}
+ return true;
+}
 export class NearTerrain{
  constructor(terrain){
   this.terrain=terrain;this.tiles=new Map();this.loading=0;this.enabled=true;this.centre=null;
@@ -96,12 +107,18 @@ export class NearTerrain{
    const qx=(ax&1)*128,qy=(ay&1)*128;
    const sample=(grid,px,py,size,ox=0,oy=0)=>{if(!grid)return NaN;const u=Math.max(0,Math.min(size-1,px)),v=Math.max(0,Math.min(size-1,py)),i=Math.min(size-2,Math.floor(u)),j=Math.min(size-2,Math.floor(v)),fu=u-i,fv=v-j,at=(x,y)=>grid[(y+oy)*256+x+ox];
     const p=at(i,j),q=at(i+1,j),r=at(i,j+1),s=at(i+1,j+1);return Number.isNaN(p+q+r+s)?NaN:(p*(1-fu)+q*fu)*(1-fv)+(r*(1-fu)+s*fu)*fv;};
+   // One source per tile, the finest that has data here: mixing in older 10 m data (e.g. pre-eruption crater
+   // floors) next to 5 m laser data makes steps. Its own holes are filled below.
+   const hasData=g=>g&&g.some(v=>!Number.isNaN(v)),primary=hasData(a)?a:hasData(b)?b:c;
    const n=SEG,w=n+1,heights=new Float32Array(w*w);
    for(let j=0;j<=n;j++)for(let i=0;i<=n;i++){
     const px=i/n*PX-.5,py=j/n*PX-.5;// pixel centres
-    let h=sample(a,px,py,PX);if(Number.isNaN(h))h=sample(b,px,py,PX);if(Number.isNaN(h))h=sample(c,px/2,py/2,128,qx,qy);
-    heights[j*w+i]=Number.isNaN(h)?(t.height(...this.world(tile,i/n,j/n))??0):h;
+    const h=primary===a?sample(a,px,py,PX):primary===b?sample(b,px,py,PX):sample(c,px/2,py/2,128,qx,qy);
+    heights[j*w+i]=h;
    }
+   // Holes (no survey, e.g. inside active craters) are filled inwards from the surrounding fine samples.
+   // Coarse heights would stand up as towers there: the coarse DEM smooths a crater up to its rim.
+   if(!fillHoles(heights,w))for(let k=0;k<w*w;k++)heights[k]=t.height(...this.world(tile,k%w/n,Math.floor(k/w)/n))??0;
    tile.base=heights;tile.heights=heights.slice();
    const mesh=this.mesh(tile,tile.heights,photo);if(photo)photo.close();
    tile.mesh=mesh;this.group.add(mesh);this.stitch([tile]);this.updateMask();
