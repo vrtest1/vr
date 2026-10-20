@@ -10,7 +10,7 @@ python -m http.server 8765
 ```
 → http://127.0.0.1:8765/
 
-GitHub Pages など静的ホスティングにそのまま置けます（サーバー処理・APIキー不要）。
+GitHub Pages など静的ホスティングに、このフォルダ一式をそのまま置けます（サーバー処理・APIキー不要、ビルド不要）。
 
 ## 構成
 | ファイル | 内容 |
@@ -24,9 +24,11 @@ GitHub Pages など静的ホスティングにそのまま置けます（サー�
 | `near-imagery.js` | カメラ周辺の高精細写真を真上から投影（地形・高精細テクスチャ・建物の屋根）。PC：ズーム18（約0.5 m/px）約1 km四方＋ズーム16（約2 m/px）約4 km四方、スマホ：ズーム17 約2 km四方。9×9（スマホ 8×8）タイルのリングバッファで、移動時は入れ替わった端だけ読み直す。地上から高いと自動で無効（ズーム18は2,500 m、ズーム16は12,000 m） |
 | `plateau.js` | PLATEAU 建物（3D Tiles b3dm + Draco）。テクスチャ付き LOD2 は元のテクスチャ、無い部分は屋根に航空写真・壁は灰色。LOD2：半径 2 km（スマホ 1 km）を LOD2、外側 6 km（スマホ 3 km）までを LOD1（建物ごとに中心の距離で振り分け）。LOD1：半径 6 km。「LOD2の範囲を10倍」で LOD2 を半径 20 km（最大 400 タイル）まで。`volt_map_base/lib/plateau.js` と同じ（読み込みパスのみ違う） |
 | `plateau-geoid.json` | 国土地理院 ジオイド2011 を PLATEAU 対象市区町村の範囲で 0.2° 格子に計算した表（国土地理院 API はブラウザから直接呼べないため同梱）。範囲外は建物の接地高さと地形の差から推定 |
-| `vendor/addons`, `vendor/draco` | three.js r180 付属の GLTFLoader / DRACOLoader / Draco デコーダ |
-| `terrain.js` ほか | 元アプリの地形 LOD（`lod-terrain.js` に高精細テクスチャの呼び出しを追加。ほかは変更なし） |
-| `_original/` | 元の disaster アプリ（参照用。公開には不要） |
+| `terrain.js` ほか | 元アプリの地形 LOD（`terrain.js`・`lod-plan.js`・`terrain-seams.js`・`tile-cache.js` は変更なし。`lod-terrain.js` は高精細テクスチャ・周辺写真の呼び出しと、地形マテリアルの NodeMaterial 化を追加） |
+| `map-gestures.js` | 元アプリのマウス・タッチ操作（変更なし） |
+| `vendor/three.*.js` | three.js r180（WebGPU ビルド、TSL） |
+| `vendor/addons/` | three.js r180 付属の GLTFLoader、DRACOLoader、BufferGeometryUtils |
+| `vendor/draco/` | Draco デコーダ（wasm）。three.js r180 に同梱のもの |
 
 ## データ
 - 気象庁 防災情報XML：`eqvol_l.xml`（起動時、約1週間分）→ `eqvol.xml`（60秒ごと）。CORS 許可あり（`Access-Control-Allow-Origin: *`、2026-10-20 確認）。
@@ -34,3 +36,10 @@ GitHub Pages など静的ホスティングにそのまま置けます（サー�
 - 噴煙の広がり・降灰の筋は見た目の再現で、拡散計算や降灰予報ではありません。
 - 箱根山の「想定」は仮の値。「2015年 再現」は気象庁 火山活動解説資料（平成27年6・7月）の記録（噴煙 約50 m、降灰 北〜北東 最大約1.2 km）。向き・風速は推定・仮定。火口位置は国土地理院の地名「大涌谷」の点で、15-1火口の測量座標ではありません。
 - 建物：国土交通省 PLATEAU（`api.plateauview.mlit.go.jp/datacatalog` の全国 3D Tiles）。CORS 許可あり（2026-10-20 確認）。箱根町はテクスチャ無し、品川区などは一部テクスチャ付き。
+
+## ライセンス
+- three.js：MIT License（`vendor/THREE-LICENSE.txt`）。`vendor/addons/` も three.js の一部です。
+- Draco デコーダ（Google）：Apache License 2.0（`vendor/draco/LICENSE`、google/draco リポジトリから取得）。
+- 地図・標高・写真・地名検索：国土地理院（地理院タイル、地名検索、ジオイド2011）。画面下に出典を表示しています。
+- 建物：国土交通省 PLATEAU（3D都市モデル）。建物の表示中は画面下に出典を表示します。
+- 火山情報：気象庁 防災情報XML（気象庁ホームページの利用規約に従って加工）。
