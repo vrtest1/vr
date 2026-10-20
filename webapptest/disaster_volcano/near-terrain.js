@@ -121,9 +121,18 @@ export class NearTerrain{
     const h=primary===a?sample(a,px,py,PX):primary===b?sample(b,px,py,PX):sample(c,px/2,py/2,128,qx,qy);
     heights[j*w+i]=h;
    }
-   // Holes (no survey, e.g. inside active craters) are filled inwards from the surrounding fine samples.
-   // Coarse heights would stand up as towers there: the coarse DEM smooths a crater up to its rim.
-   if(!fillHoles(heights,w))for(let k=0;k<w*w;k++)heights[k]=t.height(...this.world(tile,k%w/n,Math.floor(k/w)/n))??0;
+   // Holes (no survey, e.g. inside active craters): keep the shape of the 10 m DEM and fill only the difference
+   // fine − 10 m inwards from the hole's edge. The 10 m DEM as is would stand up as towers (older surveys, crater
+   // floors near rim height); heights alone make wide holes flat. Where the 10 m DEM is missing too (sea), the
+   // heights are filled plainly from the edge: the coarse LOD terrain is no guide there (the difference to a
+   // smoothed coast would carry the sea surface hundreds of metres down).
+   if(heights.some(Number.isNaN)){
+    const coarse=k=>t.height(...this.world(tile,k%w/n,Math.floor(k/w)/n))??NaN;
+    const guide=new Float32Array(w*w);for(let k=0;k<w*w;k++){const px=(k%w)/n*PX-.5,py=Math.floor(k/w)/n*PX-.5;guide[k]=primary!==c?sample(c,px/2,py/2,128,qx,qy):NaN;}
+    const diff=heights.map((h,k)=>h-guide[k]);// NaN where either is missing
+    if(fillHoles(diff,w))for(let k=0;k<w*w;k++)if(Number.isNaN(heights[k]))heights[k]=guide[k]+diff[k];// still NaN where the guide is missing too
+    if(!fillHoles(heights,w))for(let k=0;k<w*w;k++)heights[k]=coarse(k)||0;
+   }
    tile.base=heights;tile.heights=heights.slice();
    const mesh=this.mesh(tile,tile.heights,photo);if(photo)photo.close();
    tile.mesh=mesh;this.group.add(mesh);this.stitch([tile]);this.updateMask();
