@@ -13,14 +13,19 @@ const WORLD=40075016.68557849,ZOOM=15,PX=256;
 const mobile=matchMedia('(pointer:coarse)').matches;
 const G=mobile?3:5,SEG=mobile?64:128,SKIRT=40,MAX_HEIGHT=5000,N=G*SEG+1,NONE=-1e4,MARGIN=.3;// grid side (odd), quads per tile side, skirt depth, max camera height above ground
 // Breadth-first fill of NaN samples with the mean of already-known 4-neighbours. False when all are NaN.
+// Each sample is queued at most once (`queued`), so the work is bounded by the grid size.
 function fillHoles(h,w){
- let queue=[];for(let k=0;k<h.length;k++)if(Number.isNaN(h[k])&&[k-w,k+w,k%w?k-1:-1,(k+1)%w?k+1:-1].some(q=>q>=0&&q<h.length&&!Number.isNaN(h[q])))queue.push(k);
- if(!queue.length)return !h.some(Number.isNaN);
- while(queue.length){const next=[],done=[];
-  for(const k of queue){if(!Number.isNaN(h[k]))continue;let sum=0,c=0;for(const q of [k-w,k+w,k%w?k-1:-1,(k+1)%w?k+1:-1])if(q>=0&&q<h.length&&!Number.isNaN(h[q])){sum+=h[q];c++;}if(c)done.push([k,sum/c]);}
-  for(const [k,v] of done)h[k]=v;
-  for(const [k] of done)for(const q of [k-w,k+w,k%w?k-1:-1,(k+1)%w?k+1:-1])if(q>=0&&q<h.length&&Number.isNaN(h[q]))next.push(q);
-  queue=next;}
+ const size=h.length,queued=new Uint8Array(size),near=k=>[k-w,k+w,k%w?k-1:-1,(k+1)%w?k+1:-1].filter(q=>q>=0&&q<size);
+ let front=[];
+ for(let k=0;k<size;k++)if(Number.isNaN(h[k])&&near(k).some(q=>!Number.isNaN(h[q]))){front.push(k);queued[k]=1;}
+ if(!front.length)return !h.some(Number.isNaN);
+ while(front.length){
+  // Values of this ring come only from samples known before it, then the ring is committed at once.
+  const values=front.map(k=>{let sum=0,c=0;for(const q of near(k))if(!Number.isNaN(h[q])){sum+=h[q];c++;}return sum/c;});
+  front.forEach((k,i)=>h[k]=values[i]);
+  const next=[];for(const k of front)for(const q of near(k))if(!queued[q]&&Number.isNaN(h[q])){queued[q]=1;next.push(q);}
+  front=next;
+ }
  return true;
 }
 export class NearTerrain{
