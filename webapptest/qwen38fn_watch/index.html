@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>星陀 SEIJADO — HEURE NOCTURNE Ref.1962</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,600;1,6..96,400&family=IBM+Plex+Mono:wght@300;400;500&family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ============ base ============ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0d11; --bg2:#141922; --ink:#eae6dd; --dim:#8b93a1;
+  --line:rgba(233,226,212,.14);
+  --brass:#c9a24a; --blued:#5b8fd8; --lume:#9fffe4;
+  --serif:'Bodoni Moda',serif; --jp:'Shippori Mincho B1',serif;
+  --sans:'Zen Kaku Gothic New',sans-serif; --mono:'IBM Plex Mono',monospace;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:var(--sans); font-weight:300;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(900px 620px at 12% -8%, rgba(91,143,216,.16), transparent 62%),
+    radial-gradient(760px 560px at 92% 12%, rgba(201,162,74,.12), transparent 60%),
+    radial-gradient(1000px 800px at 50% 120%, rgba(120,160,200,.08), transparent 65%);
+}
+body::after{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:1;
+  opacity:.05; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.wrap{position:relative;z-index:2;max-width:1280px;margin:0 auto;padding:0 clamp(18px,4vw,56px)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+::selection{background:var(--brass);color:#0b0d11}
+
+/* ============ header ============ */
+header{
+  position:sticky;top:0;z-index:40;border-bottom:1px solid var(--line);
+  background:rgba(11,13,17,.82);backdrop-filter:blur(10px);
+}
+.hd{display:flex;align-items:center;gap:28px;height:64px}
+.mark{display:flex;align-items:baseline;gap:10px;font-family:var(--serif);letter-spacing:.22em;font-size:17px}
+.mark b{font-weight:600}
+.mark i{font-style:normal;font-family:var(--jp);font-weight:600;font-size:13px;letter-spacing:.3em;color:var(--brass)}
+nav{display:flex;gap:26px;margin-left:auto;font-size:12px;letter-spacing:.18em}
+nav a{color:var(--dim);text-decoration:none;position:relative;padding:6px 0;transition:color .3s}
+nav a::after{
+  content:"";position:absolute;left:0;bottom:0;height:1px;width:100%;background:var(--brass);
+  transform:scaleX(0);transform-origin:right;transition:transform .45s cubic-bezier(.2,.8,.2,1);
+}
+nav a:hover{color:var(--ink)} nav a:hover::after{transform:scaleX(1);transform-origin:left}
+.now{font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.08em;
+  border-left:1px solid var(--line);padding-left:22px;min-width:150px}
+@media(max-width:860px){nav{display:none}}
+
+/* ============ hero ============ */
+.stage{
+  display:grid;grid-template-columns:1.02fr .98fr;gap:clamp(24px,4vw,64px);align-items:center;
+  padding:clamp(40px,6vw,86px) 0 clamp(50px,7vw,110px);position:relative;
+}
+.ambient{
+  position:absolute;right:-14%;top:50%;width:760px;height:760px;translate:0 -50%;
+  pointer-events:none;border:1px dashed rgba(201,162,74,.16);border-radius:50%;
+  animation:spin 140s linear infinite;
+}
+.ambient::before{content:"";position:absolute;inset:12%;border:1px solid rgba(140,170,210,.09);border-radius:50%}
+@keyframes spin{to{rotate:360deg}}
+.copy{order:2}
+.watchcol{order:1;display:flex;flex-direction:column;align-items:center;gap:26px}
+.eyebrow{display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:11px;
+  letter-spacing:.3em;color:var(--brass);text-transform:uppercase}
+.eyebrow::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--brass),transparent)}
+h1{font-family:var(--serif);font-weight:400;line-height:.86;letter-spacing:-.01em;
+  font-size:clamp(3.2rem,8.4vw,7.2rem);margin:22px 0 0}
+h1 em{display:block;font-style:italic;color:var(--brass);margin-left:.06em}
+.sub-jp{font-family:var(--jp);font-weight:600;font-size:clamp(1.05rem,2vw,1.5rem);
+  letter-spacing:.14em;margin-top:26px;color:#f4efe4}
+.lede{margin-top:16px;max-width:44ch;line-height:2;color:#b9bfc9;font-size:14.5px}
+.specstrip{display:flex;flex-wrap:wrap;margin-top:34px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.specstrip div{flex:1 1 120px;padding:16px 18px 15px;border-right:1px solid var(--line)}
+.specstrip div:last-child{border-right:0}
+.specstrip b{display:block;font-family:var(--serif);font-size:26px;font-weight:400}
+.specstrip span{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--dim)}
+.readout{margin-top:26px;font-family:var(--mono);font-size:13px;color:var(--dim);
+  letter-spacing:.1em;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.readout .t{color:var(--ink);font-size:19px;letter-spacing:.06em}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--blued);
+  box-shadow:0 0 10px var(--blued);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.25}}
+
+/* ============ watch ============ */
+.watch-3d{
+  --rx:0deg; --ry:0deg;
+  transform:perspective(1400px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition:transform .5s cubic-bezier(.2,.8,.2,1);will-change:transform;
+}
+#watch{width:min(470px,86vw);height:auto;display:block;overflow:visible}
+#watch line,#watch circle,#watch path,#watch rect,#watch text,#watch ellipse,#watch polygon{
+  transition:fill .7s ease,stroke .7s ease,opacity .7s ease,stop-color .7s ease;
+}
+/* dial themes */
+#watch[data-dial="midnight"]{
+  --dial-a:#2c4f79; --dial-b:#12233c; --dial-c:#060f1b;
+  --case-a:#eef3f8; --case-b:#9fc4ff; --case-c:#cfe0f2;
+  --hand:#f4f8fc; --hand2:#93a5ba; --lume-c:#e9e3cd;
+  --text:#dbe6f2; --index:#eef3f8; --track:#cfe0f2;
+  --sub:#0d1d30; --sec:#6ba0e8; --aper:#0a1422; --aper-t:#f0f5fa;
+}
+#watch[data-dial="opaline"]{
+  --dial-a:#faf7f0; --dial-b:#e3ded3; --dial-c:#c6bfb1;
+  --case-a:#fff6ea; --case-b:#8d8578; --case-c:#33383f;
+  --hand:#25407f; --hand2:#152a58; --lume-c:#f7f2e6;
+  --text:#2c313a; --index:#c08a52; --track:#33383f;
+  --sub:#efeade; --sec:#25407f; --aper:#f6f2e9; --aper-t:#22262e;
+}
+#watch[data-dial="salmon"]{
+  --dial-a:#f0b795; --dial-b:#d98f6d; --dial-c:#b56a4c;
+  --case-a:#ffe6cf; --case-b:#7a3f28; --case-c:#4a2a1e;
+  --hand:#3a2318; --hand2:#20130c; --lume-c:#fbe6d4;
+  --text:#4a2a1e; --index:#fff3e6; --track:#4a2a1e;
+  --sub:#e3a486; --sec:#7d3b22; --aper:#f7ddc9; --aper-t:#3a2318;
+}
+#watch[data-dial="noir"]{
+  --dial-a:#22262c; --dial-b:#101317; --dial-c:#05070a;
+  --case-a:#e0b877; --case-b:#6b7484; --case-c:#c9a24a;
+  --hand:#e6e1d6; --hand2:#8e887c; --lume-c:#cfe0c9;
+  --text:#cbb894; --index:#e0b877; --track:#c9a24a;
+  --sub:#0c0f13; --sec:#c9a24a; --aper:#0b0d10; --aper-t:#e0b877;
+}
+/* lume mode */
+#watch.lume{
+  --dial-a:#0b1118; --dial-b:#060a0f; --dial-c:#020508;
+  --case-a:#111922; --case-b:#0a1017; --case-c:#05080c;
+  --hand:#1c2733; --hand2:#131c26; --lume:#9fffe4;
+  --text:#243240; --index:#1b2530; --track:#233040;
+  --sub:#060b10; --sec:#1a2733; --aper:#070c11; --aper-t:#1e2a36;
+}
+#watch.lume .lume{fill:var(--lume);filter:drop-shadow(0 0 7px rgba(120,255,205,.8))}
+#watch.lume .hand-metal{fill:#16202b}
+#watch.lume .crystal{opacity:.25}
+/* gradient stops driven by theme vars */
+#gDial .s0{stop-color:var(--dial-a)} #gDial .s1{stop-color:var(--dial-b)} #gDial .s2{stop-color:var(--dial-c)}
+.dial-face{fill:url(#gDial)}
+.case-body{fill:url(#gCase)}
+.case-inner{fill:none;stroke:#000;stroke-opacity:.35;stroke-width:1.5}
+.case-ring{fill:none;stroke:#fff;stroke-opacity:.22;stroke-width:1}
+.bezel{fill:none;stroke:var(--track);stroke-opacity:.35;stroke-width:.7}
+.tick{stroke:var(--track);stroke-opacity:.55;stroke-width:.9}
+.tick.major{stroke:var(--track);stroke-opacity:.95;stroke-width:2}
+.idx{fill:var(--index)}
+.lume{fill:var(--lume-c)}
+.brand{fill:var(--text)}
+.brand-mono{fill:var(--text);opacity:.62}
+.sub-face{fill:var(--sub)}
+.sub-ring{fill:none;stroke:var(--track);stroke-opacity:.35;stroke-width:.8}
+.sub-tick{stroke:var(--track);stroke-opacity:.45;stroke-width:.7}
+.sub-tick.major{stroke:var(--track);stroke-opacity:.9;stroke-width:1.4}
+.sub-num{fill:var(--text)}
+.aper{fill:var(--aper);stroke:var(--index);stroke-opacity:.7;stroke-width:.9}
+.aper-t{fill:var(--aper-t)}
+.hand-metal{fill:var(--hand)}
+.hand-shadow{fill:var(--hand2);fill-opacity:.55}
+.sec-hand{stroke:var(--sec);stroke-width:1;stroke-linecap:round}
+.sec-dot{fill:var(--sec)}
+.cap{fill:var(--hand)}
+.cap-pin{fill:var(--dial-c)}
+.hands{filter:drop-shadow(2px 5px 4px rgba(0,0,0,.45))}
+.crown,.pusher{cursor:pointer}
+.crown:hover .crown-face,.pusher:hover .pusher-face{fill:var(--case-a)}
+#watch.night #sunG{opacity:0} #watch.night #moonG{opacity:1}
+#watch:not(.night) #sunG{opacity:1} #watch:not(.night) #moonG{opacity:0}
+#sunG,#moonG{transition:opacity .6s ease}
+.sheen{animation:sheen 9s cubic-bezier(.6,0,.4,1) infinite}
+@keyframes sheen{0%{transform:translateX(-300px)}45%,100%{transform:translateX(620px)}}
+
+/* controls */
+.controls{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
+.sw{display:flex;gap:8px;padding:6px;border:1px solid var(--line);border-radius:2px}
+.sw button{
+  width:26px;height:26px;border-radius:50%;border:1px solid rgba(255,255,255,.18);
+  cursor:pointer;transition:transform .3s,box-shadow .3s;padding:0;
+}
+.sw button:hover{transform:scale(1.14)}
+.sw button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--brass)}
+.btn{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--dim);
+  background:transparent;border:1px solid var(--line);padding:9px 16px;cursor:pointer;
+  transition:.35s;border-radius:2px}
+.btn:hover{color:var(--ink);border-color:var(--brass)}
+.btn[aria-pressed="true"]{background:var(--brass);color:#0b0d11;border-color:var(--brass)}
+.hint{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:#5d6472;text-align:center}
+
+/* ============ sections ============ */
+section{padding:clamp(60px,9vw,120px) 0;position:relative}
+.shead{display:flex;align-items:flex-end;gap:28px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:8px}
+.shead h2{font-family:var(--jp);font-weight:800;font-size:clamp(1.8rem,4vw,3rem);
+  letter-spacing:.06em;line-height:1}
+.shead .lat{font-family:var(--serif);font-style:italic;font-size:clamp(1rem,2vw,1.4rem);color:var(--brass)}
+.shead .no{font-family:var(--mono);font-size:11px;letter-spacing:.3em;color:var(--dim);margin-left:auto}
+
+/* world time */
+#worldList{border-bottom:1px solid var(--line)}
+.wrow{
+  position:relative;display:grid;grid-template-columns:56px minmax(150px,1fr) auto auto;
+  gap:clamp(14px,3vw,34px);align-items:center;padding:22px 14px;overflow:hidden;
+  transition:padding .4s;
+}
+.wrow::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,rgba(201,162,74,.10),transparent 70%);
+  transform:scaleX(0);transform-origin:left;transition:transform .6s cubic-bezier(.2,.8,.2,1);
+}
+.wrow:hover::before{transform:scaleX(1)}
+.wrow:hover{padding-left:26px}
+.mini{width:52px;height:52px;display:block}
+.mini-case{fill:#2a323d} .mini-dial{fill:#0d131b}
+.mtick{stroke:#7d8794;stroke-width:1} .mtick.major{stroke:#e0b877;stroke-width:2}
+.mh rect,.mm rect{fill:#e6e1d6} .ms rect{fill:#5b8fd8}
+.mini-cap{fill:#e0b877}
+.city b{display:block;font-family:var(--jp);font-weight:600;font-size:1.25rem;letter-spacing:.12em}
+.city span{font-family:var(--serif);font-style:italic;font-size:13px;color:var(--dim)}
+.wtime{font-family:var(--serif);font-size:clamp(1.9rem,4.6vw,3.1rem);line-height:1;
+  letter-spacing:.01em;font-variant-numeric:tabular-nums}
+.wtime small{font-size:.42em;color:var(--brass);margin-left:6px;letter-spacing:.1em}
+.wmeta{text-align:right;font-family:var(--mono);font-size:11px;color:var(--dim);
+  letter-spacing:.14em;line-height:1.9;display:grid}
+.wmeta .dn{color:var(--brass)}
+@media(max-width:700px){
+  .wrow{grid-template-columns:44px 1fr auto}
+  .wmeta{grid-column:2/4;text-align:left}
+}
+
+/* calibre */
+.cal{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(28px,5vw,64px);align-items:center;margin-top:44px}
+@media(max-width:900px){.cal{grid-template-columns:1fr}}
+.movement{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:14px}
+.perlage circle{fill:none;stroke:#9fb4cc;stroke-opacity:.07}
+.gear{transform-box:view-box}
+#gear1{transform-origin:118px 200px;animation:spin 26s linear infinite}
+#gear2{transform-origin:214px 132px;animation:spin 17s linear infinite reverse}
+#gear3{transform-origin:150px 96px;animation:spin 40s linear infinite}
+.balance{transform-box:view-box;transform-origin:320px 190px;
+  animation:bal .333s cubic-bezier(.45,0,.55,1) infinite}
+@keyframes bal{0%{rotate:-150deg}50%{rotate:150deg}100%{rotate:-150deg}}
+.cal h3{font-family:var(--jp);font-weight:600;font-size:1.5rem;letter-spacing:.1em;margin-bottom:16px}
+.cal p{color:#b3bac5;line-height:2.05;font-size:14.5px}
+.bars{margin-top:30px;display:grid;gap:20px}
+.bar b{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--dim);
+  display:flex;justify-content:space-between}
+.bar i{display:block;height:2px;background:rgba(255,255,255,.09);margin-top:9px;position:relative}
+.bar i::after{content:"";position:absolute;inset:0;width:var(--w,0%);
+  background:linear-gradient(90deg,var(--blued),var(--brass));
+  transition:width 1.6s cubic-bezier(.2,.8,.2,1) .2s}
+
+/* spec */
+.dl{display:grid;grid-template-columns:1fr 1fr;gap:0 clamp(28px,6vw,80px);margin-top:36px}
+@media(max-width:760px){.dl{grid-template-columns:1fr}}
+.dl div{display:flex;justify-content:space-between;gap:20px;padding:17px 4px;
+  border-bottom:1px solid var(--line);transition:background .4s,padding .4s}
+.dl div:hover{background:rgba(255,255,255,.03);padding-left:12px}
+.dl dt{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--dim);padding-top:4px}
+.dl dd{font-family:var(--jp);font-weight:600;font-size:15px;text-align:right;letter-spacing:.05em}
+
+footer{border-top:1px solid var(--line);padding:44px 0 60px;margin-top:40px}
+.ft{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:#5d6472}
+.ft a{color:inherit;text-decoration:none}
+.ft a:hover{color:var(--brass)}
+
+/* reveal */
+[data-reveal]{opacity:0;transform:translateY(26px);
+  transition:opacity .95s cubic-bezier(.2,.8,.2,1),transform .95s cubic-bezier(.2,.8,.2,1);
+  transition-delay:var(--d,0s)}
+[data-reveal].is-in{opacity:1;transform:none}
+
+@media(max-width:960px){
+  .stage{grid-template-columns:1fr}
+  .ambient{display:none}
+  .copy{order:2} .watchcol{order:-1}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition-duration:.01ms!important}
+  [data-reveal]{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap hd">
+    <div class="mark"><b>SEIJADO</b><i>星陀</i></div>
+    <nav>
+      <a href="#stage">文字盤</a><a href="#world">世界時刻</a>
+      <a href="#calibre">機構</a><a href="#spec">仕様</a>
+    </nav>
+    <div class="now" id="hdNow">--:--:--</div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ===== HERO / DIAL ===== -->
+  <section class="stage" id="stage">
+    <div class="ambient"></div>
+
+    <div class="watchcol">
+      <div class="watch-3d" id="tilt">
+        <svg id="watch" data-dial="midnight" viewBox="-100 -100 200 200" role="img"
+             aria-label="星陀 HEURE NOCTURNE のアナログ文字盤">
+          <title>星陀 HEURE NOCTURNE Ref.1962</title>
+          <defs>
+            <radialGradient id="gCase" cx="34%" cy="20%" r="88%">
+              <stop offset="0%" class="s0"/><stop offset="36%" class="s1"/>
+              <stop offset="60%" class="s2"/><stop offset="100%" class="s1"/>
+            </radialGradient>
+            <radialGradient id="gDial" cx="40%" cy="28%" r="84%">
+              <stop offset="0%" class="s0"/><stop offset="60%" class="s1"/>
+              <stop offset="100%" class="s2"/>
+            </radialGradient>
+            <linearGradient id="gGlare" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#fff" stop-opacity=".2"/>
+              <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="gSheen" x1="0" x2="1">
+              <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+              <stop offset=".5" stop-color="#fff" stop-opacity=".14"/>
+              <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+            <radialGradient id="gShadow">
+              <stop offset="0" stop-color="#000" stop-opacity=".6"/>
+              <stop offset="1" stop-color="#000" stop-opacity="0"/>
+            </radialGradient>
+            <clipPath id="clipDial"><circle cx="0" cy="0" r="88"/></clipPath>
+          </defs>
+
+          <ellipse cx="0" cy="52" rx="150" ry="20" fill="url(#gShadow)"/>
+
+          <!-- case -->
+          <circle class="case-body" cx="0" cy="0" r="98"/>
+          <circle class="case-inner" cx="0" cy="0" r="92"/>
+          <circle class="case-ring" cx="0" cy="0" r="88"/>
+          <circle class="bezel" cx="0" cy="0" r="86"/>
+
+          <!-- crown + pusher -->
+          <g class="crown" id="crown"><title>駆動方式の切替（スウィープ / 秒飛び）</title>
+            <rect class="crown-face" x="97" y="-14" width="14" height="28" rx="3" fill="var(--case-b)"/>
+            <g stroke="var(--case-c)" stroke-width="1.2">
+              <line x1="100" y1="-10" x2="100" y2="10"/><line x1="104" y1="-10" x2="104" y2="10"/>
+              <line x1="108" y1="-10" x2="108" y2="10"/>
+            </g>
+          </g>
+          <g class="pusher" id="pusher"><title>夜光モードの切替</title>
+            <rect class="pusher-face" x="94" y="34" width="18" height="12" rx="4"
+                  fill="var(--case-b)" transform="rotate(30 103 40)"/>
+          </g>
+
+          <!-- dial -->
+          <circle class="dial-face" cx="0" cy="0" r="86"/>
+          <g id="ticks"></g>
+          <g id="indices"></g>
+
+          <!-- day / night at 12 -->
+          <g id="daynight">
+            <rect class="aper" x="-11" y="-66" width="22" height="18" rx="4"/>
+            <g id="sunG">
+              <circle cx="0" cy="-57" r="4" fill="var(--aper-t)"/>
+              <g stroke="var(--aper-t)" stroke-width="1" stroke-linecap="round">
+                <line x1="0" y1="-64.5" x2="0" y2="-63"/><line x1="0" y1="-51" x2="0" y2="-49.5"/>
+                <line x1="-7.5" y1="-57" x2="-6" y2="-57"/><line x1="6" y1="-57" x2="7.5" y2="-57"/>
+                <line x1="-5.3" y1="-62.3" x2="-4.2" y2="-61.2"/><line x1="4.2" y1="-52.8" x2="5.3" y2="-51.7"/>
+                <line x1="-5.3" y1="-51.7" x2="-4.2" y2="-52.8"/><line x1="4.2" y1="-61.2" x2="5.3" y2="-62.3"/>
+              </g>
+            </g>
+            <g id="moonG">
+              <path d="M 3 -62 A 5.5 5.5 0 1 0 3 -52 A 4.4 4.4 0 1 1 3 -62 Z" fill="var(--aper-t)"/>
+            </g>
+          </g>
+
+          <!-- brand -->
+          <text class="brand" x="0" y="-30" text-anchor="middle"
+                font-family="Bodoni Moda, serif" font-size="11" letter-spacing="3">SEIJADO</text>
+          <text class="brand-mono" x="0" y="-18" text-anchor="middle"
+                font-family="IBM Plex Mono, monospace" font-size="5" letter-spacing="2.6">AUTOMATIQUE</text>
+
+          <!-- date at 3 / weekday at 9 -->
+          <g>
+            <rect class="aper" x="44" y="-9" width="24" height="18" rx="3"/>
+            <text id="dateT" class="aper-t" x="56" y="4" text-anchor="middle"
+                  font-family="Bodoni Moda, serif" font-size="13">--</text>
+          </g>
+          <g>
+            <rect class="aper" x="-68" y="-9" width="24" height="18" rx="3"/>
+            <text id="weekT" class="aper-t" x="-56" y="4" text-anchor="middle"
+                  font-family="Shippori Mincho B1, serif" font-weight="600" font-size="12">-</text>
+          </g>
+
+          <!-- small seconds at 6 -->
+          <g id="sub" transform="translate(0 46)">
+            <circle class="sub-face" cx="0" cy="0" r="24"/>
+            <circle class="sub-ring" cx="0" cy="0" r="24"/>
+            <g id="subticks"></g>
+            <text class="sub-num" x="0" y="-13" text-anchor="middle" font-family="Bodoni Moda, serif" font-size="6">60</text>
+            <text class="sub-num" x="14" y="2" text-anchor="middle" font-family="Bodoni Moda, serif" font-size="6">20</text>
+            <text class="sub-num" x="-14" y="2" text-anchor="middle" font-family="Bodoni Moda, serif" font-size="6">40</text>
+          </g>
+
+          <text class="brand-mono" x="-14" y="78" text-anchor="end"
+                font-family="IBM Plex Mono, monospace" font-size="4.6" letter-spacing="1.4">SWISS</text>
+          <text class="brand-mono" x="14" y="78" text-anchor="start"
+                font-family="IBM Plex Mono, monospace" font-size="4.6" letter-spacing="1.4">MADE</text>
+
+          <!-- hands -->
+          <g class="hands">
+            <g id="hHand">
+              <path class="hand-shadow" d="M-3.4 10 L-2.8 -44 L0 -52 L2.8 -44 L3.4 10 Z"/>
+              <path class="hand-metal" d="M-3 9 L-2.4 -44 L0 -51 L2.4 -44 L3 9 Z"/>
+              <rect class="lume" x="-1.5" y="-42" width="3" height="34" rx="1.5"/>
+            </g>
+            <g id="mHand">
+              <path class="hand-shadow" d="M-2.6 12 L-2.1 -66 L0 -74 L2.1 -66 L2.6 12 Z"/>
+              <path class="hand-metal" d="M-2.2 11 L-1.7 -66 L0 -73 L1.7 -66 L2.2 11 Z"/>
+              <rect class="lume" x="-1.2" y="-64" width="2.4" height="52" rx="1.2"/>
+            </g>
+            <g id="sHand" transform="translate(0 46)">
+              <line class="sec-hand" x1="0" y1="6" x2="0" y2="-21"/>
+              <circle class="sec-dot" cx="0" cy="0" r="1.8"/>
+            </g>
+            <circle class="cap" cx="0" cy="0" r="4.4"/>
+            <circle class="cap-pin" cx="0" cy="0" r="1.8"/>
+          </g>
+
+          <!-- crystal -->
+          <g class="crystal" clip-path="url(#clipDial)" style="pointer-events:none">
+            <ellipse cx="-26" cy="-30" rx="66" ry="46" fill="url(#gGlare)" id="glare"/>
+            <g class="sheen"><rect x="-40" y="-160" width="44" height="320"
+              fill="url(#gSheen)" transform="rotate(22)"/></g>
+          </g>
+        </svg>
+      </div>
+
+      <div class="controls">
+        <div class="sw" role="group" aria-label="文字盤の仕上げ">
+          <button data-dial="midnight" style="background:linear-gradient(135deg,#2c4f79,#0a1626)" aria-pressed="true" title="ミッドナイト"></button>
+          <button data-dial="opaline"  style="background:linear-gradient(135deg,#faf7f0,#cfc8ba)" aria-pressed="false" title="オパリン"></button>
+          <button data-dial="salmon"   style="background:linear-gradient(135deg,#f0b795,#b56a4c)" aria-pressed="false" title="サーモン"></button>
+          <button data-dial="noir"     style="background:linear-gradient(135deg,#22262c,#05070a)" aria-pressed="false" title="ノワール"></button>
+        </div>
+        <button class="btn" id="btnSweep" aria-pressed="true">駆動 / スウィープ</button>
+        <button class="btn" id="btnLume"  aria-pressed="false">夜光</button>
+      </div>
+      <p class="hint">竜頭＝駆動切替・プッシャー＝夜光・文字盤にマウスをのせると反射が動きます</p>
+    </div>
+
+    <div class="copy">
+      <div class="eyebrow" data-reveal>Manufacture Horlogère — Depuis 1962</div>
+      <h1 data-reveal style="--d:.08s">Heure<em>Nocturne</em></h1>
+      <p class="sub-jp" data-reveal style="--d:.16s">夜明けまで、あと少し。</p>
+      <p class="lede" data-reveal style="--d:.22s">
+        三針ではなく、四つの窓。12時に昼夜、3時に日付、9時に曜日、6時にスモールセコンド。
+        必要なのはそれだけだと、設計者は言い切った。Ref.1962 は今日もあなたの机の上で、
+        一秒に八回の呼吸を繰り返している。
+      </p>
+      <div class="specstrip" data-reveal style="--d:.3s">
+        <div><b>40.0</b><span>MM / CASE</span></div>
+        <div><b>72</b><span>HRS / RESERVE</span></div>
+        <div><b>21,600</b><span>VPH / BALANCE</span></div>
+        <div><b>50</b><span>M / WATER</span></div>
+      </div>
+      <div class="readout" data-reveal style="--d:.36s">
+        <span class="dot"></span>
+        <span class="t" id="dig">--:--:--</span>
+        <span id="digDate">----年--月--日（-）</span>
+      </div>
+      <p class="sr" id="a11y" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <!-- ===== WORLD TIME ===== -->
+  <section id="world">
+    <div class="shead" data-reveal>
+      <h2>世界時刻</h2><span class="lat">Le Temps des Villes</span>
+      <span class="no">02 / FUSEAUX</span>
+    </div>
+    <div id="worldList"></div>
+  </section>
+
+  <!-- ===== CALIBRE ===== -->
+  <section id="calibre">
+    <div class="shead" data-reveal>
+      <h2>キャリバー S-24</h2><span class="lat">Mouvement Automatique</span>
+      <span class="no">03 / MOUVEMENT</span>
+    </div>
+    <div class="cal">
+      <svg class="movement" viewBox="0 0 420 300" data-reveal aria-hidden="true">
+        <defs>
+          <radialGradient id="gPlate" cx="28%" cy="18%" r="95%">
+            <stop offset="0%" stop-color="#1b212b"/><stop offset="70%" stop-color="#101419"/>
+            <stop offset="100%" stop-color="#0a0d11"/>
+          </radialGradient>
+        </defs>
+        <rect x="0" y="0" width="420" height="300" rx="14" fill="url(#gPlate)"/>
+        <g class="perlage" id="perlage"></g>
+        <g class="gear" id="gear3"></g>
+        <g class="gear" id="gear1"></g>
+        <g class="gear" id="gear2"></g>
+        <g class="balance" id="balance"></g>
+        <g id="jewels"></g>
+      </svg>
+      <div data-reveal style="--d:.15s">
+        <h3>一秒に八回、息をする。</h3>
+        <p>
+          青焼きのヒゲゼンマイが伸び、縮む。その等時性は一日の誤差を −1／＋6 秒に閉じ込める。
+          28石、コート・ド・ジュネーブの縞模様、面取りされたアーム。見えない場所ほど丁寧に、
+          それがマニュファクチュールの作法だ。
+        </p>
+        <div class="bars">
+          <div class="bar"><b><span>POWER RESERVE</span><span>72 h</span></b><i data-w="88%"></i></div>
+          <div class="bar"><b><span>AMPLITUDE</span><span>295°</span></b><i data-w="74%"></i></div>
+          <div class="bar"><b><span>ISOCRONISME</span><span>±0.4 s/j</span></b><i data-w="94%"></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SPEC ===== -->
+  <section id="spec">
+    <div class="shead" data-reveal>
+      <h2>仕様</h2><span class="lat">Spécifications</span>
+      <span class="no">04 / FICHE</span>
+    </div>
+    <dl class="dl">
+      <div data-reveal><dt>REFERENCE</dt><dd>REF.1962 / HN-40</dd></div>
+      <div data-reveal style="--d:.05s"><dt>BOÎTIER</dt><dd>ステンレススチール 316L</dd></div>
+      <div data-reveal style="--d:.1s"><dt>DIAMÈTRE</dt><dd>40.0 mm ／ 厚さ 10.4 mm</dd></div>
+      <div data-reveal style="--d:.15s"><dt>GLACE</dt><dd>両面無反射サファイア</dd></div>
+      <div data-reveal style="--d:.2s"><dt>CADRAN</dt><dd>Soleil 仕上げ／夜光インデックス</dd></div>
+      <div data-reveal style="--d:.25s"><dt>MOUVEMENT</dt><dd>自動巻 Cal.S-24／28石</dd></div>
+      <div data-reveal style="--d:.3s"><dt>RÉSERVE</dt><dd>約 72 時間</dd></div>
+      <div data-reveal style="--d:.35s"><dt>FRÉQUENCE</dt><dd>21,600 振動／時（3 Hz）</dd></div>
+      <div data-reveal style="--d:.4s"><dt>ÉTANCHÉITÉ</dt><dd>50 m</dd></div>
+      <div data-reveal style="--d:.45s"><dt>BRACELET</dt><dd>アリゲーター／ピンバックル</dd></div>
+    </dl>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap ft">
+    <span>SEIJADO 星陀 — MANUFACTURE HORLOGÈRE</span>
+    <span id="ftTime">--:--:--</span>
+    <span><a href="#stage">↑ REMONTER</a></span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const D2R = Math.PI / 180;
+  const $  = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const el = (name, attrs = {}) => {
+    const node = document.createElementNS(NS, name);
+    for (const k in attrs) node.setAttribute(k, attrs[k]);
+    return node;
+  };
+  const pad = (n, w = 2) => String(n).padStart(w, '0');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const watch = $('#watch');
+  const state = { dial: 'midnight', sweep: true, lume: false };
+
+  /* ---------- dial furniture ---------- */
+  const ticks = $('#ticks');
+  for (let i = 0; i < 60; i++) {
+    const a = i * 6 * D2R, major = i % 5 === 0;
+    const r1 = major ? 74 : 79, r2 = 84;
+    ticks.appendChild(el('line', {
+      class: major ? 'tick major' : 'tick',
+      x1: (r1 * Math.sin(a)).toFixed(2),  y1: (-r1 * Math.cos(a)).toFixed(2),
+      x2: (r2 * Math.sin(a)).toFixed(2),  y2: (-r2 * Math.cos(a)).toFixed(2)
+    }));
+  }
+
+  const indices = $('#indices');
+  for (let h = 0; h < 12; h++) {
+    const g = el('g', { transform: `rotate(${h * 30})` });
+    const offs = h === 0 ? [-4.6, 4.6] : [0];
+    offs.forEach(dx => {
+      g.appendChild(el('rect', { class: 'idx',  x: -3 + dx,   y: -80,   width: 6,   height: 22, rx: 1.2 }));
+      g.appendChild(el('rect', { class: 'lume', x: -1.9 + dx, y: -78.5, width: 3.8, height: 19, rx: 1 }));
+    });
+    indices.appendChild(g);
+  }
+
+  const subticks = $('#subticks');
+  for (let i = 0; i < 60; i++) {
+    const a = i * 6 * D2R, major = i % 5 === 0;
+    const r1 = major ? 17 : 20, r2 = 23;
+    subticks.appendChild(el('line', {
+      class: major ? 'sub-tick major' : 'sub-tick',
+      x1: (r1 * Math.sin(a)).toFixed(2), y1: (-r1 * Math.cos(a)).toFixed(2),
+      x2: (r2 * Math.sin(a)).toFixed(2), y2: (-r2 * Math.cos(a)).toFixed(2)
+    }));
+  }
+
+  /* ---------- movement scene ---------- */
+  const perlage = $('#perlage');
+  for (let y = 20; y < 300; y += 26)
+    for (let x = 14; x < 430; x += 26)
+      perlage.appendChild(el('circle', { cx: x, cy: y, r: 15 }));
+
+  function gear(cx, cy, r, teeth, depth, fill) {
+    const g = el('g', { fill });
+    const step = (Math.PI * 2) / teeth;
+    const pts = [];
+    for (let i = 0; i < teeth; i++) {
+      const a0 = i * step;
+      [[r - depth, a0], [r, a0 + step * .16], [r, a0 + step * .36], [r - depth, a0 + step * .52]]
+        .forEach(([rr, aa]) => pts.push(
+          `${(cx + rr * Math.sin(aa)).toFixed(1)},${(cy - rr * Math.cos(aa)).toFixed(1)}`));
+    }
+    g.appendChild(el('polygon', { points: pts.join(' ') }));
+    g.appendChild(el('circle', { cx, cy, r: r - 13, fill: '#0e1218', 'fill-opacity': .55 }));
+    g.appendChild(el('circle', { cx, cy, r: 4, fill: '#8d99a9' }));
+    for (let i = 0; i < 5; i++) {
+      const a = i * (72 * D2R);
+      g.appendChild(el('line', {
+        x1: (cx + 6 * Math.sin(a)).toFixed(1),  y1: (cy - 6 * Math.cos(a)).toFixed(1),
+        x2: (cx + (r - 15) * Math.sin(a)).toFixed(1), y2: (cy - (r - 15) * Math.cos(a)).toFixed(1),
+        stroke: fill, 'stroke-width': 3.4, 'stroke-opacity': .85
+      }));
+    }
+    return g;
+  }
+  $('#gear1').appendChild(gear(118, 200, 58, 34, 8, '#b98a45'));
+  $('#gear2').appendChild(gear(214, 132, 36, 22, 6, '#a8794a'));
+  $('#gear3').appendChild(gear(150,  96, 26, 16, 5, '#8d6a3f'));
+
+  const balance = $('#balance');
+  balance.appendChild(el('circle', { cx: 320, cy: 190, r: 58, fill: 'none',
+    stroke: '#c9a24a', 'stroke-width': 6, opacity: .9 }));
+  balance.appendChild(el('line', { x1: 320, y1: 136, x2: 320, y2: 244, stroke: '#c9a24a', 'stroke-width': 4, opacity: .85 }));
+  balance.appendChild(el('line', { x1: 266, y1: 190, x2: 374, y2: 190, stroke: '#c9a24a', 'stroke-width': 4, opacity: .85 }));
+  [0, 90, 180, 270].forEach(d => {
+    const a = d * D2R;
+    balance.appendChild(el('circle', {
+      cx: (320 + 58 * Math.sin(a)).toFixed(1), cy: (190 - 58 * Math.cos(a)).toFixed(1),
+      r: 5, fill: '#e0b877'
+    }));
+  });
+  balance.appendChild(el('circle', { cx: 320, cy: 190, r: 7, fill: '#8d99a9' }));
+
+  let hs = 'M 320 190 ';
+  for (let t = 0; t < Math.PI * 2 * 4.2; t += .12) {
+    const r = 6 + t * 2.05;
+    hs += `L ${(320 + r * Math.sin(t)).toFixed(1)} ${(190 - r * Math.cos(t)).toFixed(1)} `;
+  }
+  balance.appendChild(el('path', { d: hs, fill: 'none', stroke: '#5b8fd8',
+    'stroke-width': 1.2, opacity: .95 }));
+
+  const jewels = $('#jewels');
+  [[118, 200], [214, 132], [150, 96], [65, 60], [397, 252]].forEach(([x, y]) =>
+    jewels.appendChild(el('circle', { cx: x, cy: y, r: 5, fill: '#c0473b' })));
+
+  /* ---------- world clocks ---------- */
+  const CITIES = [
+    { jp: '東京',        en: 'Tokyo',    tz: 'Asia/Tokyo' },
+    { jp: 'ジュネーヴ',  en: 'Genève',   tz: 'Europe/Zurich' },
+    { jp: 'パリ',        en: 'Paris',    tz: 'Europe/Paris' },
+    { jp: 'ロンドン',    en: 'London',   tz: 'Europe/London' },
+    { jp: 'ニューヨーク', en: 'New York', tz: 'America/New_York' }
+  ];
+
+  const worldList = $('#worldList');
+  const clocks = CITIES.map((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'wrow';
+    row.setAttribute('data-reveal', '');
+    row.style.setProperty('--d', (i * .06) + 's');
+
+    let marks = '';
+    for (let k = 0; k < 12; k++) {
+      const a = k * 30 * D2R, major = k % 3 === 0;
+      const r1 = major ? 30 : 34, r2 = 38;
+      marks += `<line class="mtick${major ? ' major' : ''}"
+        x1="${(50 + r1 * Math.sin(a)).toFixed(2)}" y1="${(50 - r1 * Math.cos(a)).toFixed(2)}"
+        x2="${(50 + r2 * Math.sin(a)).toFixed(2)}" y2="${(50 - r2 * Math.cos(a)).toFixed(2)}"/>`;
+    }
+
+    row.innerHTML = `
+      <svg class="mini" viewBox="0 0 100 100" aria-hidden="true">
+        <circle class="mini-case" cx="50" cy="50" r="48"/>
+        <circle class="mini-dial" cx="50" cy="50" r="42"/>
+        ${marks}
+        <g class="mh"><rect x="47.6" y="26" width="4.8" height="28" rx="2.4"/></g>
+        <g class="mm"><rect x="48.6" y="16" width="2.8" height="38" rx="1.4"/></g>
+        <g class="ms"><rect x="49.5" y="14" width="1" height="40"/></g>
+        <circle class="mini-cap" cx="50" cy="50" r="2.4"/>
+      </svg>
+      <div class="city"><b>${c.jp}</b><span>${c.en}</span></div>
+      <div class="wtime"><span class="hm">--:--</span><small class="ss">--</small></div>
+      <div class="wmeta"><span class="off">GMT</span><span class="dn">—</span></div>`;
+    worldList.appendChild(row);
+
+    return {
+      tz: c.tz,
+      hm: row.querySelector('.hm'), ss: row.querySelector('.ss'),
+      dn: row.querySelector('.dn'), off: row.querySelector('.off'),
+      mh: row.querySelector('.mh'), mm: row.querySelector('.mm'), ms: row.querySelector('.ms')
+    };
+  });
+
+  function shortOffset(tz) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US',
+        { timeZone: tz, timeZoneName: 'shortOffset', hour: '2-digit' }).formatToParts(new Date());
+      const p = parts.find(x => x.type === 'timeZoneName');
+      return p ? p.value : '';
+    } catch (e) { return ''; }
+  }
+  clocks.forEach(c => { c.off.textContent = shortOffset(c.tz) || 'GMT'; });
+
+  function zoneParts(tz, date) {
+    try {
+      const f = new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz, hourCycle: 'h23',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+      const o = {};
+      for (const p of f.formatToParts(date)) o[p.type] = p.value;
+      return o;
+    } catch (e) { return null; }
+  }
+
+  /* ---------- main loop ---------- */
+  const hHand = $('#hHand'), mHand = $('#mHand'), sHand = $('#sHand');
+  const dateT = $('#dateT'), weekT = $('#weekT');
+  const dig = $('#dig'), digDate = $('#digDate');
+  const hdNow = $('#hdNow'), ftTime = $('#ftTime'), a11y = $('#a11y');
+  const WK = ['日', '月', '火', '水', '木', '金', '土'];
+  let lastSec = -1;
+
+  function frame() {
+    const now = new Date();
+    const ms  = now.getMilliseconds();
+    const sec = state.sweep ? now.getSeconds() + ms / 1000 : now.getSeconds();
+    const min = now.getMinutes() + sec / 60;
+    const hr  = (now.getHours() % 12) + min / 60;
+
+    hHand.setAttribute('transform', `rotate(${(hr * 30).toFixed(3)})`);
+    mHand.setAttribute('transform', `rotate(${(min * 6).toFixed(3)})`);
+    sHand.setAttribute('transform', `translate(0 46) rotate(${(sec * 6).toFixed(3)})`);   // ← 修正: 移動を保持
+
+    if (now.getSeconds() !== lastSec) {
+      lastSec = now.getSeconds();
+      const h = now.getHours(), m = now.getMinutes(), s = lastSec;
+      const t = `${pad(h)}:${pad(m)}:${pad(s)}`;
+
+      dateT.textContent = now.getDate();
+      weekT.textContent = WK[now.getDay()];
+      dig.textContent = t;
+      hdNow.textContent = t;
+      ftTime.textContent = t;
+      digDate.textContent =
+        `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日（${WK[now.getDay()]}）`;
+      watch.classList.toggle('night', h < 6 || h >= 18);
+      a11y.textContent = `現在時刻 ${h}時${m}分`;
+
+      clocks.forEach(c => {
+        const p = zoneParts(c.tz, now);
+        if (!p) return;
+        const hh = +p.hour, mm = +p.minute, ss = +p.second;
+        c.hm.textContent = `${p.hour}:${p.minute}`;
+        c.ss.textContent = p.second;
+        c.dn.textContent = (hh >= 6 && hh < 18) ? '☀ 昼' : '☾ 夜';
+        c.mh.setAttribute('transform', `rotate(${((hh % 12 + mm / 60) * 30).toFixed(2)} 50 50)`);
+        c.mm.setAttribute('transform', `rotate(${((mm + ss / 60) * 6).toFixed(2)} 50 50)`);
+        c.ms.setAttribute('transform', `rotate(${(ss * 6).toFixed(2)} 50 50)`);
+      });
+    }
+    requestAnimationFrame(frame);   // ← 修正: ループを frame() の内側で回す
+  }
+  requestAnimationFrame(frame);
+
+  /* ---------- controls ---------- */
+  $$('.sw button').forEach(b => b.addEventListener('click', () => {
+    $$('.sw button').forEach(x => x.setAttribute('aria-pressed', 'false'));
+    b.setAttribute('aria-pressed', 'true');
+    watch.dataset.dial = b.dataset.dial;
+    state.dial = b.dataset.dial;
+  }));
+
+  const bS = $('#btnSweep'), bL = $('#btnLume');
+  function setSweep(v) {
+    state.sweep = v;
+    bS.setAttribute('aria-pressed', String(v));
+    bS.textContent = v ? '駆動 / スウィープ' : '駆動 / 秒飛び';
+  }
+  function setLume(v) {
+    state.lume = v;
+    watch.classList.toggle('lume', v);
+    bL.setAttribute('aria-pressed', String(v));
+  }
+  bS.addEventListener('click', () => setSweep(!state.sweep));
+  bL.addEventListener('click', () => setLume(!state.lume));
+  $('#crown').addEventListener('click',  () => setSweep(!state.sweep));
+  $('#pusher').addEventListener('click', () => setLume(!state.lume));
+
+  /* ---------- tilt + specular ---------- */
+  const tilt = $('#tilt'), glare = $('#glare');
+  if (!reduceMotion) {
+    tilt.addEventListener('pointermove', e => {
+      const r = tilt.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width  - .5;
+      const y = (e.clientY - r.top)  / r.height - .5;
+      tilt.style.setProperty('--ry', (x * 9).toFixed(2) + 'deg');
+      tilt.style.setProperty('--rx', (-y * 7).toFixed(2) + 'deg');
+      glare.setAttribute('transform', `translate(${(-x * 90).toFixed(1)} ${(-y * 70).toFixed(1)})`);
+    });
+    tilt.addEventListener('pointerleave', () => {
+      tilt.style.setProperty('--ry', '0deg');
+      tilt.style.setProperty('--rx', '0deg');
+      glare.setAttribute('transform', 'translate(0 0)');
+    });
+  }
+
+  /* ---------- reveal ---------- */
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      e.target.classList.add('is-in');
+      io.unobserve(e.target);
+    });
+  }, { threshold: .18 });
+  $$('[data-reveal]').forEach(n => io.observe(n));
+
+  const io2 = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      e.target.style.setProperty('--w', e.target.dataset.w);
+      io2.unobserve(e.target);
+    });
+  }, { threshold: .4 });
+  $$('.bar i').forEach(b => io2.observe(b));
+})();
+</script>
+</body>
+</html>
