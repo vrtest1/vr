@@ -52,10 +52,11 @@ export class VolcanoPanel{
   const height=Number.isNaN(e.plumeHeight)?1000:e.plumeHeight;
   const caption=`${e.volcano}\n${Number.isNaN(e.plumeHeight)?'噴煙高度 不明（仮に1000 m）':heightText(e)}${Number.isNaN(e.directionDegrees)?'':' · '+e.direction+'へ'}`;
   this.moveTo({latitude:e.latitude,longitude:e.longitude,elevation:e.elevation,height,direction:e.directionDegrees,name:`${e.volcano} ${e.crater}`.trim()});
-  this.plume.show({latitude:e.latitude,longitude:e.longitude,elevation:e.elevation,height,direction:e.directionDegrees,amount:e.amount,caption,wind:e.wind});
   this.rebuild();this.updateInfo();
-  await this.feed.loadWind(e);
-  if(this.selected===e&&e.wind){this.plume.setWind(e.wind);this.updateInfo();}
+  // Wait for the winds aloft so the pre-warmed plume already drifts the right way.
+  if(!e.windLoaded){this.plume.hide();await this.feed.loadWind(e);if(this.selected!==e||this.mode)return;}
+  this.plume.show({latitude:e.latitude,longitude:e.longitude,elevation:e.elevation,height,direction:e.directionDegrees,amount:e.amount,caption,wind:e.wind});
+  this.updateInfo();
  }
  updateInfo(){
   const level=code=>'警戒：'+(this.feed.level(code)??'発表中の警報なし');
