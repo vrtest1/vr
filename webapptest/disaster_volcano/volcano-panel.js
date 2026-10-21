@@ -50,7 +50,7 @@ export class VolcanoPanel{
   if(!e.detailLoaded||!e.hasCoordinate){this.el.info.textContent=`${e.volcano}：位置情報を取得できていません`;return;}
   this.selected=e;this.mode=null;
   const height=Number.isNaN(e.plumeHeight)?1000:e.plumeHeight;
-  const caption=`${e.volcano}\n${Number.isNaN(e.plumeHeight)?'噴煙高度 不明（仮に1000 m）':heightText(e)}${e.direction?' · '+e.direction+'へ':''}`;
+  const caption=`${e.volcano}\n${Number.isNaN(e.plumeHeight)?'噴煙高度 不明（仮に1000 m）':heightText(e)}${Number.isNaN(e.directionDegrees)?'':' · '+e.direction+'へ'}`;
   this.moveTo({latitude:e.latitude,longitude:e.longitude,elevation:e.elevation,height,direction:e.directionDegrees,name:`${e.volcano} ${e.crater}`.trim()});
   this.plume.show({latitude:e.latitude,longitude:e.longitude,elevation:e.elevation,height,direction:e.directionDegrees,amount:e.amount,caption,wind:e.wind});
   this.rebuild();this.updateInfo();
@@ -72,7 +72,7 @@ export class VolcanoPanel{
   const e=this.selected;if(!e)return;
   const top=e.elevation+(Number.isNaN(e.plumeHeight)?1000:e.plumeHeight);
   const near=e.wind?.reduce((a,b)=>Math.abs(b.altitude-top)<Math.abs(a.altitude-top)?b:a);
-  const wind=near?`上空の風：噴煙頂付近 ${Math.round(near.degree)}°/${Math.round(near.speed)} m/s（${pointName(near.degree+180)}へ・推定噴煙流向報）`:e.windLoaded?'上空の風：資料なし（観測された流向で表示）':'上空の風：取得しています…';
+  const wind=near?`上空の風：噴煙頂付近 ${Math.round(near.degree)}°/${Math.round(near.speed)} m/s（${pointName(near.degree+180)}へ・推定噴煙流向報）${Number.isNaN(e.directionDegrees)?'':`\n向きは観測の流向（${e.direction}）を優先、風速のみ上空の風を使用`}`:e.windLoaded?'上空の風：資料なし（観測された流向で表示）':'上空の風：取得しています…';
   this.el.info.textContent=[`${e.volcano} ${e.crater}  ${stamp(e.time)} ${e.kind}`,
    `北緯 ${e.latitude.toFixed(3)} 東経 ${e.longitude.toFixed(3)}${Number.isNaN(e.elevation)?'':` 標高 ${e.elevation.toLocaleString()} m`}`,
    `噴煙：${heightText(e)}${Number.isNaN(e.plumeSeaLevelFeet)?'':`（海抜 ${e.plumeSeaLevelFeet.toLocaleString()} ft）`}${e.direction?' · 流向 '+e.direction:''}${e.amount?' · '+e.amount:''}`,

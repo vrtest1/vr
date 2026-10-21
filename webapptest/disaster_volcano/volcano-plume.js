@@ -4,7 +4,7 @@ import {mercator} from './terrain.js';
 
 /**
  * Illustrative eruption column (port of the Unity VolcanoPlume): particles rise to the reported height
- * above the crater, then drift with the winds aloft (VFVO60) or toward the observed direction, spread
+ * above the crater, then drift toward the observed direction (at the VFVO60 wind speed) or with the winds aloft, spread
  * into an umbrella, and settle as ash that thins out and stops at the ground. Not a dispersion model.
  * World axes follow the terrain: x east, y up (metres), z south.
  */
@@ -92,15 +92,16 @@ export class VolcanoPlume{
   this.mesh.visible=true;
  }
  windAt(altitude){
-  const w=this.wind;
+  const w=this.wind;let aloft=null;
   if(w?.length){
    let i=0;while(i<w.length-1&&w[i+1].altitude<altitude)i++;
    const a=w[i],b=w[Math.min(i+1,w.length-1)],t=b.altitude>a.altitude?Math.max(0,Math.min(1,(altitude-a.altitude)/(b.altitude-a.altitude))):0;
    const [ax,az]=toward(a.degree+180),[bx,bz]=toward(b.degree+180);
-   return [ax*a.speed*(1-t)+bx*b.speed*t,az*a.speed*(1-t)+bz*b.speed*t];
+   aloft=[ax*a.speed*(1-t)+bx*b.speed*t,az*a.speed*(1-t)+bz*b.speed*t];
   }
-  if(Number.isNaN(this.direction))return [0,0];
-  const k=FALLBACK_WIND*Math.max(0,Math.min(1,(altitude-this.vent.y+300)/900)),[x,z]=toward(this.direction);
+  // The observed direction wins; the winds aloft then only set the speed.
+  if(Number.isNaN(this.direction))return aloft??[0,0];
+  const k=aloft?Math.hypot(...aloft):FALLBACK_WIND*Math.max(0,Math.min(1,(altitude-this.vent.y+300)/900)),[x,z]=toward(this.direction);
   return [x*k,z*k];
  }
  emit(n){
