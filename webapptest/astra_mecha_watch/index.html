@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101216"><title>Squelette v3 — Connected Calibre</title>
+<style>
+:root{color-scheme:dark;--ink:#ece9df;--dim:#92989f;--gold:#d7b675;--line:#ffffff17;--panel:#1c2025}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 37% 35%,#2b3038 0,#171a20 48%,#0c0e12 100%);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN",sans-serif;min-height:100vh}button,select,input{font:inherit}button,select{border:1px solid #ffffff25;background:#ffffff08;color:var(--ink);border-radius:8px;padding:9px 12px;cursor:pointer;touch-action:manipulation}button:hover{background:#ffffff13}button[aria-pressed=true],button.selected{color:var(--gold);border-color:#d7b67580;background:#d7b67512}button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:3px}button:disabled{opacity:.35;cursor:default}select{background:#20242b}header{max-width:1140px;margin:auto;padding:30px 28px 5px;display:flex;align-items:center;justify-content:space-between;gap:12px}.eyebrow{font-size:10px;letter-spacing:.24em;color:var(--gold)}h1{font:normal 26px Georgia,serif;letter-spacing:.18em;margin:4px 0}.edition{color:var(--dim);font-size:11px;letter-spacing:.12em}main{max-width:1140px;margin:auto;padding:0 20px 28px;display:grid;grid-template-columns:minmax(0,1fr) 276px;gap:28px;align-items:center}.stage{perspective:1000px;min-width:0;position:relative}#tilt{transform-style:preserve-3d;transition:transform .18s ease-out}#watch{display:block;width:100%;height:auto;max-height:75vh;overflow:visible;filter:drop-shadow(0 25px 24px #0008)}svg text{font-family:Georgia,"Yu Mincho",serif}#watch .hit{cursor:pointer;fill:transparent;stroke:none;pointer-events:all}#watch .hit:focus{outline:none;stroke:var(--gold);stroke-width:1;stroke-dasharray:3 3}.selected-ring{pointer-events:none;fill:none;stroke:#e7c67b;stroke-width:1;stroke-dasharray:2 4;opacity:.65}.side{display:flex;flex-direction:column;gap:15px}.timebox{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:15px 0}.tiny{font-size:10px;letter-spacing:.16em;color:var(--dim)}#readout{font:32px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.04em;margin:4px 0}#status{color:var(--gold);font-size:11px}.row{display:flex;align-items:center;justify-content:space-between;gap:8px}.prtrack{height:3px;background:#ffffff15;margin:10px 0}.prtrack span{display:block;height:100%;background:var(--gold);width:75%}.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}.wide{grid-column:1/-1}.speedrow{display:flex;gap:8px;align-items:center}.speedrow select{flex:1;min-width:0}.controls button{font-size:12px}.primary{background:#d7b6751c;border-color:#d7b67570!important;color:var(--gold)}.partbox{padding:14px;border:1px solid var(--line);background:#ffffff03;border-radius:10px;min-height:160px}#partTitle{font-size:16px;margin:4px 0 7px;font-weight:500}#partText{font-size:12px;line-height:1.8;color:#b3b8c0;margin:0}#partMeta{font:11px/1.7 ui-monospace,monospace;color:var(--gold);margin-top:10px}.lens{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#111419;position:relative}.lens .tiny{position:absolute;left:12px;top:9px;z-index:1}#detail{display:block;width:100%;height:185px}.caption{font-size:11px;color:var(--dim);text-align:center;margin:0 0 12px}.toggle-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}.toggle-row button{font-size:11px;padding:6px 10px}details{grid-column:1/-1;border-top:1px solid var(--line);padding:12px 4px 0;color:var(--dim);font-size:12px}summary{cursor:pointer;color:#c4c7cb}details p{max-width:850px;margin:10px 0}kbd{border:1px solid #ffffff30;border-radius:4px;padding:1px 4px;font-size:10px}#labels text{font:8px sans-serif;fill:#e9d8b1;paint-order:stroke;stroke:#15191e;stroke-width:2.5px;stroke-linejoin:round}#labels path{stroke:#d7b67588;fill:none;stroke-width:.65}#bridges{transition:opacity .2s}#watch.xray #bridges{opacity:.14}#watch.xray #plate{opacity:.45}#hands{pointer-events:none}#crownControl{cursor:pointer}footer{grid-column:1/-1;text-align:center;font-size:10px;letter-spacing:.1em;color:#6e747c;margin-top:-12px}@media(max-width:820px){header{padding:20px 20px 0}main{grid-template-columns:1fr;gap:15px;max-width:620px;padding:0 14px 22px}#watch{max-height:none}.side{display:grid;grid-template-columns:1fr 1fr;gap:14px}.timebox{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:10px 0}.partbox{min-height:165px}.lens{grid-column:2;grid-row:2}.controls{grid-column:1;grid-row:2}.partbox{grid-column:1/-1}.caption{margin-top:-4px}.edition{font-size:9px}.toggle-row{margin-bottom:4px}details{margin-top:0}#detail{height:185px;min-height:0}.controls{align-content:start}.lens{align-self:start}}@media(max-width:420px){h1{font-size:22px}.side{gap:10px}.controls button{padding:8px 5px;font-size:11px}.speedrow{gap:4px}.speedrow select{padding:7px 4px;font-size:11px}#readout{font-size:27px}.timebox{gap:8px}header{padding:18px 17px 0}.edition{display:none}}@media(prefers-reduced-motion:reduce){#tilt{transition:none}#bridges{transition:none}}
+</style></head><body>
+<header><div><div class="eyebrow">CONNECTED CALIBRE · v3</div><h1>SQUELETTE</h1></div><div class="edition">MANUAL WINDING<br>21,600 A/H · 48 HOURS</div></header>
+<main><section aria-label="機械式時計"><div class="stage" id="stage"><div id="tilt"><svg id="watch" xmlns="http://www.w3.org/2000/svg" viewBox="-270 -260 565 520" role="img" aria-label="歯車と脱進機が連動するスケルトン時計"><defs>
+        <radialGradient id="caseG" cx="35%" cy="30%" r="85%">
+          <stop offset="0%"  stop-color="#f2f3f6"/>
+          <stop offset="35%" stop-color="#b9bcc4"/>
+          <stop offset="65%" stop-color="#7d818b"/>
+          <stop offset="88%" stop-color="#d8dade"/>
+          <stop offset="100%" stop-color="#5c6068"/>
+        </radialGradient>
+        <linearGradient id="bezelG" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"   stop-color="#eef0f3"/>
+          <stop offset="30%"  stop-color="#8b8f99"/>
+          <stop offset="55%"  stop-color="#cfd2d8"/>
+          <stop offset="80%"  stop-color="#6a6e77"/>
+          <stop offset="100%" stop-color="#a7aab2"/>
+        </linearGradient>
+        <linearGradient id="brassG" x1="0" y1="0" x2="0.8" y2="1">
+          <stop offset="0%"  stop-color="#e8cf8f"/>
+          <stop offset="45%" stop-color="#c9a44a"/>
+          <stop offset="100%" stop-color="#8f6c26"/>
+        </linearGradient>
+        <linearGradient id="steelG" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"  stop-color="#dfe3e9"/>
+          <stop offset="50%" stop-color="#9aa0aa"/>
+          <stop offset="100%" stop-color="#5d626c"/>
+        </linearGradient>
+        <linearGradient id="blueG" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"  stop-color="#7fa8d9"/>
+          <stop offset="100%" stop-color="#2e4d7a"/>
+        </linearGradient>
+        <radialGradient id="plateG" cx="42%" cy="36%" r="80%">
+          <stop offset="0%"  stop-color="#4a4e56"/>
+          <stop offset="60%" stop-color="#34373d"/>
+          <stop offset="100%" stop-color="#22242a"/>
+        </radialGradient>
+        <radialGradient id="jewelG" cx="35%" cy="30%" r="80%">
+          <stop offset="0%"  stop-color="#f0788c"/>
+          <stop offset="55%" stop-color="#c2384f"/>
+          <stop offset="100%" stop-color="#6e1424"/>
+        </radialGradient>
+        <linearGradient id="glassG" x1="0" y1="0" x2="0.7" y2="1">
+          <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.20"/>
+          <stop offset="45%"  stop-color="#ffffff" stop-opacity="0.04"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+        </linearGradient>
+        <pattern id="perlage" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(20)">
+          <circle cx="7" cy="7" r="6" fill="none" stroke="rgba(255,255,255,0.045)" stroke-width="1"/>
+        </pattern>
+        <filter id="softShade" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="1.6" dy="2.6" stdDeviation="2.2" flood-color="#000" flood-opacity="0.5"/>
+        </filter>
+      <linearGradient id="bridgeG" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#818994"/><stop offset=".45" stop-color="#4b535e"/><stop offset="1" stop-color="#303640"/></linearGradient><linearGradient id="blackG" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#212730"/><stop offset="1" stop-color="#080a0d"/></linearGradient><pattern id="brush" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)"><path d="M0 0H3" stroke="#fff" stroke-opacity=".06" stroke-width=".4"/></pattern></defs><g id="case">
+        <!-- lugs + crown (behind the case body) -->
+        <path d="M -96 -176 q -18 -26 -8 -50 q 4 -12 18 -12 l 14 0 l 4 34 z" fill="url(#caseG)"/>
+        <path d="M  96 -176 q  18 -26  8 -50 q -4 -12 -18 -12 l -14 0 l -4 34 z" fill="url(#caseG)"/>
+        <path d="M -96  176 q -18  26 -8  50 q  4  12  18  12 l 14 0 l 4 -34 z" fill="url(#caseG)"/>
+        <path d="M  96  176 q  18  26  8  50 q -4  12 -18  12 l -14 0 l -4 -34 z" fill="url(#caseG)"/>
+        <rect x="243" y="-16" width="22" height="32" rx="5" fill="url(#steelG)"/>
+        <circle cx="272" cy="0" r="17" fill="url(#caseG)" stroke="#3f434b" stroke-width="1.5"/>
+        <path d="M 272 -17 v 34 M 258 -8 q 14 8 28 0 M 258 8 q 14 -8 28 0" stroke="#6b7078" stroke-width="1.4" fill="none" opacity="0.7"/>
+        <!-- case body -->
+        <circle r="243" fill="url(#caseG)"/>
+        <circle r="228" fill="url(#bezelG)"/>
+        <circle r="209" fill="#101115"/>
+        <circle r="209" fill="none" stroke="#000" stroke-opacity="0.5" stroke-width="4"/>
+      </g><g id="plate"></g><g id="train"></g><g id="escapement"></g><g id="bridges"></g><g id="topworks"></g><g id="dial"></g><g id="hands"></g><g id="labels" style="display:none"></g><g id="selection"></g><g id="hits"></g><path d="M -205 -40 A209 209 0 0 1 40 -205 A260 260 0 0 0 -150 -140Z" fill="url(#glassG)" pointer-events="none"/></svg></div></div><p class="caption">部品をクリックして機構を見る · リューズで巻き上げ</p><div class="toggle-row"><button id="btnHands" aria-pressed="false">針を隠す</button><button id="btnLabels" aria-pressed="false">部品名</button><button id="btnXray" aria-pressed="false">受けを透かす</button><button id="btnSound" aria-pressed="false">音 OFF</button></div></section>
+<aside class="side"><div class="timebox"><div><div class="tiny" id="clockLabel">LOCAL TIME</div><div id="readout">00:00:00</div><div id="status" role="status">稼働中 · 3 Hz / 6振動</div></div><div style="margin-top:10px"><div class="row"><span class="tiny">POWER RESERVE</span><span id="reserveText" style="font-size:12px">36.0 / 48 h</span></div><div class="prtrack"><span id="reserveBar"></span></div><button id="btnWind" class="primary" style="width:100%;font-size:12px">巻き上げ ＋6時間</button></div></div>
+<div class="controls"><button id="btnPause" aria-pressed="false">一時停止</button><button id="btnStep">1拍送る</button><div class="wide speedrow"><label for="speed" style="font-size:12px;color:#aeb4bd">速度</label><select id="speed"><option value="0.1">×0.1 スロー</option><option value="0.25">×0.25</option><option value="1" selected>×1 通常</option><option value="10">×10</option><option value="60">×60 早送り</option><option value="3600">×3600 残量の観察</option></select></div><button id="btnLive" class="wide">現在時刻に合わせる</button></div>
+<div class="lens"><span class="tiny">ESCAPEMENT · ×2.5</span><svg id="detail" xmlns="http://www.w3.org/2000/svg" viewBox="28 -170 110 150" role="img" aria-label="脱進機の拡大図"></svg></div>
+<div class="partbox" aria-live="polite"><div class="tiny">INSIDE THE MOVEMENT</div><h2 id="partTitle">ひとつにつながる輪列</h2><p id="partText">香箱からガンギ車まで、歯数比に従って連動。テンプが往復するたびにアンクルが切り替わり、輪列を少しずつ進めます。</p><div id="partMeta">二番車 → 四番車　60 : 1<br>四番車 → ガンギ車　12 : 1</div></div></aside>
+<details><summary>操作と機構について</summary><p>通常速度では現在時刻から進みます。一時停止や速度変更後はデモ時刻になり、「現在時刻に合わせる」で復帰します。「1拍送る」は一時停止して次のロック位置へ進みます。リューズまたは巻き上げボタンで6時間分補充。残量が尽きると停止します。<kbd>Space</kbd> 一時停止、<kbd>→</kbd> 1拍送り、<kbd>W</kbd> 巻き上げ。</p><p>二番車80歯／三番カナ10枚、三番車75歯／四番カナ10枚、四番車96歯／ガンギカナ8枚。ガンギ車15歯、毎秒6拍、1拍12°。ガンギ車の累積送り角から輪列と針を導いています。中央秒針の伝達輪列と時分針の裏輪列は文字盤側にあるものとして省略しています。</p><p>これは機構を観察するための運動モデルです。歯形・爪石の接触・ゼンマイの変形は描画用に近似しており、製造用設計やトルク・摩擦の物理解析ではありません。残量は作動時間で減少し、このページを再度開くと36時間に戻ります。×3600は残量と針の変化を観察するモードです。</p></details><footer>15-TOOTH ESCAPE WHEEL · ONE CONNECTED TRAIN · BUILT FOR OBSERVATION</footer></main>
+<script>
+(() => {
+'use strict';
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg',TAU=Math.PI*2,D=Math.PI/180;
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x)),smooth=x=>{x=clamp(x);return x*x*(3-2*x)},point=(r,a)=>[r*Math.cos(a),r*Math.sin(a)],fmt=x=>Number(x.toFixed(4));
+function el(tag,a={},p=$('train')){const e=document.createElementNS(NS,tag);for(const [k,v]of Object.entries(a))e.setAttribute(k,v);p.appendChild(e);return e}
+function group(x,y,p){return el('g',{transform:`translate(${x} ${y})`},p)}
+function circle(r,a,p){return el('circle',{r,...a},p)}
+function rotate(n,a){n.setAttribute('transform',`rotate(${fmt(a%360)})`)}
+function roundHole(r){return `M${r} 0A${r} ${r} 0 1 0 ${-r} 0A${r} ${r} 0 1 0 ${r} 0Z`}
+function screw(p,x,y,r=4){const g=group(x,y,p);circle(r,{fill:'url(#blueG)',stroke:'#101f39','stroke-width':.7},g);el('path',{d:`M${-r*.65} 0H${r*.65}`,stroke:'#0a1427','stroke-width':1.1,transform:'rotate(-32)'},g);return g}
+function jewel(p,x,y,r=3.4){const g=group(x,y,p);circle(r+1,{fill:'#ae8d4b',stroke:'#282015','stroke-width':.7},g);circle(r,{fill:'url(#jewelG)'},g);circle(r*.28,{fill:'#20232a'},g);circle(r*.16,{cx:-r*.3,cy:-r*.35,fill:'#ffccd0',opacity:.85},g);return g}
+// Tooth flanks are a compact visual approximation; pitch circles and kinematic ratios are exact.
+function teeth(T,m,pinion=false){const r=T*m/2,root=Math.max(r-m*1.12,r*.55),tip=r+m*.82,step=TAU/T;let d='';const P=(rr,a)=>point(rr,a).map(fmt).join(' ');for(let i=0;i<T;i++){const a=i*step;d+=(i?'L':'M')+P(root,a-step*.43);d+='L'+P(r,a-step*.235)+'L'+P(tip,a-step*.12)+'Q'+P(tip+m*.12,a)+' '+P(tip,a+step*.12)+'L'+P(r,a+step*.235)+'L'+P(root,a+step*.43)}return d+'Z'}
+const C={x:0,y:0,T:80,pin:12,m:1.2,id:'center'},TH={x:54*Math.cos(35*D),y:54*Math.sin(35*D),T:75,pin:10,m:1.1,id:'third'};
+const FO={x:TH.x+46.75*Math.cos(-35*D),y:TH.y+46.75*Math.sin(-35*D),T:96,pin:10,m:.85,id:'fourth'};
+const E={x:FO.x,y:FO.y-44.2,T:15,pin:8,id:'escape'},BA={x:-64,y:-48,T:100,m:160/112,id:'barrel'};
+const P={x:E.x,y:E.y-38},B={x:P.x,y:P.y-44},R=20.5,RELEASE=.12,AMP=270;
+const lockBalance=AMP*Math.sin(Math.PI*RELEASE/2)*D;
+const forkLimit=Math.atan2(8*Math.sin(lockBalance),44-8*Math.cos(lockBalance))/D;
+function meshPhase(a,b,Ta,tb,angleA){const beta=Math.atan2(b.y-a.y,b.x-a.x)/D;return ((Ta+tb)*beta+tb*180-180-Ta*angleA)/tb}
+C.a0=17;BA.a0=meshPhase(C,BA,12,100,C.a0);TH.a0=meshPhase(C,TH,80,10,C.a0);FO.a0=meshPhase(TH,FO,75,10,TH.a0);E.a0=meshPhase(FO,E,96,8,FO.a0);
+const plate=$('plate');circle(207,{fill:'#090c10'},plate);
+const PR={x:-107,y:75,r:43};
+const holes=[[PR.x,PR.y,PR.r],[-54,122,33],[27,121,33],[121,91,35],[155,-32,24],[-138,-59,25],[-36,-133,33]];
+let platePath=roundHole(206);for(const[x,y,r]of holes)platePath+=`M${x+r} ${y}a${r} ${r} 0 1 0 ${-2*r} 0a${r} ${r} 0 1 0 ${2*r} 0Z`;
+el('path',{d:platePath,fill:'url(#plateG)','fill-rule':'evenodd',stroke:'#646b75','stroke-width':.65},plate);el('path',{d:platePath,fill:'url(#perlage)','fill-rule':'evenodd'},plate);
+for(const[x,y,r]of holes)circle(r,{cx:x,cy:y,fill:'none',stroke:'#000','stroke-width':2,opacity:.6},plate);
+for(const[x,y]of [[-151,106],[-117,-143],[143,112],[162,-100],[-15,177]])screw(plate,x,y,3.5);
+const layer=[];for(let i=0;i<5;i++)layer.push(el('g',{'data-height':i},$('train')));
+function wheel(s,idx,steel=false){const g=group(s.x,s.y,layer[idx]),node=el('g',{},g),r=s.T*s.m/2,inner=r-4*s.m;
+ el('path',{d:teeth(s.T,s.m)+roundHole(inner),fill:steel?'url(#steelG)':'url(#brassG)','fill-rule':'evenodd',stroke:steel?'#3d434b':'#594216','stroke-width':.55},node);
+ const spokes=s.id==='third'?5:6;for(let i=0;i<spokes;i++){el('path',{d:`M0 -2L${inner-1} -1.65L${inner-1} 1.65L0 2Z`,fill:steel?'url(#steelG)':'url(#brassG)',transform:`rotate(${i*360/spokes})`},node)}
+ circle(6,{fill:steel?'url(#steelG)':'url(#brassG)'},node);circle(inner+.9,{fill:'none',stroke:'#fff5','stroke-width':.5},node);s.wheel=node;return node}
+function pinion(s,m,idx){const g=group(s.x,s.y,layer[idx]),node=el('g',{},g);el('path',{d:teeth(s.pin,m,true),fill:'url(#steelG)',stroke:'#20252e','stroke-width':.65},node);circle(1.4,{fill:'#292e36'},node);s.pinion=node;return node}
+// Barrel: the arbor and its ratchet stay fixed in normal running; the drum turns.
+const barrelRoot=group(BA.x,BA.y,layer[0]);BA.wheel=el('g',{},barrelRoot);const br=BA.T*BA.m/2;
+el('path',{d:teeth(BA.T,BA.m),fill:'url(#brassG)',stroke:'#5c4518','stroke-width':.7},BA.wheel);circle(br-6,{fill:'url(#blackG)',stroke:'#907a48','stroke-width':1.2},BA.wheel);circle(br-8,{fill:'none',stroke:'#a7a294','stroke-width':.7},BA.wheel);
+const mainSpring=el('path',{fill:'none',stroke:'#8e9eae','stroke-width':2.1,'stroke-linecap':'round'},barrelRoot);circle(8,{fill:'url(#steelG)'},barrelRoot);
+pinion(C,BA.m,0);wheel(C,1);pinion(TH,C.m,1);wheel(TH,2,true);pinion(FO,TH.m,2);wheel(FO,3);pinion(E,FO.m,3);
+// Escape wheel and two separately placed pallet stones. Alternating lock sites are 84 degrees apart.
+const escapeRoot=group(E.x,E.y,$('escapement')),escapeWheel=el('g',{id:'escapeWheelFace'},escapeRoot);let ed='';for(let i=0;i<15;i++){let a=i*TAU/15;const pp=(r,t)=>point(r,t).map(fmt).join(' ');ed+=(i?'L':'M')+pp(R,a);ed+='L'+pp(R-1.1,a+.07)+'L'+pp(R-6.4,a+.13)+'L'+pp(R-6.8,a+.33)+'L'+pp(R-2,a+.37)}ed+='Z';
+el('path',{d:ed+roundHole(10.5),fill:'url(#steelG)','fill-rule':'evenodd',stroke:'#414852','stroke-width':.6},escapeWheel);for(let i=0;i<5;i++)el('path',{d:'M0 -1.2L11 -1L11 1L0 1.2Z',fill:'#b2bbc8',transform:`rotate(${i*72})`},escapeWheel);circle(3,{fill:'#c2c6cd'},escapeWheel);
+const forkRoot=group(P.x,P.y,$('escapement')),fork=el('g',{},forkRoot);
+function rot(v,a){return [v[0]*Math.cos(a)-v[1]*Math.sin(a),v[0]*Math.sin(a)+v[1]*Math.cos(a)]}
+const contactA=point(R,-132*D),contactB=point(R,-48*D);
+function palletPoint(contact,lock){return rot([contact[0],38+contact[1]],-lock*D)}
+const pa=palletPoint(contactA,-forkLimit),pb=palletPoint(contactB,forkLimit);
+// The jewel's working face, rather than a decorative corner, touches the tooth.
+// Both local orientations are derived from their respective locked geometry.
+const palletMounts=[[pa,contactA,-forkLimit],[pb,contactB,forkLimit]].map(([contact,radial,lock])=>{
+ const normal=rot([radial[0]/R,radial[1]/R],-lock*D);
+ const tangent=[-normal[1],normal[0]];
+ return {contact,normal,tangent,seat:[contact[0]+normal[0]*2.3,contact[1]+normal[1]*2.3]};
+});
+const [seatA,seatB]=palletMounts.map(m=>m.seat);
+el('path',{d:`M${seatA[0]} ${seatA[1]}Q-9 14 0 0Q9 14 ${seatB[0]} ${seatB[1]}M0 0V-30M0 -30L-3.1 -33V-40M0 -30L3.1 -33V-40`,stroke:'url(#steelG)','stroke-width':2.6,fill:'none','stroke-linecap':'round','stroke-linejoin':'round'},fork);
+for(const [index,m] of palletMounts.entries()){
+ const corner=(along,depth)=>[m.contact[0]+m.tangent[0]*along+m.normal[0]*depth,m.contact[1]+m.tangent[1]*along+m.normal[1]*depth].map(fmt).join(' ');
+ // A metal seat continues the arm and holds the outer portion of the jewel.
+ el('path',{d:`M${corner(-2.9,1.65)}L${corner(2.9,1.65)}L${corner(2.9,3.2)}L${corner(-2.9,3.2)}Z`,fill:'url(#steelG)',stroke:'#333b46','stroke-width':.35},fork);
+ el('path',{id:index?'exitPalletStone':'entryPalletStone',d:`M${corner(-2.5,0)}L${corner(2.5,0)}L${corner(2.5,2.1)}L${corner(-2.5,2.1)}Z`,fill:'url(#jewelG)',stroke:'#c86477','stroke-width':.3},fork);
+ el('path',{d:`M${corner(-2.25,.3)}L${corner(2.25,.3)}`,fill:'none',stroke:'#ffd0d7','stroke-width':.35,opacity:.85},fork);
+}
+for(const side of[-1,1])circle(1.3,{cx:side*5.8,cy:-18,fill:'#a6aab1',stroke:'#343a43','stroke-width':.7},forkRoot);
+// Balance roller, impulse pin, deforming hairspring and balance rim.
+const balanceRoot=group(B.x,B.y,$('escapement')),roller=el('g',{},balanceRoot);circle(8,{fill:'#777e8b',stroke:'#222830','stroke-width':.6},roller);circle(1.45,{cy:8,fill:'url(#jewelG)',stroke:'#ffadb4','stroke-width':.4},roller);
+const hair=el('path',{fill:'none',stroke:'#a3c7ec','stroke-width':.72,opacity:.95},balanceRoot),balanceWheel=el('g',{},balanceRoot);
+circle(30.5,{fill:'none',stroke:'url(#brassG)','stroke-width':4},balanceWheel);circle(31.5,{fill:'none',stroke:'#e4d6ae','stroke-width':.5},balanceWheel);
+for(let i=0;i<3;i++)el('path',{d:'M0 -1.6L28 -1.2L28 1.2L0 1.6Z',fill:'url(#steelG)',transform:`rotate(${i*120})`},balanceWheel);
+for(let i=0;i<12;i++){const a=i*TAU/12;circle(1.1,{cx:30.5*Math.cos(a),cy:30.5*Math.sin(a),fill:'#555d66',stroke:'#ddd4bd','stroke-width':.4},balanceWheel)}circle(3,{fill:'#cbd0d7'},balanceWheel);
+const studAngle=.3,stud=point(23,studAngle+TAU*5.5);circle(1.5,{cx:stud[0],cy:stud[1],fill:'#a1a8b2'},balanceRoot);
+// Fixed bridges, bearing stones and winding mechanism.
+const bridges=$('bridges');function bridge(x,y,ex,ey,w){const g=el('g',{},bridges);el('path',{d:`M${x} ${y}Q${(x+ex)/2-4} ${(y+ey)/2} ${ex} ${ey}`,fill:'none',stroke:'#171c23','stroke-width':w+2,'stroke-linecap':'round',transform:'translate(1.2 2)'},g);el('path',{d:`M${x} ${y}L${ex} ${ey}`,stroke:'url(#bridgeG)','stroke-width':w,'stroke-linecap':'round'},g);el('path',{d:`M${x} ${y}L${ex} ${ey}`,stroke:'#b8bdc7','stroke-width':.6,opacity:.45},g);screw(g,ex,ey,3.4);jewel(g,x,y);return g}
+bridge(BA.x,BA.y,-132,-110,18);bridge(C.x,C.y,-21,73,16);bridge(TH.x,TH.y,48,88,13);bridge(FO.x,FO.y,140,31,13);bridge(E.x,E.y,132,-55,10);bridge(P.x,P.y,116,-85,8);bridge(B.x,B.y,128,-147,13);
+// Shock protection around balance endstone.
+el('path',{d:`M${B.x-4} ${B.y-4}q-4 4 0 8l4 -2l4 2q4 -4 0 -8l-4 2Z`,fill:'none',stroke:'#e7cb86','stroke-width':.7},bridges);
+const ratchetRoot=group(BA.x,BA.y,$('topworks')),ratchet=el('g',{},ratchetRoot);let rd='';for(let i=0;i<36;i++){const a=TAU*i/36,pp=(r,t)=>point(r,t).map(fmt).join(' ');rd+=(i?'L':'M')+pp(24,a)+'L'+pp(21,a+.09)+'L'+pp(21,a+.16)}rd+='Z';el('path',{d:rd,fill:'url(#steelG)',stroke:'#242a33','stroke-width':.7},ratchet);circle(17,{fill:'url(#bridgeG)',stroke:'#ccd0d6','stroke-width':.5},ratchet);for(let i=0;i<4;i++)circle(3.5,{cx:12*Math.cos(i*TAU/4),cy:12*Math.sin(i*TAU/4),fill:'#252b33',stroke:'#9199a4','stroke-width':.5},ratchet);screw(ratchet,0,0,4.2);
+const click=group(BA.x+29,BA.y-13,$('topworks'));el('path',{d:'M0 0L-9 7L-11 3',fill:'none',stroke:'url(#steelG)','stroke-width':3,'stroke-linejoin':'round'},click);screw(click,0,0,2);el('path',{d:`M${BA.x+29} ${BA.y-13}q18 13 4 28`,fill:'none',stroke:'#a3aab5','stroke-width':1},$('topworks'));
+// Dial, reserve and hands.
+const dial=$('dial');circle(198,{fill:'none',stroke:'#d9ba7430','stroke-width':.5},dial);
+for(let i=0;i<60;i++){const a=(i*6-90)*D,r2=i%5?196:188;el('path',{d:`M${202*Math.cos(a)} ${202*Math.sin(a)}L${r2*Math.cos(a)} ${r2*Math.sin(a)}`,stroke:i%5?'#d9ba7477':'#e3c78d','stroke-width':i%5?.8:2},dial)}
+for(const[n,a]of[['12',-90],['3',0],['6',90],['9',180]]){const t=el('text',{x:176*Math.cos(a*D),y:176*Math.sin(a*D)+7,'text-anchor':'middle','font-size':23,fill:'#dec18b'},dial);t.textContent=n}
+function text(p,content,a){const e=el('text',a,p);e.textContent=content;return e}
+text(dial,'SQUELETTE',{x:12,y:132,'text-anchor':'middle','font-size':12,'letter-spacing':4,fill:'#e5e2d6bb'});text(dial,'21 600  ·  MANUAL',{x:12,y:147,'text-anchor':'middle','font-size':7,'letter-spacing':2,fill:'#bfc3cc88'});
+const reserveG=group(PR.x,PR.y,dial);reserveG.id="powerReserveDial";el('path',{d:`M${25*Math.cos(-195*D)} ${25*Math.sin(-195*D)}A25 25 0 1 1 ${25*Math.cos(15*D)} ${25*Math.sin(15*D)}`,stroke:'#c8b88e88','stroke-width':.8,fill:'none'},reserveG);for(let i=0;i<5;i++){const a=(-195+i*52.5)*D;el('path',{d:`M${22*Math.cos(a)} ${22*Math.sin(a)}L${25*Math.cos(a)} ${25*Math.sin(a)}`,stroke:'#e2d4ae','stroke-width':.8},reserveG)}text(reserveG,'0',{x:-25,y:16,'font-size':7,fill:'#bbb'});text(reserveG,'48',{x:18,y:16,'font-size':7,fill:'#bbb'});text(reserveG,'HOURS',{x:0,y:22,'text-anchor':'middle','font-size':5.5,'letter-spacing':1,fill:'#999'});const reserveNeedle=el('path',{d:'M0 4L-1.1 -18L0 -23L1.1 -18Z',fill:'#ddc288'},reserveG);circle(2.2,{fill:'#e1c68d'},reserveG);
+const hands=$('hands');function hand(len,w){const g=el('g',{},hands);el('path',{d:`M0 13L${-w} -25L-2 ${-len+10}L0 ${-len}L2 ${-len+10}L${w} -25Z`,fill:'#151b2377',stroke:'#e4e7ed','stroke-width':1.8,'stroke-linejoin':'round'},g);return g}const hour=hand(105,6.5),minute=hand(157,4.5),second=el('g',{},hands);el('path',{d:'M0 31V-177',stroke:'#df6f66','stroke-width':1.35},second);circle(3.8,{cy:22,fill:'#df6f66'},second);circle(7,{fill:'url(#steelG)',stroke:'#171c23','stroke-width':.7},hands);circle(2.5,{fill:'#d4b676'},hands);
+// Information and hit targets. Only fixed bearing positions get interactive targets.
+const info={barrel:['香箱 / 主ゼンマイ','ゼンマイの外端が香箱を回し、二番車のカナへ動力を伝えます。中心の軸と角穴車は運転中固定され、巻き上げ時に回ります。','100歯 → 二番カナ12枚 · 約8時間20分／回転'],center:['二番車','香箱から動力を受ける輪列の基準。大歯車とカナは同じ軸で回ります。分針はこの回転に対応します。','80歯 → 三番カナ10枚 · 60分／回転'],third:['三番車','二番車の80歯が10枚カナを駆動。次の75歯が四番車を動かします。大歯車同士は高さを変えて重ねています。','75歯 → 四番カナ10枚 · 7分30秒／回転'],fourth:['四番車','60秒で1回転。毎拍1°ずつ進み、秒針と同じ周期を刻みます。96歯の外周でガンギ車の8枚カナを駆動します。','96歯 → ガンギカナ8枚 · 60秒／回転'],escape:['ガンギ車','四番車からカナで駆動され、アンクルの爪石で交互にロック。1拍につき12°進み、その停止と送りが輪列全体に伝わります。','15歯 · 12°／拍 · 5秒／回転'],pallet:['アンクル / 爪石','2枚の爪石がガンギ車を交互に止めます。反対側のフォークにはテンプ側の振り石が出入りし、中央通過時に切り替わります。','毎秒6回切替 · ロック角 約±9°'],balance:['テンプ / ヒゲゼンマイ','毎秒3往復。ヒゲゼンマイの外端は固定、内端はテンプ軸とともに回ります。テンプ側の振り座に付いた赤い振り石がアンクルを動かします。','3 Hz · 21,600振動／時 · 振り角270°']};
+const targets=[{...BA,r:br}, {...C,r:48},{...TH,r:41.25},{...FO,r:40.8},{...E,r:22},{...P,id:'pallet',r:12},{...B,id:'balance',r:32}];
+function selectPart(id){const i=info[id];$('partTitle').textContent=i[0];$('partText').textContent=i[1];$('partMeta').textContent=i[2];$('selection').replaceChildren();const t=targets.find(x=>x.id===id);circle(t.r+3,{cx:t.x,cy:t.y,class:'selected-ring'},$('selection'))}
+for(const t of targets){const hit=circle(Math.min(t.r,27),{cx:t.x,cy:t.y,class:'hit',tabindex:0,role:'button','aria-label':info[t.id][0]},$('hits'));hit.addEventListener('click',()=>selectPart(t.id));hit.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();ev.stopPropagation();selectPart(t.id)}})}
+const labelSpecs=[['香箱',BA,-148,17],['二番車',C,-33,61],['三番車',TH,47,99],['四番車',FO,139,64],['ガンギ車',E,130,-27],['アンクル',P,130,-91],['テンプ',B,54,-163]];
+for(const[name,t,x,y]of labelSpecs){el('path',{d:`M${t.x} ${t.y}L${x} ${y-3}`},$('labels'));text($('labels'),name,{x,y,'text-anchor':'middle'})}
+// Crown is an accessible second winding control.
+const crown=el('g',{id:'crownControl',role:'button',tabindex:0,'aria-label':'リューズを巻く：6時間補充'},$('hits'));el('rect',{x:248,y:-25,width:42,height:50,rx:9,fill:'transparent'},crown);
+// Re-use the live movement in a magnified viewport; no second simulation.
+const detail=$('detail');el('use',{href:'#escapement'},detail);el('use',{href:'#bridges'},detail);
+const MAX=48*3600;let reserve=36*3600,sim=0,rate=1,paused=false,live=true,last=performance.now(),lastBeat=0,sound=false,ctx=null,windAngle=0,windTarget=0,windActive=false;
+const dateSeconds=()=>{const d=new Date();return d.getHours()*3600+d.getMinutes()*60+d.getSeconds()+d.getMilliseconds()/1000};let handOffset=dateSeconds();
+// One monotonic escape coordinate; all going-train arbors derive from it.
+function motion(t){const q=t*6,n=Math.floor(q+1e-10),u=Math.max(0,q-n),s=smooth(u/RELEASE),advance=n+s;const balanceAngle=-AMP*Math.sin(Math.PI*(q-RELEASE/2));let forkAngle;if(u<RELEASE){const a=balanceAngle*D;forkAngle=Math.atan2(-8*Math.sin(a),44-8*Math.cos(a))/D}else forkAngle=(n%2===0?1:-1)*forkLimit;return{q,n,u,s,advance,balanceAngle,forkAngle,mechanicalSeconds:advance/6}}
+function angles(a){return{barrel:BA.a0-a/60*12/100,center:C.a0+a/60,third:TH.a0-a/7.5,fourth:FO.a0+a,escapePin:E.a0-a*12,escape:-132-a*12}}
+function hairPath(theta){let d='';const t=theta*D;for(let i=0;i<=200;i++){const u=i/200,r=4.5+18.5*u+1.8*(t/(AMP*D))*Math.sin(Math.PI*u),a=studAngle+TAU*5.5*u+t*Math.pow(1-u,1.15);d+=(i?'L':'M')+point(r,a).map(fmt).join(' ')}return d}
+let springStamp='';function drawMainspring(a){const fraction=reserve/MAX,key=(fraction*300|0)+':'+(a*10|0)+':'+(windAngle*3|0);if(key===springStamp)return;springStamp=key;let d='';const outer=br-10,inner=10,turns=5.7,theta0=windAngle*D,theta1=(a+360*turns)*D;for(let i=0;i<=250;i++){const u=i/250,shape=Math.pow(u,1+fraction*2.8),r=inner+(outer-inner)*shape,angle=theta0*(1-u)+theta1*u;d+=(i?'L':'M')+point(r,angle).map(fmt).join(' ')}mainSpring.setAttribute('d',d)}
+function draw(){const m=motion(sim),a=angles(m.advance);rotate(BA.wheel,a.barrel);for(const s of[C,TH,FO]){rotate(s.wheel,a[s.id]);rotate(s.pinion,a[s.id])}rotate(E.pinion,a.escapePin);rotate(escapeWheel,a.escape);rotate(fork,m.forkAngle);rotate(balanceWheel,m.balanceAngle);rotate(roller,m.balanceAngle);hair.setAttribute('d',hairPath(m.balanceAngle));rotate(ratchet,windAngle);rotate(click,windActive?2*Math.sin(windAngle*D*36):0);drawMainspring(a.barrel);const ht=handOffset+m.mechanicalSeconds;rotate(hour,ht/120);rotate(minute,ht/10);rotate(second,ht*6);rotate(reserveNeedle,-105+210*reserve/MAX);
+ const v=((Math.floor(ht)%86400)+86400)%86400;$('readout').textContent=[Math.floor(v/3600),Math.floor(v/60)%60,v%60].map(n=>String(n).padStart(2,'0')).join(':');$('reserveText').textContent=`${(reserve/3600).toFixed(1)} / 48 h`;$('reserveBar').style.width=100*reserve/MAX+'%';$('status').textContent=reserve<=0?'ゼンマイ切れ · 巻き上げて再開':paused?'一時停止 · 1拍ずつ観察できます':rate>=60?`早送り ×${rate} · 音は休止`:`稼働中 · ${rate===1?'3 Hz / 6振動':'スロー ×'+rate}`;$('clockLabel').textContent=live?'LOCAL TIME':'DEMONSTRATION';$('btnPause').textContent=paused?'再生':'一時停止';$('btnPause').setAttribute('aria-pressed',paused);$('btnWind').disabled=reserve>=MAX-.01;
+}
+function advance(dt){if(paused||reserve<=0)return;const used=Math.min(dt*rate,reserve);sim+=used;reserve=Math.max(0,reserve-used)}
+function tick(n){if(!ctx||ctx.state!=='running')return;const t=ctx.currentTime,o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(n%2?3200:2800,t);o.frequency.exponentialRampToValueAtTime(600,t+.012);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.055,t+.001);g.gain.exponentialRampToValueAtTime(.0001,t+.018);o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+.022)}
+function frame(now){const dt=Math.max(0,(now-last)/1000);last=now;advance(dt);const n=Math.floor(sim*6);if(n!==lastBeat){if(sound&&!paused&&rate<=10&&reserve>0&&dt<.25)tick(n);lastBeat=n}if(Math.abs(windTarget-windAngle)>.01){windAngle+=Math.sign(windTarget-windAngle)*Math.min(Math.abs(windTarget-windAngle),dt*220);windActive=true}else windActive=false;draw();requestAnimationFrame(frame)}
+function pause(){paused=!paused;live=false;last=performance.now();draw()}
+function step(){paused=true;live=false;if(reserve>0){const m=motion(sim),target=(m.n+(m.u<RELEASE-1e-8?0:1)+RELEASE)/6,used=Math.min(target-sim,reserve);sim+=used;reserve-=used;lastBeat=Math.floor(sim*6);if(sound)tick(lastBeat)}draw()}
+function wind(){const added=Math.min(6*3600,MAX-reserve);reserve+=added;windTarget-=added/MAX*360*5.76;draw()}
+$('btnPause').addEventListener('click',pause);$('btnStep').addEventListener('click',step);$('btnWind').addEventListener('click',wind);crown.addEventListener('click',wind);crown.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();wind()}});
+$('speed').addEventListener('change',()=>{rate=Number($('speed').value);live=false;last=performance.now();draw()});$('btnLive').addEventListener('click',()=>{handOffset=dateSeconds()-motion(sim).mechanicalSeconds;live=true;rate=1;$('speed').value='1';paused=false;last=performance.now();draw()});
+for(const[id,target,labelOn,labelOff]of[['btnHands','hands','針を表示','針を隠す'],['btnLabels','labels','部品名を隠す','部品名']])$(id).addEventListener('click',()=>{const on=$(id).getAttribute('aria-pressed')!=='true';$(id).setAttribute('aria-pressed',on);$(id).textContent=on?labelOn:labelOff;$(target).style.display=id==='btnHands'?(on?'none':''):(on?'':'none')});
+$('btnXray').addEventListener('click',()=>{const on=$('watch').classList.toggle('xray');bridges.style.opacity=on?'.14':'';plate.style.opacity=on?'.45':'';escapeWheel.style.opacity=on?'.28':'';$('btnXray').setAttribute('aria-pressed',on);$('btnXray').textContent=on?'受けを戻す':'受けを透かす'});
+$('btnSound').addEventListener('click',async()=>{try{if(!ctx)ctx=new(window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')await ctx.resume();sound=!sound;$('btnSound').textContent=sound?'音 ON':'音 OFF';$('btnSound').setAttribute('aria-pressed',sound)}catch{$('btnSound').textContent='音声を利用できません'}});
+window.addEventListener('keydown',e=>{if(/INPUT|SELECT|BUTTON|SUMMARY/.test(e.target.tagName)||e.target.getAttribute?.('role')==='button')return;if(e.code==='Space'){e.preventDefault();pause()}if(e.key==='ArrowRight'){e.preventDefault();step()}if(e.key.toLowerCase()==='w')wind()});
+const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;if(reduced){paused=true;live=false}
+$('stage').addEventListener('pointermove',e=>{if(reduced||e.pointerType==='touch')return;const r=$('stage').getBoundingClientRect();$('tilt').style.transform=`rotateX(${-(e.clientY-r.top-r.height/2)/r.height*5}deg) rotateY(${(e.clientX-r.left-r.width/2)/r.width*6}deg)`});$('stage').addEventListener('pointerleave',()=>{$('tilt').style.transform=''});
+// Read-only diagnostic surface for validating ratios, placement, lock geometry and rate behavior.
+window.watchModel=Object.freeze({motion,angles,geometry:{barrel:BA,center:C,third:TH,fourth:FO,escape:E,pallet:P,balance:B,forkLimit,contactA,contactB,pa,pb,palletMounts},getState:()=>({sim,reserve,rate,paused,live,handOffset,windAngle}),constants:{RELEASE,MAX},selectPart});
+draw();requestAnimationFrame(frame);
+})();
+
+</script></body></html>
