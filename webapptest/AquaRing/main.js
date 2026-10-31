@@ -205,18 +205,24 @@ const waveVel = new Float32Array(WAVE_N);
 const waterUniforms = {
   uWave: { value: waveData },
   uN: { value: new THREE.Vector2(0, 1) },
+  uS: { value: 0 },        // 前後方向の水面の傾き（z が1進むと水位がどれだけ下がるか）
   uC: { value: 0 },
   uL: { value: WAVE_L },
   uTime: { value: 0 },
+  uStir: { value: 0 },
+  uRefr: { value: 0 },     // 0 = リアル、1 = 派手
   uScene: { value: sceneRT.texture },
   uViewProj: { value: new THREE.Matrix4() },
 };
 const glslWave = /* glsl */`
   uniform float uWave[${WAVE_N}];
   uniform vec2 uN;
+  uniform float uS;
   uniform float uC;
   uniform float uL;
   uniform float uTime;
+  uniform float uStir;
+  uniform float uRefr;
   uniform sampler2D uScene;
   uniform mat4 uViewProj;
   float wave(float u) {
@@ -229,6 +235,21 @@ const glslWave = /* glsl */`
   vec3 sceneAt(vec3 p) {
     vec4 c = uViewProj * vec4(p, 1.0);
     return texture2D(uScene, clamp(c.xy / c.w * 0.5 + 0.5, 0.001, 0.999)).rgb;
+  }
+  // 色ごとに屈折率を少し変えて虹色のにじみを出す（派手モード）
+  vec3 refractScene(vec3 P, vec3 V, vec3 N, vec3 Nf, float dist, float boost) {
+    float amp = mix(1.0, boost, uRefr);
+    float spread = 0.06 * uRefr;
+    vec3 col = vec3(0.0);
+    for (int k = 0; k < 3; k++) {
+      float n = 1.0 + 0.333 * amp * (1.0 + spread * (float(k) - 1.0));
+      vec3 R = refract(V, N, 1.0 / n);
+      if (dot(R, R) < 0.5) R = V;
+      float t = dist * mix(1.0, 2.2, uRefr) / max(dot(R, -Nf), 0.2);
+      vec3 s = sceneAt(P + R * t);
+      if (k == 0) col.r = s.r; else if (k == 1) col.g = s.g; else col.b = s.b;
+    }
+    return col;
   }
   // 水の吸収（奥行きと水深で少しだけ青緑に）
   vec3 absorb(float depth) {
@@ -244,13 +265,17 @@ const waterMat = new THREE.ShaderMaterial({
     varying vec3 vWorld;
     varying vec3 vNw;
     varying vec3 vSNw;
+    varying vec3 vLens;
     uniform vec2 uN;
+    uniform float uS;
     void main() {
       vP = position;
-      vSNw = normalize((modelMatrix * vec4(uN, 0.0, 0.0)).xyz);
       vec4 wp = modelMatrix * vec4(position, 1.0);
       vWorld = wp.xyz;
       vNw = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+      vSNw = normalize((modelMatrix * vec4(uN, uS, 0.0)).xyz);
+      // 正面がわずかに膨らんだレンズのように見せる向き
+      vLens = (modelMatrix * vec4(position.x / ${HX.toFixed(4)}, position.y / ${HY.toFixed(4)} * 0.6, 0.0, 0.0)).xyz;
       gl_Position = projectionMatrix * viewMatrix * wp;
     }`,
   fragmentShader: glslWave + /* glsl */`
@@ -258,24 +283,26 @@ const waterMat = new THREE.ShaderMaterial({
     varying vec3 vWorld;
     varying vec3 vNw;
     varying vec3 vSNw;
+    varying vec3 vLens;
     void main() {
       vec2 T = vec2(-uN.y, uN.x);
-      float lvl = dot(uN, vP.xy) - (uC + wave(dot(T, vP.xy)));
+      float lvl = dot(uN, vP.xy) + uS * vP.z - (uC + wave(dot(T, vP.xy)));
       if (lvl > 0.0) discard;
-      float men = smoothstep(-0.018, 0.0, lvl);
+      float men = smoothstep(-0.018 * mix(1.0, 1.6, uRefr), 0.0, lvl);
       vec3 V = normalize(vWorld - cameraPosition);
       vec3 Nf = normalize(vNw);
       // 壁際の水面はメニスカスで反り上がり、その帯だけ強く曲がる
-      vec3 sNw = normalize(vSNw);
-      vec3 N = normalize(Nf - sNw * men * men * 0.8);
-      vec3 R = refract(V, N, 1.0 / ${IOR_WATER});
-      if (dot(R, R) < 0.5) R = V;
-      // 物や背景は水槽の真ん中の深さにあるとみなす
-      float t = ${HZ.toFixed(4)} / max(dot(R, -Nf), 0.2);
-      vec3 col = sceneAt(vWorld + R * t);
+      vec3 N = Nf - normalize(vSNw) * men * men * mix(0.8, 1.4, uRefr);
+      // 派手モード: レンズの膨らみ + 水流のゆらめき
+      N += vLens * 0.22 * uRefr;
+      float t = uTime;
+      vec2 wob = vec2(sin(vP.y * 42.0 + t * 3.1 + sin(vP.x * 17.0 + t)), cos(vP.x * 37.0 - t * 2.7 + sin(vP.y * 13.0 - t * 1.3)));
+      N.xy += wob * uStir * (0.02 + 0.07 * uRefr);
+      N = normalize(N);
+      vec3 col = refractScene(vWorld, V, N, Nf, ${HZ.toFixed(4)}, 3.0);
       float depth = clamp(-lvl / 1.3, 0.0, 1.0);
       col *= absorb(depth);
-      col *= 1.0 + 0.025 * sin(vP.x * 38.0 + uTime * 1.7) * sin(vP.y * 31.0 - uTime * 1.3 + vP.x * 9.0);
+      col *= 1.0 + 0.025 * sin(vP.x * 38.0 + t * 1.7) * sin(vP.y * 31.0 - t * 1.3 + vP.x * 9.0);
       col = mix(col, vec3(0.93, 0.97, 1.0), men * men * 0.6);
       gl_FragColor = vec4(col, 1.0);
       #include <tonemapping_fragment>
@@ -290,28 +317,28 @@ const surfaceMat = new THREE.ShaderMaterial({
   uniforms: waterUniforms,
   transparent: true, blending: THREE.NoBlending, depthWrite: true, side: THREE.DoubleSide,
   vertexShader: glslWave + /* glsl */`
-    varying vec2 vP2;
+    varying vec3 vP3;
     varying vec3 vNrm;
     varying vec3 vWorld;
     void main() {
       float u = mix(-uL, uL, uv.x);
+      float z = (uv.y - 0.5) * ${(D - 0.006).toFixed(4)};
       vec2 T = vec2(-uN.y, uN.x);
       float du = 2.0 * uL / ${WAVE_N - 1}.0;
       float dh = (wave(u + du) - wave(u - du)) / (2.0 * du);
-      vec2 p2 = T * u + uN * (uC + wave(u));
-      vP2 = p2;
-      vec2 n2 = normalize(uN - T * dh);
-      vNrm = normalize((modelMatrix * vec4(n2, 0.0, 0.0)).xyz);
-      vec4 wp = modelMatrix * vec4(p2, (uv.y - 0.5) * ${(D - 0.006).toFixed(4)}, 1.0);
+      vec2 p2 = T * u + uN * (uC + wave(u) - uS * z);
+      vP3 = vec3(p2, z);
+      vNrm = normalize((modelMatrix * vec4(uN - T * dh, uS, 0.0)).xyz);
+      vec4 wp = modelMatrix * vec4(p2, z, 1.0);
       vWorld = wp.xyz;
       gl_Position = projectionMatrix * viewMatrix * wp;
     }`,
   fragmentShader: glslWave + /* glsl */`
-    varying vec2 vP2;
+    varying vec3 vP3;
     varying vec3 vNrm;
     varying vec3 vWorld;
     void main() {
-      if (abs(vP2.x) > ${(HX - 0.002).toFixed(4)} || abs(vP2.y) > ${(HY - 0.002).toFixed(4)}) discard;
+      if (abs(vP3.x) > ${(HX - 0.002).toFixed(4)} || abs(vP3.y) > ${(HY - 0.002).toFixed(4)}) discard;
       vec3 V = normalize(vWorld - cameraPosition);
       vec3 N = normalize(vNrm);
       bool fromAir = dot(N, V) < 0.0;
@@ -320,7 +347,7 @@ const surfaceMat = new THREE.ShaderMaterial({
       float cosI = clamp(dot(-V, N), 0.0, 1.0);
       float F = 0.02 + 0.98 * pow(1.0 - cosI, 5.0);
       if (dot(R, R) < 0.5) F = 1.0;   // 全反射
-      vec3 refr = sceneAt(vWorld + R * 0.12) * absorb(0.3);
+      vec3 refr = (fromAir ? refractScene(vWorld, V, N, N, 0.12, 2.5) : sceneAt(vWorld + R * 0.12)) * absorb(0.3);
       vec3 refl = sceneAt(vWorld + reflect(V, N) * 0.12);
       vec3 L = normalize(vec3(0.3, 1.0, 0.6));
       float spec = pow(max(dot(reflect(-L, N), -V), 0.0), 80.0);
@@ -330,7 +357,7 @@ const surfaceMat = new THREE.ShaderMaterial({
       #include <colorspace_fragment>
     }`,
 });
-const surface = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, WAVE_N - 1, 1), surfaceMat);
+const surface = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, WAVE_N - 1, 4), surfaceMat);
 surface.frustumCulled = false;
 surface.renderOrder = 3;
 tank.add(surface);
@@ -418,6 +445,7 @@ const gEff = new V3(0, -1, 0);       // タンク座標での実効重力（1 = 
 const gTarget = new V3(0, -1, 0);
 const sN = new THREE.Vector2(0, 1);  // 水面の法線
 let slosh = Math.PI / 2, sloshV = 0, cS = 0;
+let sloshZ = 0, sloshZV = 0;   // 前後方向の水面の傾き
 let time = 0, stir = 0;
 const jets = NOZZLES.map(() => ({ pressed: false, held: 0, s: 0 }));
 let tilt = 0, tiltTarget = 0, shakeT = 0;
@@ -610,8 +638,8 @@ function waveAt(u) {
   return waveData[i] * (1 - t) + waveData[i + 1] * t;
 }
 // 正なら空気側、負なら水中
-function levelAt(x, y) {
-  return sN.x * x + sN.y * y - (cS + waveAt(-sN.y * x + sN.x * y));
+function levelAt(x, y, z = 0) {
+  return sN.x * x + sN.y * y + sloshZ * z - (cS + waveAt(-sN.y * x + sN.x * y));
 }
 
 function updateSlosh(dt) {
@@ -624,6 +652,10 @@ function updateSlosh(dt) {
   }
   sloshV *= Math.exp(-dt * 0.3);
   slosh += sloshV * dt;
+  // 奥行きは薄いので前後の傾きには素早く追従する
+  const sT = THREE.MathUtils.clamp(-gEff.z / Math.max(g2, 0.05), -2.5, 2.5);
+  sloshZV += (60 * (sT - sloshZ) - 2 * 0.15 * Math.sqrt(60) * sloshZV) * dt;
+  sloshZ += sloshZV * dt;
   sN.set(Math.cos(slosh), Math.sin(slosh));
   cS = solveC(sN.x, sN.y);
 }
@@ -763,7 +795,7 @@ function updateFrames(r) {
 function stepRings(dt) {
   for (const r of rings) {
     updateFrames(r);
-    const lvl = levelAt(r.p.x, r.p.y);
+    const lvl = levelAt(r.p.x, r.p.y, r.p.z);
     const sub = THREE.MathUtils.smoothstep(-lvl, -RING_R, RING_R);
     r.sub = sub;
     flowAt(r.p, _flow).multiplyScalar(sub);
@@ -889,7 +921,7 @@ function updateBubbles(dt) {
     _bp.x = THREE.MathUtils.clamp(_bp.x, -HX + 0.005, HX - 0.005);
     _bp.y = THREE.MathUtils.clamp(_bp.y, -HY + 0.005, HY - 0.005);
     _bp.z = THREE.MathUtils.clamp(_bp.z, -HZ + 0.005, HZ - 0.005);
-    if (levelAt(_bp.x, _bp.y) > -0.005 || bubbleLife[i] > 5) {
+    if (levelAt(_bp.x, _bp.y, _bp.z) > -0.005 || bubbleLife[i] > 5) {
       const last = --bubbleCount;
       for (let c = 0; c < 3; c++) {
         bubblePos[i * 3 + c] = bubblePos[last * 3 + c];
@@ -985,6 +1017,8 @@ function syncVisuals() {
   }
   waterUniforms.uN.value.copy(sN);
   waterUniforms.uC.value = cS;
+  waterUniforms.uS.value = sloshZ;
+  waterUniforms.uStir.value = Math.min(1, stir * 0.6 + jets[0].s + jets[1].s);
   waterUniforms.uTime.value = time;
 }
 
@@ -1103,7 +1137,18 @@ bgPanel.addEventListener('click', e => {
   if (kind === 'camera') bgCamera();
   if (kind === 'flip') { bg.facing = bg.facing === 'environment' ? 'user' : 'environment'; bgCamera(); }
   if (kind === 'close') bgPanel.classList.add('hidden');
+  if (kind === 'refr') setRefraction((refrMode + 1) % REFR_MODES.length);
 });
+// 屈折の強さ（uRefr: 0 = リアル、1 = 派手）
+const REFR_MODES = [{ name: 'リアル', v: 0 }, { name: 'ほどほど', v: 0.35 }, { name: '派手', v: 1 }];
+let refrMode = 0;
+function setRefraction(i) {
+  refrMode = i;
+  waterUniforms.uRefr.value = REFR_MODES[i].v;
+  document.getElementById('refrBtn').textContent = `屈折: ${REFR_MODES[i].name}`;
+  localStorage.setItem('aquaRingRefrMode', i);
+}
+setRefraction(Number(localStorage.getItem('aquaRingRefrMode') ?? 0) % REFR_MODES.length || 0);
 document.getElementById('bgColor').addEventListener('input', e => bgColor(e.target.value));
 bgFile.addEventListener('change', () => { if (bgFile.files[0]) bgPhoto(bgFile.files[0]); bgFile.value = ''; });
 
