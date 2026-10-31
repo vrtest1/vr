@@ -549,17 +549,25 @@ addEventListener('pointermove', e => {
 addEventListener('pointerup', e => { if (drag && e.pointerId === drag.id) { drag = null; tiltTarget = 0; } });
 document.addEventListener('contextmenu', e => e.preventDefault());
 
-// スマホのダブルタップズーム・ピンチズームを抑制（iOS は user-scalable=no を無視するため）
-let lastTouchEnd = 0;
-document.addEventListener('touchend', e => {
-  const now = performance.now();
-  if (now - lastTouchEnd < 350) {
-    e.preventDefault();
-    // preventDefault で消える click を補う
-    e.target.closest?.('button:not(.jet)')?.click();
-  }
-  lastTouchEnd = now;
+// スマホのダブルタップズーム・ピンチズーム・長押しの拡大鏡を抑制（iOS は user-scalable=no を無視するため）
+// touchstart を止めると iOS は click を出さないので、ボタンは touchend で自前で click する
+const nativeTouch = el => el.closest?.('input, label');   // 色・ファイル選択は標準動作のまま
+let touchBtn = null;
+document.addEventListener('touchstart', e => {
+  if (nativeTouch(e.target)) return;
+  e.preventDefault();
+  if (e.touches.length === 1) touchBtn = e.target.closest?.('button:not(.jet)') ?? null;
 }, { passive: false });
+document.addEventListener('touchend', e => {
+  if (nativeTouch(e.target)) return;
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  const btn = touchBtn;
+  touchBtn = null;
+  if (btn && t && btn.contains(document.elementFromPoint(t.clientX, t.clientY))) btn.click();
+}, { passive: false });
+document.addEventListener('touchcancel', () => { touchBtn = null; });
+document.addEventListener('selectstart', e => e.preventDefault());
 document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) {
   document.addEventListener(ev, e => e.preventDefault(), { passive: false });
