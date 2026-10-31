@@ -405,9 +405,16 @@ for (let i = 0; i < RING_COUNT; i++) {
   });
 }
 
+// 輪どうしが食い込んだ（鎖のように繋がった）状態で始まらないよう、外接球が重ならない位置に置く
 function scatterRings() {
+  const minD2 = (2 * (RING_R + TUBE)) ** 2;
+  rings.forEach((r, i) => {
+    for (let tries = 0; tries < 200; tries++) {
+      r.p.set((Math.random() - 0.5) * 0.8, -0.35 + Math.random() * 0.45, (Math.random() - 0.5) * 0.04);
+      if (rings.slice(0, i).every(o => o.p.distanceToSquared(r.p) > minD2)) break;
+    }
+  });
   for (const r of rings) {
-    r.p.set((Math.random() - 0.5) * 0.8, -0.35 + Math.random() * 0.45, (Math.random() - 0.5) * 0.04);
     r.v.set(0, 0, 0);
     r.w.set(0, 0, 0);
     r.q.setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3));
