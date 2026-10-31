@@ -1,16 +1,25 @@
-import * as THREE from 'three';
+﻿import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ===== 寸法（タンク内側の中心が原点。1単位 ≒ 10cm） =====
 const W = 1.0, H = 1.3, D = 0.17;
 const HX = W / 2, HY = H / 2, HZ = D / 2;
+// 上から見るとトラック型：正面・背面は平ら、左右の側面は半径 HZ の半円
+const XS = HX - HZ;   // まっすぐな部分の半分の長さ
+// 位置 x での内側の奥行きの半分
+function zHalf(x) {
+  const dx = Math.abs(x) - XS;
+  return dx <= 0 ? HZ : Math.sqrt(Math.max(0, HZ * HZ - dx * dx));
+}
 const AIR_FRAC = 0.10;          // 水は90%
 const G = 4.0;                  // 遊びやすさ優先の重力スケール
 const BUOY = 0.62;              // 水の密度 / 輪の密度
 const RING_R = 0.055, TUBE = 0.012, R_IN = RING_R - TUBE;
 const INV_I = 1 / (0.5 * RING_R * RING_R);
 const PEG_R = 0.008, TIP_R = 0.015, COLLAR_R = 0.05;
+// 棒の根元の皿：後ろの壁から手前へ伸び、前側が半円の棚（幅 2*COLLAR_R は輪の穴 0.086 より広い）
+const SHELF_HT = 0.006, SHELF_BACK = -HZ - 0.004;
 const PEGS = [
   { x: -0.2, base: -0.13, tip: 0.17 },
   { x: 0.2, base: -0.13, tip: 0.17 },
@@ -69,6 +78,17 @@ function roundedRectShape(w, h, r) {
   s.quadraticCurveTo(x, y, x + r, y);
   return s;
 }
+// トラック型（w×d、左右が半円）の輪郭
+function stadiumShape(w, d) {
+  const r = d / 2, xs = w / 2 - r;
+  const s = new THREE.Shape();
+  s.moveTo(-xs, -r);
+  s.lineTo(xs, -r);
+  s.absarc(xs, 0, r, -Math.PI / 2, Math.PI / 2, false);
+  s.lineTo(-xs, r);
+  s.absarc(-xs, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+  return s;
+}
 // 角も縁も丸い直方体（w×h×d、中心原点）
 function roundedSlab(w, h, d, r, b) {
   const g = new THREE.ExtrudeGeometry(roundedRectShape(w - 2 * b, h - 2 * b, Math.max(0.002, r - b)), {
@@ -125,27 +145,90 @@ const pushButtons = [-0.4, 0.4].map(x => {
   return b;
 });
 
-// 床（ノズルへ向かう傾斜）
-{
-  const s = new THREE.Shape();
-  s.moveTo(-HX, -HY);
-  for (const [x, y] of FLOOR) s.lineTo(x, y);
-  s.lineTo(HX, -HY);
-  s.closePath();
-  const g = new THREE.ExtrudeGeometry(s, {
-    depth: D - 0.012, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.006, bevelSegments: 3,
-  });
-  g.translate(0, 0, -HZ + 0.006);
-  tank.add(new THREE.Mesh(toCreasedNormals(g, 0.6), white));
+// 床（ノズルへ向かう傾斜）：実物と同じ透明プラスチックの薄い板。下は空気で、台座とパイプが透けて見える
+const FLOOR_T = 0.007;
+const clearPlastic = new THREE.MeshPhysicalMaterial({
+  color: 0xf4fbff, transparent: true, opacity: 0.22, roughness: 0.04, metalness: 0,
+  clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 2.2, side: THREE.DoubleSide, depthWrite: false,
+});
+function floorTopY(x) {
+  for (let i = 0; i < FLOOR.length - 1; i++) {
+    const [ax, ay] = FLOOR[i], [bx, by] = FLOOR[i + 1];
+    if (x <= bx) return ay + (x - ax) * (by - ay) / (bx - ax);
+  }
+  return FLOOR[FLOOR.length - 1][1];
 }
-for (const n of NOZZLES) {
-  const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.012, 24),
-    new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 }));
-  hole.position.set(n.x, n.y + 0.004, 0);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 12, 32), white);
-  rim.rotation.x = Math.PI / 2;
-  rim.position.set(n.x, n.y + 0.009, 0);
-  tank.add(hole, rim);
+{
+  // x 方向に刻んで、各 x で奥行き ±zHalf(x) の板を張る（トラック型の壁にぴったり沿う）
+  const xs = new Set();
+  for (let i = 0; i <= 160; i++) xs.add(-HX + W * i / 160);
+  for (const [x] of FLOOR) xs.add(x);
+  for (const x of [-XS, XS]) xs.add(x);
+  const X = [...xs].sort((a, b) => a - b);
+  const top = [], side = [];
+  const quad = (arr, a, b, c, d) => arr.push(...a, ...b, ...c, ...a, ...c, ...d);
+  for (let i = 0; i < X.length - 1; i++) {
+    const x0 = X[i], x1 = X[i + 1];
+    const y0 = floorTopY(x0), y1 = floorTopY(x1);
+    const z0 = zHalf(x0) - 0.001, z1 = zHalf(x1) - 0.001;
+    quad(top, [x0, y0, z0], [x1, y1, z1], [x1, y1, -z1], [x0, y0, -z0]);                         // 上面
+    quad(top, [x0, y0 - FLOOR_T, -z0], [x1, y1 - FLOOR_T, -z1], [x1, y1 - FLOOR_T, z1], [x0, y0 - FLOOR_T, z0]);   // 下面
+    quad(side, [x0, y0 - FLOOR_T, z0], [x1, y1 - FLOOR_T, z1], [x1, y1, z1], [x0, y0, z0]);       // 正面の縁
+    quad(side, [x1, y1 - FLOOR_T, -z1], [x0, y0 - FLOOR_T, -z0], [x0, y0, -z0], [x1, y1, -z1]);   // 背面の縁
+  }
+  const mk = arr => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+    g.computeVertexNormals();
+    return g;
+  };
+  const floorMesh = new THREE.Mesh(mk(top), clearPlastic);
+  floorMesh.renderOrder = 4;
+  // 板の縁（断面）は少しだけ白っぽく
+  const edgeMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide,
+  });
+  const edge = new THREE.Mesh(mk(side), edgeMat);
+  edge.renderOrder = 4;
+  tank.add(floorMesh, edge);
+}
+// ノズルとポンプのパイプ（台座のボタン側から床の下を通ってノズルへ上がる）
+{
+  const pipeMat = new THREE.MeshPhysicalMaterial({
+    color: 0xd6ecf8, transparent: true, opacity: 0.65, roughness: 0.08, metalness: 0,
+    clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 2.0, depthWrite: false,
+  });
+  const fittingMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf2f6f8, transparent: true, opacity: 0.7, roughness: 0.15, clearcoat: 1, depthWrite: false,
+  });
+  const holeMat = new THREE.MeshStandardMaterial({ color: 0x333a40, roughness: 0.6 });
+  for (const n of NOZZLES) {
+    const sx = Math.sign(n.x);
+    // ノズル口（床を貫く短い筒）
+    const fit = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.024, 0.03, 24), fittingMat);
+    fit.position.set(n.x, n.y - 0.006, 0);
+    fit.renderOrder = 4;
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(0.012, 20), holeMat);
+    hole.rotation.x = -Math.PI / 2;
+    hole.position.set(n.x, n.y + 0.0095, 0);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.019, 0.004, 10, 28), fittingMat);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.set(n.x, n.y + 0.009, 0);
+    rim.renderOrder = 4;
+    // パイプ：台座（ボタン側の外寄り）から立ち上がり、床の斜面の下に沿ってノズルの根元へ
+    const P = (x, y, z) => new THREE.Vector3(sx * x, y, z);
+    const curve = new THREE.CatmullRomCurve3([
+      P(0.47, -0.645, 0.03),
+      P(0.466, -0.6, 0.03),
+      P(0.45, -0.538, 0.026),
+      P(0.40, -0.573, 0.018),
+      P(0.36, -0.601, 0.008),
+      P(Math.abs(n.x) + 0.01, -0.613, 0),
+    ], false, 'catmullrom', 0.4);
+    const pipe = new THREE.Mesh(new THREE.TubeGeometry(curve, 64, 0.007, 12, false), pipeMat);
+    pipe.renderOrder = 4;
+    tank.add(fit, hole, rim, pipe);
+  }
 }
 
 for (const p of PEGS) {
@@ -154,12 +237,23 @@ for (const p of PEGS) {
   shaft.position.set(p.x, p.base + len / 2, 0);
   const tip = new THREE.Mesh(new THREE.SphereGeometry(TIP_R, 24, 16), metal);
   tip.position.set(p.x, p.tip, 0);
-  const collar = new THREE.Mesh(new THREE.CylinderGeometry(COLLAR_R, COLLAR_R * 0.85, 0.01, 32), metal);
-  collar.position.set(p.x, p.base, 0);
-  const bracket = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, HZ, 12), metal);
-  bracket.rotation.x = Math.PI / 2;
-  bracket.position.set(p.x, p.base - 0.02, -HZ / 2);
-  tank.add(shaft, tip, collar, bracket);
+  // 皿（棚）：形状は (x, z) 平面。後ろの壁から棒の位置まで四角、前側は半円
+  const bev = 0.002;
+  const ss = new THREE.Shape();
+  const R = COLLAR_R - bev;
+  ss.moveTo(-R, SHELF_BACK);
+  ss.lineTo(-R, 0);
+  ss.absarc(0, 0, R, Math.PI, 0, true);
+  ss.lineTo(R, SHELF_BACK);
+  ss.closePath();
+  const shelfGeo = new THREE.ExtrudeGeometry(ss, {
+    depth: SHELF_HT * 2 - bev * 2, bevelEnabled: true, bevelThickness: bev, bevelSize: bev, bevelSegments: 2, curveSegments: 24,
+  });
+  shelfGeo.translate(0, 0, -(SHELF_HT - bev));
+  const shelf = new THREE.Mesh(shelfGeo, metal);
+  shelf.rotation.x = Math.PI / 2;   // 形状の y → ワールド z、押し出し方向 → ワールド -y
+  shelf.position.set(p.x, p.base, 0);
+  tank.add(shaft, tip, shelf);
 }
 
 // ガラス（角の丸い透明ケース）
@@ -169,8 +263,8 @@ const glassMat = new THREE.MeshPhysicalMaterial({
 });
 let glass;
 {
-  const g = new THREE.ExtrudeGeometry(roundedRectShape(W + 0.012, D + 0.012, 0.035), {
-    depth: H, bevelEnabled: false, curveSegments: 12,
+  const g = new THREE.ExtrudeGeometry(stadiumShape(W + 0.012, D + 0.012), {
+    depth: H, bevelEnabled: false, curveSegments: 32,
   });
   g.rotateX(-Math.PI / 2);
   g.translate(0, -HY, 0);
@@ -178,6 +272,221 @@ let glass;
   glass.renderOrder = 5;
   tank.add(glass);
 }
+
+// ===== 汚れ（ケース正面に付く指紋・油汚れ。タップで付き、なぞると伸び、拭き上げで消える） =====
+const dirt = (() => {
+  const GW = W + 0.012, GR = (D + 0.012) / 2 + 0.0008, GHX = GW / 2 + 0.0008;
+  const CW = 1024, CH = Math.round(CW * H / GW);
+  const PX = CW / GW;   // 1単位あたりの画素数
+  const canvas = document.createElement('canvas');
+  canvas.width = CW; canvas.height = CH;
+  const ctx = canvas.getContext('2d');
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  tex.premultiplyAlpha = true;   // 透明な黒が縮小時に混ざって灰色に濁らないように
+
+  // ケース前半分（平らな正面＋左右の丸み）に沿った面。UV は正面から見た位置そのもの
+  const NX = 160, pos = [], uv = [], idx = [];
+  const zAt = x => { const dx = Math.abs(x) - XS; return dx <= 0 ? GR : Math.sqrt(Math.max(0, GR * GR - dx * dx)); };
+  for (let i = 0; i <= NX; i++) {
+    // 端の丸みに点を集める
+    const t = i / NX * 2 - 1;
+    const x = Math.sign(t) * GHX * Math.pow(Math.abs(t), 0.75);
+    for (const y of [-HY, HY]) {
+      pos.push(x, y, zAt(x));
+      uv.push((x + GHX) / (2 * GHX), (y + HY) / H);
+    }
+  }
+  for (let i = 0; i < NX; i++) {
+    const a = i * 2;
+    idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  // 汚れがどれだけ重なっても、この濃さで頭打ち（ケースが透けて見えたままになるように）
+  const MAX_OPACITY = 0.4;
+  // 汚れは光が反射したときだけ浮き上がる：ケースの表面を斜めに横切る「反射の帯」を傾きで動かし、
+  // 帯の中と、光を拾いやすい左右の丸い側面だけ汚れを白く見せる。普段はうっすら。
+  // テクスチャは透明度（A チャンネル）だけ使う。乗算済みで読み込むので縮小しても黒が混ざらない
+  const dirtUniforms = {
+    uMap: { value: tex },
+    uOpacity: { value: MAX_OPACITY },
+    uBand: { value: 0.75 },        // 反射の帯の中心（正面の斜め座標）
+    uBandW: { value: 0.16 },       // 帯の太さ
+    uBandDir: { value: new THREE.Vector2(0.8, 0.6) },
+  };
+  const mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({
+    uniforms: dirtUniforms,
+    transparent: true, depthWrite: false,
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      varying vec3 vP;
+      varying vec3 vNw;
+      varying vec3 vWorld;
+      void main() {
+        vUv = uv;
+        vP = position;
+        float ex = abs(position.x) - ${XS.toFixed(4)};
+        vec3 nl = ex > 0.0 ? normalize(vec3(sign(position.x) * ex, 0.0, position.z)) : vec3(0.0, 0.0, 1.0);
+        vNw = normalize((modelMatrix * vec4(nl, 0.0)).xyz);
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorld = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }`,
+    fragmentShader: /* glsl */`
+      uniform sampler2D uMap;
+      uniform float uOpacity;
+      uniform float uBand;
+      uniform float uBandW;
+      uniform vec2 uBandDir;
+      varying vec2 vUv;
+      varying vec3 vP;
+      varying vec3 vNw;
+      varying vec3 vWorld;
+      void main() {
+        float a = texture2D(uMap, vUv).a;
+        // 反射の帯（中心ほど強く、ふちは柔らかく）＋ 細いハイライト
+        float t = dot(vP.xy, normalize(uBandDir)) - uBand;
+        float band = exp(-t * t / (uBandW * uBandW)) + 0.6 * exp(-t * t / (uBandW * uBandW * 0.06));
+        // 丸い側面は視線に対して斜めなので光を拾いやすい
+        vec3 V = normalize(cameraPosition - vWorld);
+        float edge = 1.0 - clamp(dot(normalize(vNw), V), 0.0, 1.0);
+        float lit = clamp(band + edge * 0.8, 0.0, 1.0);
+        // 光の当たらない所は油っぽくわずかに暗いくすみ、反射の中では白く光る
+        float vis = 0.22 + 0.78 * lit;
+        vec3 col = mix(vec3(0.45, 0.49, 0.53), vec3(1.0), lit);
+        float dA = a * uOpacity * vis;
+        // ケース表面そのものの反射の筋（ごく薄い）。汚れがなくても光が当たっている場所が分かる
+        float sA = clamp(band, 0.0, 1.0) * 0.07;
+        float outA = dA + sA * (1.0 - dA);
+        if (outA < 0.002) discard;
+        vec3 outC = (col * dA + vec3(1.0) * sA * (1.0 - dA)) / outA;
+        gl_FragColor = vec4(outC, outA);
+        #include <colorspace_fragment>
+      }`,
+  }));
+  mesh.renderOrder = 6;
+  tank.add(mesh);
+
+  // 素材：dusty_atlas.png（上段 指紋8、中段 油汚れ5、下段 こすった跡5。元画像 1774×887 の座標）
+  const atlas = new Image();
+  let ready = false, k = 1;
+  atlas.onload = () => { ready = true; k = atlas.width / 1774; };
+  atlas.src = './dusty_atlas.png';
+  const PRINTS = [[39, 193], [235, 414], [453, 584], [644, 789], [836, 1028], [1088, 1274], [1325, 1497], [1567, 1739]]
+    .map(([x0, x1]) => [x0, 34, x1 - x0, 259]);
+  const SMUDGES = [[36, 437], [442, 839], [863, 1118], [1139, 1427], [1443, 1743]]
+    .map(([x0, x1]) => [x0, 311, x1 - x0, 299]);
+  const SMEARS = [0, 1, 2, 3, 4].map(i => [i * 355, 632, 355, 217]);
+
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  function sprite(r, x, y, hPx, rot, alpha) {
+    const [sx, sy, sw, sh] = r;
+    const w = hPx * sw / sh;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(atlas, sx * k, sy * k, sw * k, sh * k, -w / 2, -hPx / 2, w, hPx);
+    ctx.restore();
+    tex.needsUpdate = true;
+  }
+  const toPx = uv => [uv.x * CW, (1 - uv.y) * CH];
+
+  // タップ：指紋（ときどき油汚れ）
+  function tap(uvp) {
+    if (!ready) return;
+    const [x, y] = toPx(uvp);
+    // 1回目は薄く、同じ所を何度も触ると少しずつ濃くなる（上限は MAX_OPACITY）
+    if (Math.random() < 0.18) {
+      sprite(SMUDGES[Math.floor(Math.random() * SMUDGES.length)], x, y, 0.2 * PX * rnd(0.8, 1.1), rnd(-Math.PI, Math.PI), rnd(0.25, 0.4));
+    } else {
+      sprite(PRINTS[Math.floor(Math.random() * PRINTS.length)], x, y, 0.15 * PX * rnd(0.85, 1.1), rnd(-0.7, 0.7), rnd(0.4, 0.6));
+    }
+  }
+
+  // なぞる：指の下の汚れを引きずって伸ばし、こすった跡も少し残す
+  const scratch = document.createElement('canvas');
+  const SR = Math.round(0.05 * PX);   // 指の半径（画素）
+  scratch.width = scratch.height = SR * 2;
+  const sctx = scratch.getContext('2d');
+  const soft = (() => {   // 縁がぼやけた丸いマスク
+    const c = document.createElement('canvas');
+    c.width = c.height = SR * 2;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(SR, SR, SR * 0.2, SR, SR, SR);
+    grd.addColorStop(0, 'rgba(0,0,0,1)');
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, SR * 2, SR * 2);
+    return c;
+  })();
+  let last = null, travel = 0;
+  function strokeStart(uvp) { last = toPx(uvp); travel = 0; }
+  function strokeMove(uvp) {
+    if (!ready) return;
+    if (!last) { last = toPx(uvp); return; }   // ケースの外から戻ってきたらそこから再開
+    const [x1, y1] = toPx(uvp);
+    let [x0, y0] = last;
+    const dist = Math.hypot(x1 - x0, y1 - y0);
+    if (dist < 2) return;
+    const steps = Math.ceil(dist / 5);
+    for (let s = 1; s <= steps; s++) {
+      const x = x0 + (x1 - x0) * s / steps, y = y0 + (y1 - y0) * s / steps;
+      const px = x0 + (x1 - x0) * (s - 1) / steps, py = y0 + (y1 - y0) * (s - 1) / steps;
+      // 直前の位置の汚れを丸く切り取って、今の位置へ少し薄めて置く（＝伸びる）
+      sctx.globalCompositeOperation = 'copy';
+      sctx.drawImage(canvas, px - SR, py - SR, SR * 2, SR * 2, 0, 0, SR * 2, SR * 2);
+      sctx.globalCompositeOperation = 'destination-in';
+      sctx.drawImage(soft, 0, 0);
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(scratch, x - SR, y - SR);
+      ctx.globalAlpha = 1;
+      // 元の場所は指で拭われて少し薄くなる
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.globalAlpha = 0.06;
+      ctx.drawImage(soft, px - SR, py - SR);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+    travel += dist;
+    if (travel > 0.06 * PX) {
+      travel = 0;
+      const ang = Math.atan2(y1 - y0, x1 - x0);
+      sprite(SMEARS[Math.floor(Math.random() * SMEARS.length)], (x0 + x1) / 2, (y0 + y1) / 2,
+        0.09 * PX * rnd(0.8, 1.2), ang + rnd(-0.3, 0.3), rnd(0.12, 0.22));
+    }
+    last = [x1, y1];
+    tex.needsUpdate = true;
+  }
+  function strokeEnd() { last = null; }
+
+  // 拭き上げ：左から右へ布でぬぐうように消す
+  let wipeX = -1;
+  function wipe() { wipeX = 0; }
+  function update(dt, grav) {
+    // 傾けると反射の帯が表面を滑る（静止時は右上の角に少しかかる位置）
+    const target = 0.75 + grav.x * 1.5 - grav.z * 1.1;
+    dirtUniforms.uBand.value += (target - dirtUniforms.uBand.value) * (1 - Math.exp(-dt * 6));
+    if (wipeX < 0) return;
+    const nx = Math.min(CW + 200, wipeX + dt * CW * 1.6);
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    const g = ctx.createLinearGradient(nx - 200, 0, nx, 0);
+    g.addColorStop(0, 'rgba(0,0,0,1)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = 'rgba(0,0,0,1)';
+    ctx.fillRect(0, 0, Math.max(0, nx - 200), CH);
+    ctx.fillStyle = g;
+    ctx.fillRect(nx - 200, 0, 200, CH);
+    ctx.restore();
+    tex.needsUpdate = true;
+    wipeX = nx >= CW + 200 ? -1 : nx;
+  }
+  return { mesh, tap, strokeStart, strokeMove, strokeEnd, wipe, update };
+})();
 
 // 接地の影
 {
@@ -231,6 +540,14 @@ const glslWave = /* glsl */`
     int j = min(i + 1, ${WAVE_N - 1});
     return mix(uWave[i], uWave[j], fract(f));
   }
+  // 床（透明板）の上面の高さ。これより下は水がない
+  float floorY(float x) {
+    ${FLOOR.slice(0, -1).map(([ax, ay], i) => {
+      const [bx, by] = FLOOR[i + 1];
+      return `if (x <= ${bx.toFixed(4)}) return ${ay.toFixed(4)} + (x - ${ax.toFixed(4)}) * ${((by - ay) / (bx - ax)).toFixed(5)};`;
+    }).join('\n    ')}
+    return ${FLOOR[FLOOR.length - 1][1].toFixed(4)};
+  }
   // 屈折後の点が元の画面のどこに写っていたか
   vec3 sceneAt(vec3 p) {
     vec4 c = uViewProj * vec4(p, 1.0);
@@ -266,10 +583,16 @@ const waterMat = new THREE.ShaderMaterial({
     varying vec3 vNw;
     varying vec3 vSNw;
     varying vec3 vLens;
+    varying vec3 vNl;
+    varying vec3 vAxX;
+    varying vec3 vAxZ;
     uniform vec2 uN;
     uniform float uS;
     void main() {
       vP = position;
+      vNl = normal;
+      vAxX = (modelMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz;
+      vAxZ = (modelMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
       vec4 wp = modelMatrix * vec4(position, 1.0);
       vWorld = wp.xyz;
       vNw = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
@@ -284,13 +607,23 @@ const waterMat = new THREE.ShaderMaterial({
     varying vec3 vNw;
     varying vec3 vSNw;
     varying vec3 vLens;
+    varying vec3 vNl;
+    varying vec3 vAxX;
+    varying vec3 vAxZ;
     void main() {
       vec2 T = vec2(-uN.y, uN.x);
       float lvl = dot(uN, vP.xy) + uS * vP.z - (uC + wave(dot(T, vP.xy)));
       if (lvl > 0.0) discard;
+      if (vP.y < floorY(vP.x)) discard;
       float men = smoothstep(-0.018 * mix(1.0, 1.6, uRefr), 0.0, lvl);
       vec3 V = normalize(vWorld - cameraPosition);
       vec3 Nf = normalize(vNw);
+      // 側面はトラック型の式から正確な法線を出す（多角形近似の面ごとの段＝縦縞を消す）
+      if (abs(vNl.y) < 0.5) {
+        float ex = abs(vP.x) - ${XS.toFixed(4)};
+        vec2 nl = ex > 0.0 ? normalize(vec2(sign(vP.x) * ex, vP.z)) : vec2(0.0, sign(vP.z));
+        Nf = normalize(vAxX * nl.x + vAxZ * nl.y);
+      }
       // 壁際の水面はメニスカスで反り上がり、その帯だけ強く曲がる
       vec3 N = Nf - normalize(vSNw) * men * men * mix(0.8, 1.4, uRefr);
       // 派手モード: レンズの膨らみ + 水流のゆらめき
@@ -309,7 +642,12 @@ const waterMat = new THREE.ShaderMaterial({
       #include <colorspace_fragment>
     }`,
 });
-const water = new THREE.Mesh(new THREE.BoxGeometry(W - 0.002, H - 0.002, D - 0.004), waterMat);
+const waterGeo = new THREE.ExtrudeGeometry(stadiumShape(W - 0.002, D - 0.004), {
+  depth: H - 0.002, bevelEnabled: false, curveSegments: 32,
+});
+waterGeo.rotateX(-Math.PI / 2);
+waterGeo.translate(0, -(H - 0.002) / 2, 0);
+const water = new THREE.Mesh(toCreasedNormals(waterGeo, 0.6), waterMat);
 water.renderOrder = 2;
 tank.add(water);
 
@@ -339,6 +677,8 @@ const surfaceMat = new THREE.ShaderMaterial({
     varying vec3 vWorld;
     void main() {
       if (abs(vP3.x) > ${(HX - 0.002).toFixed(4)} || abs(vP3.y) > ${(HY - 0.002).toFixed(4)}) discard;
+      if (vP3.y < floorY(vP3.x)) discard;
+      if (length(vec2(max(abs(vP3.x) - ${XS.toFixed(4)}, 0.0), vP3.z)) > ${(HZ - 0.003).toFixed(4)}) discard;
       vec3 V = normalize(vWorld - cameraPosition);
       vec3 N = normalize(vNrm);
       bool fromAir = dot(N, V) < 0.0;
@@ -390,6 +730,168 @@ bubbles.frustumCulled = false;
 bubbles.renderOrder = 1;   // 水より先に描き、屈折用の画面にも入れる
 tank.add(bubbles);
 
+// ===== 水中の細かい浮遊物（水流に乗って漂い、ゆっくり沈む。光を拾ってときどききらっと見える） =====
+const motes = (() => {
+  const N = 260;
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), seed = new Float32Array(N);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3).setUsage(THREE.DynamicDrawUsage));
+  const tex = (() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 32;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(16, 16, 0, 16, 16, 16);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.35, 'rgba(255,255,255,0.55)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g;
+    x.fillRect(0, 0, 32, 32);
+    return new THREE.CanvasTexture(c);
+  })();
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+    size: 0.0075, map: tex, vertexColors: true, transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending, sizeAttenuation: true,
+  }));
+  pts.frustumCulled = false;
+  pts.renderOrder = 1;   // 泡と同じく水の屈折を通して見える
+  tank.add(pts);
+  // 水の中のランダムな位置（最初は水位の計算前なので、平常時の水面より下に置くだけ）
+  function place(i, checkLevel) {
+    let x = 0, y = 0, z = 0;
+    for (let k = 0; k < 30; k++) {
+      x = (Math.random() - 0.5) * 2 * (HX - 0.02);
+      y = floorTopY(x) + 0.01 + Math.random() * (HY - 0.15 - floorTopY(x));
+      z = (Math.random() - 0.5) * 2 * (zHalf(x) - 0.012);
+      if (!checkLevel || levelAt(x, y, z) < -0.02) break;
+    }
+    pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+  }
+  for (let i = 0; i < N; i++) { seed[i] = Math.random(); place(i, false); }
+  const p = new THREE.Vector3(), f = new THREE.Vector3();
+  function update(dt) {
+    for (let i = 0; i < N; i++) {
+      p.fromArray(pos, i * 3);
+      flowAt(p, f);
+      const s = seed[i];
+      // 水流に少し遅れて乗る＋ゆっくり沈む＋ゆらゆら
+      p.x += (f.x * 0.85 + Math.sin(time * (0.6 + s) + s * 40) * 0.006) * dt;
+      p.y += (f.y * 0.85 - 0.004 - s * 0.004 + Math.cos(time * (0.5 + s) + s * 25) * 0.004) * dt;
+      p.z += (f.z * 0.85 + Math.sin(time * 0.7 + s * 60) * 0.003) * dt;
+      // 水面より上に出たら水の中へ戻す（大きく外れたら別の場所に）
+      const lv = levelAt(p.x, p.y, p.z);
+      if (lv > 0.05) { place(i, true); continue; }
+      if (lv > -0.012) p.y -= (lv + 0.012) * 0.5;
+      const fl = floorTopY(p.x) + 0.004;
+      if (p.y < fl) p.y = fl;
+      p.z = THREE.MathUtils.clamp(p.z, -HZ + 0.006, HZ - 0.006);
+      p.x = THREE.MathUtils.clamp(p.x, -HX + 0.006, HX - 0.006);
+      clampStadium(p, 0.006);
+      p.toArray(pos, i * 3);
+      // 光を拾ったときだけ明るく（加算合成なので暗い＝ほぼ見えない）
+      const tw = Math.sin(time * (0.8 + s * 1.7) + s * 20);
+      const b = (0.12 + 0.5 * tw * tw * tw * tw) * (0.5 + s * 0.6);
+      col[i * 3] = b; col[i * 3 + 1] = b * 0.98; col[i * 3 + 2] = b * 0.92;
+    }
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
+  }
+  return { update };
+})();
+
+// ===== 結露（水面より上のケース内側に付く水滴。少しずつ育ち、大きい粒は傾いた方へ流れ落ちる） =====
+const drops = (() => {
+  const N = 70;
+  const R_IN_GLASS = HZ + 0.0045;   // ケース内面のすぐ手前
+  const zAt = x => { const d = Math.abs(x) - XS; return d <= 0 ? R_IN_GLASS : Math.sqrt(Math.max(0, R_IN_GLASS ** 2 - d * d)); };
+  const dx = new Float32Array(N), dy = new Float32Array(N), dr = new Float32Array(N), dmax = new Float32Array(N);
+  const alive = new Uint8Array(N);
+  const tex = (() => {
+    // 水滴：中はほぼ透明、下側のふちが少し暗く、左上に光の点、右下に小さな映り込み
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const x = c.getContext('2d');
+    let g = x.createRadialGradient(32, 32, 18, 32, 32, 31);
+    g.addColorStop(0, 'rgba(255,255,255,0.06)');
+    g.addColorStop(0.75, 'rgba(120,135,150,0.28)');
+    g.addColorStop(1, 'rgba(90,100,115,0)');
+    x.fillStyle = g;
+    x.beginPath(); x.arc(32, 32, 31, 0, Math.PI * 2); x.fill();
+    g = x.createRadialGradient(24, 22, 0, 24, 22, 9);
+    g.addColorStop(0, 'rgba(255,255,255,0.95)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g;
+    x.beginPath(); x.arc(24, 22, 9, 0, Math.PI * 2); x.fill();
+    g = x.createRadialGradient(40, 43, 0, 40, 43, 8);
+    g.addColorStop(0, 'rgba(255,255,255,0.45)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g;
+    x.beginPath(); x.arc(40, 43, 8, 0, Math.PI * 2); x.fill();
+    return new THREE.CanvasTexture(c);
+  })();
+  const mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: false, toneMapped: false,
+  }), N);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 4;
+  tank.add(mesh);
+  const m = new THREE.Matrix4();
+  const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+  for (let i = 0; i < N; i++) mesh.setMatrixAt(i, ZERO);
+  const STICK = 0.0075;   // これより大きい粒は流れ始める
+  function spawn(i) {
+    for (let k = 0; k < 24; k++) {
+      const x = (Math.random() - 0.5) * 2 * (HX - 0.012);
+      const y = -HY + 0.01 + Math.random() * (H - 0.02);
+      if (levelAt(x, y, zAt(x)) > 0.015) {
+        dx[i] = x; dy[i] = y; dr[i] = 0.0008;
+        dmax[i] = 0.003 + Math.random() * Math.random() * 0.0085;
+        alive[i] = 1;
+        return;
+      }
+    }
+  }
+  let spawnAcc = 0;
+  function update(dt) {
+    // 空気側の面積に応じて少しずつ現れる
+    spawnAcc += dt * 22;
+    for (let i = 0; i < N && spawnAcc >= 1; i++) if (!alive[i]) { spawn(i); spawnAcc -= 1; }
+    spawnAcc = Math.min(spawnAcc, 3);
+    const gx = gEff.x, gy = gEff.y, gl = Math.hypot(gx, gy) || 1;
+    for (let i = 0; i < N; i++) {
+      if (!alive[i]) continue;
+      // 水に触れたら流される
+      if (levelAt(dx[i], dy[i], zAt(dx[i])) < 0.004) { alive[i] = 0; mesh.setMatrixAt(i, ZERO); continue; }
+      if (dr[i] < dmax[i]) dr[i] = Math.min(dmax[i], dr[i] + dt * 0.004);
+      else if (dr[i] < 0.012) dr[i] += dt * 0.00012 * Math.random();   // 結露でゆっくり育つ
+      if (dr[i] > STICK) {
+        // 大きい粒は傾いた方へ流れ、途中の粒を巻き込んで大きくなる
+        const v = (dr[i] - STICK) * 30 * gl;
+        dx[i] += (gx / gl * v + Math.sin(time * 9 + i) * v * 0.15) * dt;
+        dy[i] += gy / gl * v * dt;
+        for (let j = 0; j < N; j++) {
+          if (j === i || !alive[j]) continue;
+          const d = Math.hypot(dx[j] - dx[i], dy[j] - dy[i]);
+          if (d < (dr[i] + dr[j]) * 0.9) {
+            dr[i] = Math.min(0.014, Math.cbrt(dr[i] ** 3 + dr[j] ** 3));
+            dmax[i] = dr[i];
+            alive[j] = 0; mesh.setMatrixAt(j, ZERO);
+          }
+        }
+        // 流れた跡は少し小さくなる（水を残していく）
+        dr[i] -= dt * 0.0012 * v / (v + 0.02);
+      }
+      if (Math.abs(dx[i]) > HX - 0.006 || dy[i] < -HY || dy[i] > HY - 0.004) { alive[i] = 0; mesh.setMatrixAt(i, ZERO); continue; }
+      const r = dr[i];
+      m.makeScale(r, r * 1.04, 1).setPosition(dx[i], dy[i], zAt(dx[i]));
+      mesh.setMatrixAt(i, m);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+  return { mesh, update };
+})();
+
 // ===== 輪 =====
 const V3 = THREE.Vector3;
 const ringGeo = new THREE.TorusGeometry(RING_R, TUBE, 12, 32);
@@ -401,7 +903,7 @@ for (let i = 0; i < RING_COUNT; i++) {
   tank.add(mesh);
   rings.push({
     p: new V3(), v: new V3(), q: new THREE.Quaternion(), w: new V3(),
-    n: new V3(), e1: new V3(), e2: new V3(), sub: 1, peg: -1, mesh,
+    n: new V3(), e1: new V3(), e2: new V3(), sub: 1, peg: -1, side: PEGS.map(() => 0), vc: new V3(), imp: 0, cool: 0, held: false, mesh,
   });
 }
 
@@ -419,6 +921,7 @@ function scatterRings() {
     r.w.set(0, 0, 0);
     r.q.setFromEuler(new THREE.Euler(Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3));
     r.peg = -1;
+    r.side.fill(0);
   }
 }
 
@@ -427,13 +930,66 @@ const pegSamples = PEGS.map(p => {
   const s = [];
   for (let y = p.base; y < p.tip; y += 0.012) s.push({ p: new V3(p.x, y, 0), r: PEG_R });
   s.push({ p: new V3(p.x, p.tip, 0), r: TIP_R });
-  for (let k = 0; k < 14; k++) {
-    const a = k / 14 * Math.PI * 2;
-    s.push({ p: new V3(p.x + Math.cos(a) * (COLLAR_R - 0.006), p.base, Math.sin(a) * (COLLAR_R - 0.006)), r: 0.006 });
-  }
-  for (let z = -HZ; z < 0; z += 0.015) s.push({ p: new V3(p.x, p.base - 0.02, z), r: 0.012 });
   return s;
 });
+
+// 皿（棚）の水平断面の符号付き距離：後ろの壁から z=0 までの線分を半径 COLLAR_R で太らせた形
+function sdShelf2(pg, px, pz) {
+  const dz = pz > 0 ? pz : (pz < SHELF_BACK ? pz - SHELF_BACK : 0);
+  return Math.hypot(px - pg.x, dz) - COLLAR_R;
+}
+// 皿（棚）の符号付き距離（厚み 2*SHELF_HT の板）
+function sdShelf(pg, px, py, pz) {
+  const wx = sdShelf2(pg, px, pz), wy = Math.abs(py - pg.base) - SHELF_HT;
+  return Math.min(Math.max(wx, wy), 0) + Math.hypot(Math.max(wx, 0), Math.max(wy, 0));
+}
+// 棒が穴を通っている輪は、皿（穴より大きい）より下へ絶対に抜けない一方向の制約
+const _cn = new V3(0, 1, 0);
+// 下から来た輪（棚の下で軸が穴を通っている）も同様に、棚より上へは抜けない。
+// どちら側から来たかは「軸が穴を通り始めた瞬間」の輪の中心の高さで決め、穴から軸が外れるまで覚えておく
+const _cd = new V3(0, -1, 0);
+function collarBlock(r, pg, i) {
+  const side = r.side;
+  if (Math.abs(r.n.y) < 0.05) { side[i] = 0; return; }
+  // 棒の軸が輪の面と交わる高さ
+  const yc = r.p.y - (r.n.x * (pg.x - r.p.x) - r.n.z * r.p.z) / r.n.y;
+  if (yc < pg.base - 0.15 || yc > pg.tip || Math.hypot(pg.x - r.p.x, yc - r.p.y, r.p.z) >= R_IN) {
+    side[i] = 0;   // 穴を通っていない
+    return;
+  }
+  if (side[i] === 0) side[i] = r.p.y >= pg.base ? 1 : -1;
+  const up = side[i] > 0;
+  const limY = up ? pg.base + SHELF_HT + TUBE : pg.base - SHELF_HT - TUBE;
+  for (let k = 0; k < RING_SAMPLES; k++) {
+    const a = k / RING_SAMPLES * Math.PI * 2;
+    _fc.copy(r.p).addScaledVector(r.e1, Math.cos(a) * RING_R).addScaledVector(r.e2, Math.sin(a) * RING_R);
+    if (sdShelf2(pg, _fc.x, _fc.z) >= TUBE) continue;
+    const pen = up ? limY - _fc.y : _fc.y - limY;
+    if (pen <= 0) continue;
+    const N = up ? _cn : _cd;
+    _fp.copy(_fc).addScaledVector(N, -TUBE);
+    resolve(r, _fp, N, pen / 0.8, null, 0.1, 0.3);   // resolve は pen*0.8 動かすので全量押し戻す
+  }
+}
+const RING_SAMPLES = 24;
+const _fc = new V3(), _fn = new V3(), _fp = new V3();
+function shelfContact(r, pg) {
+  for (let k = 0; k < RING_SAMPLES; k++) {
+    const a = k / RING_SAMPLES * Math.PI * 2;
+    _fc.copy(r.p).addScaledVector(r.e1, Math.cos(a) * RING_R).addScaledVector(r.e2, Math.sin(a) * RING_R);
+    const d = sdShelf(pg, _fc.x, _fc.y, _fc.z) - TUBE;
+    if (d >= 0) continue;
+    const e = 1e-4;
+    _fn.set(
+      sdShelf(pg, _fc.x + e, _fc.y, _fc.z) - sdShelf(pg, _fc.x - e, _fc.y, _fc.z),
+      sdShelf(pg, _fc.x, _fc.y + e, _fc.z) - sdShelf(pg, _fc.x, _fc.y - e, _fc.z),
+      sdShelf(pg, _fc.x, _fc.y, _fc.z + e) - sdShelf(pg, _fc.x, _fc.y, _fc.z - e),
+    );
+    if (_fn.lengthSq() < 1e-12) _fn.set(0, Math.sign(_fc.y - pg.base) || 1, 0); else _fn.normalize();
+    _fp.copy(_fc).addScaledVector(_fn, -TUBE);
+    resolve(r, _fp, _fn, -d * 0.6, null, 0.1, 0.15);
+  }
+}
 
 const floorPlanes = [];
 for (let i = 0; i < FLOOR.length - 1; i++) {
@@ -441,8 +997,34 @@ for (let i = 0; i < FLOOR.length - 1; i++) {
   const n = new V3(-(by - ay), bx - ax, 0).normalize();
   floorPlanes.push({ n, o: n.x * ax + n.y * ay, x0: ax - 0.03, x1: bx + 0.03 });
 }
+// 点をトラック型の内側（壁から m 以上内側）へ押し戻す
+function clampStadium(p, m) {
+  const dx = Math.abs(p.x) - XS;
+  if (dx <= 0) return;
+  const dist = Math.hypot(dx, p.z), lim = HZ - m;
+  if (dist <= lim) return;
+  const k = lim / dist;
+  p.x = Math.sign(p.x) * (XS + dx * k);
+  p.z *= k;
+}
+// 左右の半円の壁：輪の中心線上の点で判定（正面・背面・天井・底は平面）
+const _ew = new V3();
+function endWallContact(r, e) {
+  if (Math.abs(r.p.x) + RING_R + TUBE < XS) return;
+  for (let k = 0; k < RING_SAMPLES; k++) {
+    const a = k / RING_SAMPLES * Math.PI * 2;
+    _fc.copy(r.p).addScaledVector(r.e1, Math.cos(a) * RING_R).addScaledVector(r.e2, Math.sin(a) * RING_R);
+    const dx = Math.abs(_fc.x) - XS;
+    if (dx <= 0) continue;
+    const dist = Math.hypot(dx, _fc.z);
+    const pen = dist + TUBE - HZ;
+    if (pen <= 0 || dist < 1e-6) continue;
+    _ew.set(-Math.sign(_fc.x) * dx / dist, 0, -_fc.z / dist);   // 内向き
+    _fp.copy(_fc).addScaledVector(_ew, -TUBE);
+    resolve(r, _fp, _ew, pen, null, e);
+  }
+}
 const wallPlanes = [
-  { n: new V3(1, 0, 0), o: -HX }, { n: new V3(-1, 0, 0), o: -HX },
   { n: new V3(0, -1, 0), o: -HY }, { n: new V3(0, 1, 0), o: -HY },
   { n: new V3(0, 0, 1), o: -HZ }, { n: new V3(0, 0, -1), o: -HZ },
 ];
@@ -454,7 +1036,8 @@ const sN = new THREE.Vector2(0, 1);  // 水面の法線
 let slosh = Math.PI / 2, sloshV = 0, cS = 0;
 let sloshZ = 0, sloshZV = 0;   // 前後方向の水面の傾き
 let time = 0, stir = 0;
-const jets = NOZZLES.map(() => ({ pressed: false, held: 0, s: 0 }));
+// burst: 押すたびに送り出される水の勢い（連打で重なる）、taps: 前のフレームから押された回数（素早いタップも取りこぼさない）
+const jets = NOZZLES.map(() => ({ pressed: false, held: 0, s: 0, burst: 0, taps: 0 }));
 let tilt = 0, tiltTarget = 0, shakeT = 0;
 let playing = false, playTime = 0, allHookedT = 0, lastHooked = 0;
 
@@ -491,7 +1074,7 @@ async function requestSensors() {
 // ===== 入力: ボタン・キー・ドラッグ =====
 const btns = [document.getElementById('btnL'), document.getElementById('btnR')];
 btns.forEach((b, i) => {
-  const set = v => { jets[i].pressed = v; if (v) jets[i].held = 0; b.classList.toggle('on', v); };
+  const set = v => { if (v && !jets[i].pressed) jets[i].taps++; jets[i].pressed = v; if (v) jets[i].held = 0; b.classList.toggle('on', v); };
   b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture(e.pointerId); set(true); audio.resume(); });
   for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, () => set(false));
   b.addEventListener('contextmenu', e => e.preventDefault());
@@ -501,7 +1084,7 @@ const keys = {};
 addEventListener('keydown', e => {
   if (e.repeat) return;
   const k = e.key.toLowerCase();
-  if (k in keyJet) { const i = keyJet[k]; jets[i].pressed = true; jets[i].held = 0; btns[i].classList.add('on'); }
+  if (k in keyJet) { const i = keyJet[k]; if (!jets[i].pressed) jets[i].taps++; jets[i].pressed = true; jets[i].held = 0; btns[i].classList.add('on'); }
   if (e.key === ' ') shakeT = 0.5;
   keys[e.key] = true;
 });
@@ -524,6 +1107,7 @@ const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 const pointerJet = new Map();
 function setJet(i, v) {
+  if (v && !jets[i].pressed) jets[i].taps++;
   jets[i].pressed = v;
   if (v) jets[i].held = 0;
   btns[i].classList.toggle('on', v);
@@ -546,12 +1130,30 @@ renderer.domElement.addEventListener('pointerdown', e => {
     audio.resume();
     return;
   }
-  drag = { x: e.clientX, id: e.pointerId };
+  // ケースの正面を触ったら指紋が付き、なぞると汚れが伸びる。ケースの外をドラッグしたときだけ傾ける（PC など）
+  const dh = raycaster.intersectObject(dirt.mesh)[0];
+  if (dh) {
+    dirt.tap(dh.uv);
+    dirt.strokeStart(dh.uv);
+    dirtPointer = e.pointerId;
+  } else {
+    drag = { x: e.clientX, id: e.pointerId };
+  }
 });
+let dirtPointer = null;
+function dirtEnd(e) { if (e.pointerId === dirtPointer) { dirtPointer = null; dirt.strokeEnd(); } }
 addEventListener('pointerup', releasePointerJet);
 addEventListener('pointercancel', releasePointerJet);
+addEventListener('pointerup', dirtEnd);
+addEventListener('pointercancel', dirtEnd);
 addEventListener('pointermove', e => {
   if (drag && e.pointerId === drag.id) tiltTarget = THREE.MathUtils.clamp((e.clientX - drag.x) * -0.004, -1.2, 1.2);
+  if (e.pointerId === dirtPointer) {
+    ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    const dh = raycaster.intersectObject(dirt.mesh)[0];
+    if (dh) dirt.strokeMove(dh.uv); else dirt.strokeEnd();
+  }
 });
 addEventListener('pointerup', e => { if (drag && e.pointerId === drag.id) { drag = null; tiltTarget = 0; } });
 document.addEventListener('contextmenu', e => e.preventDefault());
@@ -582,28 +1184,122 @@ for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick']) {
 
 // ===== 音 =====
 const audio = (() => {
-  let ctx = null, pumpGain, pumpFilter;
+  let ctx = null, pumpGain, pumpFilter, noise, master;
+  let lastImpact = 0, lastPop = 0, lastSplash = 0;
   function init() {
     if (ctx) return;
     ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain(); master.gain.value = 1;
+    master.connect(ctx.destination);
     const len = ctx.sampleRate * 2;
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const d = buf.getChannelData(0);
+    noise = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const src = ctx.createBufferSource();
-    src.buffer = buf; src.loop = true;
+    src.buffer = noise; src.loop = true;
     pumpFilter = ctx.createBiquadFilter();
     pumpFilter.type = 'lowpass'; pumpFilter.frequency.value = 300;
     pumpGain = ctx.createGain(); pumpGain.gain.value = 0;
-    src.connect(pumpFilter).connect(pumpGain).connect(ctx.destination);
+    src.connect(pumpFilter).connect(pumpGain).connect(master);
     src.start();
   }
+  // 短いノイズを鳴らす（フィルタの種類・周波数・長さ・音量）
+  function noiseHit(type, freq, q, dur, vol, sweepTo) {
+    const t = ctx.currentTime;
+    const s = ctx.createBufferSource();
+    s.buffer = noise;
+    const f = ctx.createBiquadFilter();
+    f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+    if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(master);
+    s.start(t, Math.random() * 1.5);
+    s.stop(t + dur + 0.02);
+  }
   return {
+    // 輪が壁・棚・棒・他の輪に当たった「コツッ」。水中ではこもった音
+    impact(v, underwater) {
+      if (!ctx || v <= 0) return;
+      const t = ctx.currentTime;
+      if (t - lastImpact < 0.025) return;
+      lastImpact = t;
+      const vol = Math.min(0.35, 0.04 + v * 0.3);
+      const fq = (underwater ? 900 : 2200) * (0.8 + Math.random() * 0.5);
+      noiseHit('bandpass', fq, underwater ? 2.5 : 4, underwater ? 0.07 : 0.045, vol);
+      // 硬いプラスチックの響き（ごく短い音程）
+      const o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+      o.frequency.value = (underwater ? 700 : 1700) * (0.85 + Math.random() * 0.4);
+      lp.type = 'lowpass'; lp.frequency.value = underwater ? 1100 : 5000;
+      g.gain.setValueAtTime(vol * 0.35, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+      o.connect(lp).connect(g).connect(master);
+      o.start(t); o.stop(t + 0.08);
+    },
+    // 泡が水面ではじける「ポコッ」
+    pop(n) {
+      if (!ctx || n <= 0) return;
+      const t = ctx.currentTime;
+      if (t - lastPop < 0.035 || Math.random() > Math.min(1, n * 0.25)) return;
+      lastPop = t;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      const f0 = 350 + Math.random() * 500;
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.exponentialRampToValueAtTime(f0 * 2.4, t + 0.05);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.05 + Math.random() * 0.04, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+      o.connect(g).connect(master);
+      o.start(t); o.stop(t + 0.09);
+    },
+    // 水が壁に寄って揺れ返す「チャプッ」
+    splash(v) {
+      if (!ctx || v <= 0) return;
+      const t = ctx.currentTime;
+      if (t - lastSplash < 0.18) return;
+      lastSplash = t;
+      noiseHit('lowpass', 1800, 0.8, 0.28, Math.min(0.3, 0.06 + v * 0.25), 260);
+      noiseHit('bandpass', 600, 3, 0.12, Math.min(0.15, 0.03 + v * 0.12), 1400);
+    },
     resume() { init(); if (ctx.state === 'suspended') ctx.resume(); },
     pump(s) {
       if (!ctx) return;
       pumpGain.gain.setTargetAtTime(s * 0.18, ctx.currentTime, 0.03);
       pumpFilter.frequency.setTargetAtTime(250 + s * 700, ctx.currentTime, 0.05);
+    },
+    // イルカの「キューキュー」：音程が上下する口笛のような声を細かく震わせて数回
+    // happy = true は褒めるときの、高く短く弾む「きゅいきゅい」
+    dolphin(n = 3, happy = false) {
+      if (!ctx) return;
+      const t0 = ctx.currentTime + 0.02;
+      for (let k = 0; k < n; k++) {
+        const t = t0 + k * (happy ? 0.12 + Math.random() * 0.03 : 0.17 + Math.random() * 0.05);
+        const base = happy ? 2500 + Math.random() * 600 : 1900 + Math.random() * 500;
+        const o = ctx.createOscillator(), o2 = ctx.createOscillator();
+        const g = ctx.createGain(), g2 = ctx.createGain();
+        const lfo = ctx.createOscillator(), lfoG = ctx.createGain();
+        o.type = 'sine'; o2.type = 'sine';
+        o.frequency.setValueAtTime(base, t);
+        o.frequency.linearRampToValueAtTime(base * 1.75, t + 0.06);
+        o.frequency.linearRampToValueAtTime(base * 1.25, t + 0.13);
+        o2.frequency.setValueAtTime(base * 2, t);
+        o2.frequency.linearRampToValueAtTime(base * 3.5, t + 0.06);
+        o2.frequency.linearRampToValueAtTime(base * 2.5, t + 0.13);
+        lfo.frequency.value = 38; lfoG.gain.value = 90;
+        lfo.connect(lfoG); lfoG.connect(o.frequency);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.11, t + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+        g2.gain.setValueAtTime(0.0001, t);
+        g2.gain.exponentialRampToValueAtTime(0.025, t + 0.015);
+        g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+        o.connect(g).connect(master);
+        o2.connect(g2).connect(master);
+        for (const x of [o, o2, lfo]) { x.start(t); x.stop(t + 0.17); }
+      }
     },
     clink() {
       if (!ctx) return;
@@ -611,7 +1307,7 @@ const audio = (() => {
       o.frequency.value = 1500 + Math.random() * 300;
       g.gain.setValueAtTime(0.15, ctx.currentTime);
       g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-      o.connect(g).connect(ctx.destination);
+      o.connect(g).connect(master);
       o.start(); o.stop(ctx.currentTime + 0.4);
     },
   };
@@ -657,6 +1353,7 @@ function levelAt(x, y, z = 0) {
   return sN.x * x + sN.y * y + sloshZ * z - (cS + waveAt(-sN.y * x + sN.x * y));
 }
 
+let sloshPeak = 0, sloshPrev = 0;
 function updateSlosh(dt) {
   const gx = gEff.x, gy = gEff.y, g2 = Math.hypot(gx, gy);
   if (g2 > 0.03) {
@@ -667,6 +1364,13 @@ function updateSlosh(dt) {
   }
   sloshV *= Math.exp(-dt * 0.3);
   slosh += sloshV * dt;
+  sloshPeak = Math.max(sloshPeak, Math.abs(sloshV));
+  if (Math.sign(sloshV) !== Math.sign(sloshPrev) && sloshPeak > 0.7) {
+    audio.splash(Math.min(1, (sloshPeak - 0.7) / 2.5));
+    sloshPeak = 0;
+  }
+  if (Math.sign(sloshV) !== Math.sign(sloshPrev)) sloshPeak = 0;
+  sloshPrev = sloshV;
   // 奥行きは薄いので前後の傾きには素早く追従する
   const sT = THREE.MathUtils.clamp(-gEff.z / Math.max(g2, 0.05), -2.5, 2.5);
   sloshZV += (60 * (sT - sloshZ) - 2 * 0.15 * Math.sqrt(60) * sloshZV) * dt;
@@ -810,6 +1514,7 @@ function updateFrames(r) {
 function stepRings(dt) {
   for (const r of rings) {
     updateFrames(r);
+    if (r.held) continue;   // イルカが運んでいる輪は物理で動かさない
     const lvl = levelAt(r.p.x, r.p.y, r.p.z);
     const sub = THREE.MathUtils.smoothstep(-lvl, -RING_R, RING_R);
     r.sub = sub;
@@ -847,7 +1552,9 @@ function stepRings(dt) {
     updateFrames(r);
   }
 
+  for (const r of rings) r.vc.copy(r.v);   // 当たった強さ（接触による速度の変化）を音に使う
   for (const r of rings) {
+    if (r.held) continue;
     const contactE = 0.1 + 0.3 * (1 - r.sub);
     for (const pl of wallPlanes) {
       _d.copy(pl.n).negate();
@@ -855,6 +1562,7 @@ function stepRings(dt) {
       const pen = pl.o - pl.n.dot(_sp);
       if (pen > 0) resolve(r, _sp, pl.n, pen, null, contactE);
     }
+    endWallContact(r, contactE);
     for (const pl of floorPlanes) {
       _d.copy(pl.n).negate();
       support(r, _d, _sp);
@@ -870,6 +1578,8 @@ function stepRings(dt) {
         const pen = torusContact(r, s.p, s.r);
         if (pen > 0) resolve(r, contactP, contactN, pen * 0.6, null, 0.1, 0.15);
       }
+      shelfContact(r, pg);
+      collarBlock(r, pg, i);
     }
   }
 
@@ -878,20 +1588,27 @@ function stepRings(dt) {
       const A = rings[a], B = rings[b];
       if (A.p.distanceToSquared(B.p) > 4 * (RING_R + TUBE) ** 2) continue;
       for (const [P, Q] of [[A, B], [B, A]]) {
+        if (Q.held) continue;   // 運ばれている輪は動かない壁として扱う
         for (let k = 0; k < 16; k++) {
           const ang = k / 16 * Math.PI * 2;
           _ci.copy(P.p).addScaledVector(P.e1, Math.cos(ang) * RING_R).addScaledVector(P.e2, Math.sin(ang) * RING_R);
           const pen = torusContact(Q, _ci, TUBE);
-          if (pen > 0) resolve(Q, contactP, contactN, pen * 0.5, P, 0.1, 0.2);
+          if (pen > 0) resolve(Q, contactP, contactN, pen * 0.5, P.held ? null : P, 0.1, 0.2);
         }
       }
     }
   }
 
+  // 輪どうしの押し合いで皿の下へ押し込まれないよう、最後にもう一度かける
+  for (const r of rings) if (!r.held) PEGS.forEach((pg, i) => collarBlock(r, pg, i));
+
   for (const r of rings) {
+    if (r.held) continue;
     r.p.x = THREE.MathUtils.clamp(r.p.x, -HX + TUBE, HX - TUBE);
     r.p.y = THREE.MathUtils.clamp(r.p.y, -HY + TUBE, HY - TUBE);
     r.p.z = THREE.MathUtils.clamp(r.p.z, -HZ + TUBE, HZ - TUBE);
+    clampStadium(r.p, TUBE);
+    r.imp = Math.max(r.imp, r.v.distanceTo(r.vc));
   }
 }
 
@@ -901,15 +1618,31 @@ function hookedPeg(r) {
   for (let i = 0; i < PEGS.length; i++) {
     const pg = PEGS[i];
     const y = r.p.y - (r.n.x * (pg.x - r.p.x) - r.n.z * r.p.z) / r.n.y;
-    if (y < pg.base - 0.02 || y > pg.tip) continue;
+    // 棚より上で、上側から入った輪だけ（下から棚に押し付けられている輪は数えない）
+    if (y < pg.base || y > pg.tip || r.side[i] < 0) continue;
     if (Math.hypot(pg.x - r.p.x, y - r.p.y, r.p.z) < R_IN) return i;
   }
   return -1;
 }
 
+// ===== 当たった音 =====
+function updateImpactSounds(dt) {
+  let n = 0;
+  for (const r of rings) {
+    r.cool -= dt;
+    if (r.imp > 0.16 && r.cool <= 0 && n < 2) {
+      audio.impact((r.imp - 0.16) * 1.1, r.sub > 0.5);
+      r.cool = 0.12;
+      n++;
+    }
+    r.imp = 0;
+  }
+}
+
 // ===== 泡 =====
 const _bp = new V3(), _bf = new V3(), _up = new V3();
 function updateBubbles(dt) {
+  let pops = 0;
   for (let j = 0; j < jets.length; j++) {
     const n = jets[j].s * 140 * dt;
     let count = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0);
@@ -936,7 +1669,10 @@ function updateBubbles(dt) {
     _bp.x = THREE.MathUtils.clamp(_bp.x, -HX + 0.005, HX - 0.005);
     _bp.y = THREE.MathUtils.clamp(_bp.y, -HY + 0.005, HY - 0.005);
     _bp.z = THREE.MathUtils.clamp(_bp.z, -HZ + 0.005, HZ - 0.005);
-    if (levelAt(_bp.x, _bp.y, _bp.z) > -0.005 || bubbleLife[i] > 5) {
+    clampStadium(_bp, 0.005);
+    const atSurface = levelAt(_bp.x, _bp.y, _bp.z) > -0.005;
+    if (atSurface) pops++;
+    if (atSurface || bubbleLife[i] > 5) {
       const last = --bubbleCount;
       for (let c = 0; c < 3; c++) {
         bubblePos[i * 3 + c] = bubblePos[last * 3 + c];
@@ -948,9 +1684,37 @@ function updateBubbles(dt) {
     }
     _bp.toArray(bubblePos, i * 3);
   }
+  audio.pop(pops);
   bubbleGeo.setDrawRange(0, bubbleCount);
   bubbleGeo.attributes.position.needsUpdate = true;
 }
+
+// ===== 水平リセット（寝転がったままなど、今の持ち方を水平として登録） =====
+const levelCal = { q: new THREE.Quaternion(), on: false };
+const gRaw = new V3(0, -1, 0);
+try {
+  const saved = JSON.parse(localStorage.getItem('aquaRingLevel'));
+  if (Array.isArray(saved) && saved.length === 4) { levelCal.q.fromArray(saved); levelCal.on = true; }
+} catch { }
+const levelBtn = document.getElementById('levelBtn');
+const unlevelBtn = document.getElementById('unlevelBtn');
+let toastT = 0, toastMsg = '';
+function toast(msg) { toastMsg = msg; toastT = 1.8; }
+function setLevelCal(on) {
+  levelCal.on = on;
+  if (on) {
+    levelCal.q.setFromUnitVectors(gRaw.clone().normalize(), new V3(0, -1, 0));
+    localStorage.setItem('aquaRingLevel', JSON.stringify(levelCal.q.toArray()));
+    toast('今の持ち方を水平にしました');
+  } else {
+    levelCal.q.identity();
+    localStorage.removeItem('aquaRingLevel');
+    toast('水平を元に戻しました');
+  }
+  unlevelBtn.classList.toggle('hidden', !on);
+}
+unlevelBtn.classList.toggle('hidden', !levelCal.on);
+levelBtn.addEventListener('click', () => { if (sensor.has) setLevelCal(true); });
 
 // ===== 入力の反映 =====
 function updateInput(dt) {
@@ -964,6 +1728,9 @@ function updateInput(dt) {
     const a = screenAngle(), c = Math.cos(a), sn = Math.sin(a);
     const x = sensor.raw.x * s, y = sensor.raw.y * s;
     gTarget.set(x * c - y * sn, x * sn + y * c, sensor.raw.z * s);
+    // 水平リセット：登録した持ち方を「まっすぐ」とみなす
+    gRaw.copy(gTarget);
+    if (levelCal.on) gTarget.applyQuaternion(levelCal.q);
     if (gTarget.length() > 2.5) gTarget.setLength(2.5);
     tank.rotation.z = 0;
   } else {
@@ -980,11 +1747,15 @@ function updateInput(dt) {
   }
   gEff.lerp(gTarget, 1 - Math.exp(-dt * 30));
 
+  // ポンプ：実物のように1回押すごとに一定量の水を送り出す。連打すると重なって強くなり、長押しでは強くならない
   let pump = 0;
   for (const j of jets) {
     j.held += dt;
-    const target = j.pressed ? 0.3 + 0.9 * Math.exp(-j.held / 0.5) : 0;
-    j.s += (target - j.s) * (1 - Math.exp(-dt * (j.pressed ? 14 : 4)));
+    if (j.taps) j.burst = Math.min(1.7, j.burst + 0.95 * j.taps);
+    j.taps = 0;
+    j.burst *= Math.exp(-dt / 0.38);
+    const target = j.burst + (j.pressed ? 0.12 : 0);
+    j.s += (target - j.s) * (1 - Math.exp(-dt * (target > j.s ? 18 : 6)));
     pump = Math.max(pump, j.s);
   }
   stir = Math.min(1.5, (stir + (jets[0].s + jets[1].s) * dt * 2) * Math.exp(-dt / 1.2));
@@ -992,16 +1763,418 @@ function updateInput(dt) {
   pushButtons.forEach((b, i) => { b.position.z = jets[i].pressed ? BTN_Z_DOWN : BTN_Z_UP; });
 }
 
+// ===== お助けイルカ（輪を1つ拾って棒に入れてくれる。使うと10分休憩） =====
+const dolphin = (() => {
+  const L = 0.30;          // 体長
+  const HALF = L / 2;
+  const COOLDOWN = 10 * 60 * 1000;
+  const group = new THREE.Group();
+  const mats = [];
+  const mat = (o) => { const m = new THREE.MeshPhysicalMaterial({ transparent: true, opacity: 0, ...o }); mats.push(m); return m; };
+
+  // 胴体：尾→口先の輪郭を回転させ、x 方向（頭が +x）に寝かせる。背中は青灰色、お腹は白っぽく
+  const prof = [[0, 0.004], [0.03, 0.010], [0.07, 0.021], [0.12, 0.034], [0.17, 0.043], [0.21, 0.044],
+    [0.24, 0.038], [0.258, 0.029], [0.268, 0.016], [0.274, 0.010], [0.296, 0.008], [0.30, 0]]
+    .map(([y, r]) => new THREE.Vector2(r, y));
+  const bodyGeo = new THREE.LatheGeometry(prof, 28);
+  bodyGeo.rotateZ(-Math.PI / 2);
+  bodyGeo.translate(-HALF, 0, 0);
+  bodyGeo.scale(1, 1, 0.82);
+  bodyGeo.computeVertexNormals();
+  {
+    const n = bodyGeo.attributes.normal, colors = [];
+    const back = new THREE.Color(0x587a95), belly = new THREE.Color(0xe4ecf1), c = new THREE.Color();
+    for (let i = 0; i < n.count; i++) {
+      c.copy(belly).lerp(back, THREE.MathUtils.smoothstep(n.getY(i), -0.35, 0.25));
+      colors.push(c.r, c.g, c.b);
+    }
+    bodyGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  }
+  const skin = mat({ vertexColors: true, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.2 });
+  const finMat = mat({ color: 0x557792, roughness: 0.4, clearcoat: 0.5 });
+  group.add(new THREE.Mesh(bodyGeo, skin));
+  const extrude = (shape, depth) => {
+    const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: 0.002, bevelThickness: 0.002, bevelSegments: 2, curveSegments: 10 });
+    g.translate(0, 0, -depth / 2);
+    return g;
+  };
+  // 背びれ
+  {
+    const s = new THREE.Shape();
+    s.moveTo(0.02, 0);
+    s.quadraticCurveTo(0.0, 0.032, -0.04, 0.058);
+    s.quadraticCurveTo(-0.032, 0.022, -0.05, 0);
+    s.closePath();
+    const fin = new THREE.Mesh(extrude(s, 0.006), finMat);
+    fin.position.set(-0.005, 0.036, 0);
+    fin.scale.set(1, 0.72, 1);
+    group.add(fin);
+  }
+  // 胸びれ（左右）
+  for (const side of [1, -1]) {
+    const s = new THREE.Shape();
+    s.moveTo(0, 0);
+    s.quadraticCurveTo(-0.012, -0.03, -0.042, -0.036);
+    s.quadraticCurveTo(-0.022, -0.012, -0.018, 0);
+    s.closePath();
+    const fin = new THREE.Mesh(extrude(s, 0.004), finMat);
+    fin.position.set(0.075, -0.016, side * 0.028);
+    fin.rotation.x = side * 0.55;
+    group.add(fin);
+  }
+  // 尾びれ（付け根を軸に上下に振る）
+  const tail = new THREE.Group();
+  tail.position.set(-HALF + 0.004, 0, 0);
+  {
+    const s = new THREE.Shape();
+    s.moveTo(0.004, 0);
+    s.quadraticCurveTo(-0.02, 0.03, -0.05, 0.062);
+    s.quadraticCurveTo(-0.034, 0.028, -0.03, 0);
+    s.quadraticCurveTo(-0.034, -0.028, -0.05, -0.062);
+    s.quadraticCurveTo(-0.02, -0.03, 0.004, 0);
+    const g = extrude(s, 0.005);
+    g.rotateX(Math.PI / 2);   // 水平な尾びれ
+    tail.add(new THREE.Mesh(g, finMat));
+  }
+  group.add(tail);
+  // 目
+  const eyeMat = mat({ color: 0x111418, roughness: 0.15, clearcoat: 1 });
+  for (const side of [1, -1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 12, 10), eyeMat);
+    eye.position.set(HALF - 0.042, 0.009, side * 0.0225);   // 体の表面に半分埋める
+    eye.scale.set(1, 1, 0.7);
+    group.add(eye);
+  }
+  group.visible = false;
+  tank.add(group);
+
+  // ---- 動き ----
+  const C = new V3(), V = new V3(), T = new V3(), fwd = new V3(), nose = new V3(), tmp = new V3();
+  const Zax = new V3(0, 0, 1), Yax = new V3(0, 1, 0);
+  const qFrom = new THREE.Quaternion(), qTo = new THREE.Quaternion();
+  const pFrom = new V3();
+  // heading: 画面と平行な面の中での進行方向（0 = 右向き）。roll: 左向きのときに背中を上に保つひねり。spin: 喜びの一回転
+  let phase = 'idle', pt = 0, heading = 0, roll = 0, spin = 0, alpha = 0, swimT = 0;
+  // 褒めるとき：up = 立ち姿勢への移り具合（0〜1）、nod = うなずき
+  let praiseMode = false, up = 0, nod = 0, chirped = 0;
+  const qTilt = new THREE.Quaternion(), Xax = new V3(1, 0, 0);
+  let ring = null, peg = 0;
+  let until = 0;   // 休憩が終わる時刻（保存しないので、リロードやリセットで元に戻る）
+  localStorage.removeItem('aquaRingDolphinUntil');
+
+  function setOpacity(a) { for (const m of mats) m.opacity = a; }
+  function waterTop(x) {   // その x での水面の高さ（おおよそ）
+    if (Math.abs(sN.y) < 0.2) return HY;
+    return (cS - sN.x * x) / sN.y;
+  }
+  function clampCenter(p) {
+    p.x = THREE.MathUtils.clamp(p.x, -HX + HALF + 0.02, HX - HALF - 0.02);
+    p.y = THREE.MathUtils.clamp(p.y, floorTopY(p.x) + 0.06, Math.min(HY - 0.06, waterTop(p.x) - 0.06));
+    p.z = 0;
+  }
+  // 口先が目標に来るよう、体の中心の目標を決める
+  function aimNose(target, faceSign) {
+    T.copy(target);
+    T.x -= faceSign * HALF;
+    clampCenter(T);
+  }
+  function computeNose() {
+    fwd.set(Math.cos(heading), Math.sin(heading), 0);
+    nose.copy(C).addScaledVector(fwd, HALF);
+  }
+  // 口先と尾の先がケースの内側（床・壁・天井・水面付近）に収まるよう体ごとずらす
+  function keepInside() {
+    fwd.set(Math.cos(heading), Math.sin(heading), 0);
+    for (let it = 0; it < 2; it++) {
+      for (const sgn of [1, -1]) {
+        const ex = C.x + fwd.x * HALF * sgn, ey = C.y + fwd.y * HALF * sgn;
+        // 尾側は横に広い尾びれがあるので、左右の丸い端（狭くなる所）からは余裕をとる。口先側は細いので端の近くまで
+        const xl = sgn < 0 ? HX - 0.13 : HX - 0.035;
+        if (ex > xl) C.x -= ex - xl;
+        if (ex < -xl) C.x += -xl - ex;
+        const lo = floorTopY(THREE.MathUtils.clamp(ex, -HX, HX)) + 0.045;
+        const hi = Math.min(HY - 0.05, waterTop(ex) + 0.03);
+        if (ey < lo) C.y += lo - ey;
+        else if (ey > hi) C.y -= ey - hi;
+      }
+      const lo = floorTopY(C.x) + 0.05;
+      if (C.y < lo) C.y = lo;
+    }
+    C.z = 0;
+  }
+  function swim(dt, maxSpd) {
+    tmp.subVectors(T, C);
+    const d = tmp.length();
+    const spd = Math.min(maxSpd, d * 2.2);
+    if (d > 1e-4) tmp.multiplyScalar(spd / d); else tmp.set(0, 0, 0);
+    V.lerp(tmp, 1 - Math.exp(-dt * 3));
+    C.addScaledVector(V, dt);
+    // 進む方向へ向きを変える（奥行き方向には回らず、画面と平行な面の中で宙返りするように曲がる）
+    if (V.length() > 0.04) {
+      let dh = Math.atan2(V.y, V.x) - heading;
+      dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+      // 真後ろへのUターンは、下に余裕があれば下回り、なければ上回り
+      if (Math.abs(dh) > 2.8) dh = (C.y > floorTopY(C.x) + 0.2 ? -1 : 1) * Math.abs(dh);
+      heading += THREE.MathUtils.clamp(dh, -3.2 * dt, 3.2 * dt);
+    }
+    // 左向きのときは体をひねって背中を上に
+    const rollT = Math.cos(heading) < 0 ? Math.PI : 0;
+    roll += (rollT - roll) * (1 - Math.exp(-dt * 5));
+    keepInside();
+    return d;
+  }
+  function pose(dt) {
+    swimT += dt * (4 + V.length() * 14);
+    tail.rotation.z = Math.sin(swimT) * 0.45;
+    group.position.copy(C);
+    group.position.y += Math.sin(swimT) * 0.004;
+    group.rotation.set(roll + spin, 0, heading + Math.sin(swimT + 1.2) * 0.05, 'ZYX');
+    if (up > 0) {
+      // 口先をこちらへ少し傾けてうなずく（体は縦なので、傾けても奥行きからはみ出さない）
+      qTilt.setFromAxisAngle(Xax, THREE.MathUtils.smoothstep(up, 0, 1) * (0.24 + nod));
+      group.quaternion.premultiply(qTilt);
+    }
+    group.updateMatrix();
+    computeNose();
+  }
+  // 運んでいる輪：口先に通した状態（輪の軸＝体の向き）
+  function carryPose(p, q) {
+    p.copy(nose).addScaledVector(fwd, -0.03);
+    q.setFromUnitVectors(Zax, fwd);
+  }
+  function release(drop) {
+    if (!ring) return;
+    ring.held = false;
+    ring.v.set(0, drop ? -0.25 : 0, 0);
+    ring.w.set(0, 0, 0);
+    ring.side.fill(0);
+    ring = null;
+  }
+  function pickRing() {
+    let best = null, bd = Infinity;
+    for (const r of rings) {
+      if (r.peg >= 0 || r.held) continue;
+      const d = r.p.distanceTo(C);
+      if (d < bd) { bd = d; best = r; }
+    }
+    return best;
+  }
+  function go(name) { phase = name; pt = 0; }
+
+  function start() {
+    if (phase !== 'idle') return false;
+    // 入ってくる側：輪の反対側から
+    const cand = rings.filter(r => r.peg < 0 && !r.held);
+    praiseMode = cand.length === 0;
+    if (!praiseMode && Date.now() < until) return false;   // 褒めに来るのは休憩中でもOK
+    up = 0; nod = 0; chirped = 0;
+    const side = praiseMode ? (Math.random() < 0.5 ? -1 : 1)
+      : cand.reduce((s, r) => s + r.p.x, 0) / cand.length > 0 ? -1 : 1;
+    C.set(side * (HX - HALF - 0.1), 0, 0);
+    clampCenter(C);
+    V.set(0, 0, 0);
+    heading = side > 0 ? Math.PI : 0;   // 内側を向いて登場
+    roll = side > 0 ? Math.PI : 0; spin = 0; alpha = 0;
+    group.visible = true;
+    ring = null;
+    go('in');
+    audio.dolphin(3);
+    if (!praiseMode) until = Date.now() + COOLDOWN;
+    return true;
+  }
+  function abort() {
+    release(false);
+    if (phase !== 'idle') go('out');
+  }
+
+  function update(dt) {
+    if (phase === 'idle') return;
+    pt += dt;
+    switch (phase) {
+      case 'in':
+        alpha = Math.min(1, pt / 0.8);
+        T.copy(C); swim(dt, 0.3);
+        if (pt > 0.9) {
+          if (praiseMode) { go('toCenter'); break; }
+          ring = pickRing();
+          if (!ring) { go('out'); break; }
+          go('toRing');
+        }
+        break;
+      case 'toCenter': {
+        // 真ん中へ泳いでくる
+        alpha = Math.min(1, alpha + dt / 0.6);
+        T.set(0, 0.04, 0); clampCenter(T);
+        const dC = swim(dt, 0.45);
+        if (dC < 0.03 || pt > 2.8) go('praise');
+        break;
+      }
+      case 'praise': {
+        // 立ち上がってこっちを向き、うなずきながら「きゅいきゅい」
+        V.multiplyScalar(Math.exp(-dt * 4));
+        C.addScaledVector(V, dt);
+        // ① 画面と平行なまま口先を上へ ② 体の軸まわりにひねってお腹をこちらへ ③ 口先をこちらへ傾ける
+        let dh = Math.PI / 2 - heading;
+        dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+        heading += dh * (1 - Math.exp(-dt * 5));
+        const rT = -Math.PI / 2 + Math.PI * 2 * Math.round((roll + Math.PI / 2) / (Math.PI * 2));
+        if (Math.abs(dh) < 0.35) roll += (rT - roll) * (1 - Math.exp(-dt * 5));
+        const ready = Math.abs(dh) < 0.15 && Math.abs(rT - roll) < 0.2;
+        up = pt < 2.8 ? (ready ? Math.min(1, up + dt / 0.4) : up) : Math.max(0, up - dt / 0.6);
+        nod = Math.sin(pt * 7.5) * 0.13 * up;
+        C.y += Math.sin(pt * 3.2) * 0.012 * dt * 3;
+        if (chirped === 0 && pt > 0.55) { audio.dolphin(4, true); chirped = 1; }
+        if (chirped === 1 && pt > 1.7) { audio.dolphin(5, true); chirped = 2; }
+        if (pt > 3.4 && up <= 0) { up = 0; nod = 0; go('out'); }
+        break;
+      }
+      case 'toRing': {
+        if (ring.peg >= 0 || ring.held) { ring = pickRing(); if (!ring) { go('out'); break; } }
+        aimNose(ring.p, Math.sign(ring.p.x - C.x) || 1);
+        const dC = swim(dt, 0.6);
+        computeNose();
+        // 口先が届いたら（体を傾けて泳ぐので、体の中心が目標に着いた時もOK）
+        if (nose.distanceTo(ring.p) < 0.07 || dC < 0.03 || pt > 4) {
+          ring.held = true;
+          pFrom.copy(ring.p); qFrom.copy(ring.q);
+          go('grab');
+        }
+        break;
+      }
+      case 'grab': {
+        T.copy(C); swim(dt, 0.2);
+        computeNose();
+        const k = THREE.MathUtils.smoothstep(pt / 0.35, 0, 1);
+        carryPose(tmp, qTo);
+        ring.p.lerpVectors(pFrom, tmp, k);
+        ring.q.slerpQuaternions(qFrom, qTo, k);
+        if (pt > 0.35) {
+          // 近いほうの棒へ
+          peg = Math.abs(PEGS[0].x - C.x) < Math.abs(PEGS[1].x - C.x) ? 0 : 1;
+          audio.dolphin(2);
+          go('toPeg');
+        }
+        break;
+      }
+      case 'toPeg': {
+        const pg = PEGS[peg];
+        const face = Math.sign(pg.x - C.x) || (Math.cos(heading) >= 0 ? 1 : -1);
+        aimNose(tmp.set(pg.x, Math.min(pg.tip + 0.09, waterTop(pg.x) - 0.04), 0), face);
+        const dC = swim(dt, 0.55);
+        computeNose();
+        carryPose(ring.p, ring.q);
+        if (Math.hypot(nose.x - pg.x, nose.y - (pg.tip + 0.09)) < 0.05 || dC < 0.03 || pt > 3.5) {
+          pFrom.copy(ring.p); qFrom.copy(ring.q);
+          go('place');
+        }
+        break;
+      }
+      case 'place': {
+        // 輪を水平にして棒の真上へ → そのまま棒に通して放す
+        const pg = PEGS[peg];
+        T.copy(C); swim(dt, 0.15);
+        qTo.setFromUnitVectors(Zax, Yax);
+        const k1 = THREE.MathUtils.smoothstep(pt / 0.55, 0, 1);
+        const k2 = THREE.MathUtils.smoothstep((pt - 0.55) / 0.6, 0, 1);
+        tmp.set(pg.x, pg.tip + 0.035, 0);
+        ring.p.lerpVectors(pFrom, tmp, k1);
+        ring.p.y -= k2 * 0.09;
+        ring.q.slerpQuaternions(qFrom, qTo, k1);
+        if (pt > 1.15) {
+          release(true);
+          audio.dolphin(3);
+          go('yay');
+        }
+        break;
+      }
+      case 'yay':
+        // くるっと一回転してから帰る
+        spin = THREE.MathUtils.smoothstep(pt / 1.1, 0, 1) * Math.PI * 2;
+        T.set(C.x, C.y + 0.05, 0); clampCenter(T);
+        swim(dt, 0.25);
+        if (pt > 1.2) { spin = 0; go('out'); }
+        break;
+      case 'out':
+        alpha = Math.max(0, alpha - dt / 0.8);
+        up = Math.max(0, up - dt / 0.5); nod = 0;
+        T.set(C.x + (Math.cos(heading) >= 0 ? 0.3 : -0.3), C.y, 0); clampCenter(T);
+        swim(dt, 0.4);
+        if (alpha <= 0) { group.visible = false; go('idle'); }
+        break;
+    }
+    if (phase === 'idle') return;
+    setOpacity(alpha);
+    pose(dt);
+    if (ring && phase === 'toPeg') carryPose(ring.p, ring.q);
+    if (ring) { ring.v.set(0, 0, 0); ring.w.set(0, 0, 0); }
+    // 泳ぐ体でほかの輪をやさしく押しのける
+    tmp.copy(C).addScaledVector(fwd, -HALF);
+    for (const r of rings) {
+      if (r === ring || r.peg >= 0) continue;   // 棒に入っている輪は押し出さない
+      const ab = fwd, ap = r.p.clone().sub(tmp);
+      const t = THREE.MathUtils.clamp(ap.dot(ab), 0, L);
+      const q = tmp.clone().addScaledVector(ab, t);
+      const d = r.p.distanceTo(q);
+      const R = 0.045 + RING_R * 0.5;
+      if (d < R && d > 1e-5 && alpha > 0.3) {
+        const push = r.p.clone().sub(q).multiplyScalar((R - d) / d);
+        r.p.addScaledVector(push, 0.5);
+        r.v.addScaledVector(push, 6);
+      }
+    }
+  }
+  function praise() {
+    if (phase === 'idle') { start(); return; }
+    if (ring) return;
+    praiseMode = true; spin = 0; chirped = 0;
+    go('toCenter');
+  }
+  function remaining() { return Math.max(0, until - Date.now()); }
+  function resetCooldown() { until = 0; }
+  return {
+    start, abort, update, remaining, resetCooldown, praise,
+    get busy() { return phase !== 'idle'; },
+    get praising() { return praiseMode && phase !== 'idle' && phase !== 'out'; },
+  };
+})();
+
 // ===== ゲーム進行 =====
+const dolphinBtn = document.getElementById('dolphinBtn');
+const fmtMs = ms => { const t = Math.ceil(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+dolphinBtn.addEventListener('click', () => {
+  audio.resume();
+  if (!playing || dolphin.busy) return;
+  if (!dolphin.start()) {
+    const ms = dolphin.remaining();
+    if (ms > 0) toast(`イルカは休憩中です（あと ${fmtMs(ms)}）`);
+  }
+});
+let dolphinLabel = '';
+function updateDolphinBtn() {
+  const ms = dolphin.remaining();
+  const label = ms > 0 ? `🐬 ${fmtMs(ms)}` : '🐬';
+  if (label !== dolphinLabel) {
+    dolphinLabel = label;
+    dolphinBtn.textContent = label;
+    dolphinBtn.classList.toggle('cool', ms > 0);
+  }
+}
 const scoreEl = document.getElementById('score');
 const timeEl = document.getElementById('time');
 const sensorEl = document.getElementById('sensor');
 const clearEl = document.getElementById('clear');
 
+let clearWait = -1;   // クリア後、イルカが褒め終わるのを待つ時間（-1 = 待っていない）
 function updateGame(dt) {
   let hooked = 0;
   for (const r of rings) {
-    r.peg = hookedPeg(r);
+    let p = r.held ? -1 : hookedPeg(r);
+    // 保険：一度入った輪は、見た目で皿をすり抜けても棒の真下付近に残っていればカウントし続ける
+    if (p < 0 && r.peg >= 0 && !r.held) {
+      const pg = PEGS[r.peg];
+      if (r.side[r.peg] >= 0 && r.p.y < pg.tip && r.p.y > pg.base - 0.15 && Math.hypot(r.p.x - pg.x, r.p.z) < RING_R + TUBE) p = r.peg;
+    }
+    r.peg = p;
     if (r.peg >= 0) hooked++;
   }
   if (playing && hooked > lastHooked) {
@@ -1019,10 +2192,21 @@ function updateGame(dt) {
       const best = Math.min(Number(localStorage.getItem('aquaRingBest') || Infinity), playTime);
       localStorage.setItem('aquaRingBest', best);
       document.getElementById('clearMsg').textContent = `タイム ${playTime.toFixed(1)} 秒（ベスト ${best.toFixed(1)} 秒）`;
+      // 全部入ったらイルカがこっちを向いて褒めに来る。カードは褒め終わってから
+      dolphin.praise();
+      clearWait = 0;
+    }
+  } else if (clearWait >= 0) {
+    clearWait += dt;
+    if ((!dolphin.praising && clearWait > 0.5) || clearWait > 7) {
       clearEl.classList.remove('hidden');
+      clearWait = -1;
     }
   }
-  sensorEl.textContent = sensor.has ? '傾きセンサー ON' : '';
+  updateDolphinBtn();
+  if (toastT > 0) toastT -= dt;
+  sensorEl.textContent = toastT > 0 ? toastMsg : sensor.has ? `傾きセンサー ON${levelCal.on ? '（水平登録中）' : ''}` : '';
+  if (sensor.has === levelBtn.classList.contains('hidden')) levelBtn.classList.toggle('hidden', !sensor.has);
 }
 
 function syncVisuals() {
@@ -1038,6 +2222,9 @@ function syncVisuals() {
 }
 
 function startGame() {
+  clearWait = -1;
+  dolphin.abort();
+  dolphin.resetCooldown();
   scatterRings();
   playTime = 0;
   allHookedT = 0;
@@ -1153,6 +2340,8 @@ bgPanel.addEventListener('click', e => {
   if (kind === 'flip') { bg.facing = bg.facing === 'environment' ? 'user' : 'environment'; bgCamera(); }
   if (kind === 'close') bgPanel.classList.add('hidden');
   if (kind === 'refr') setRefraction((refrMode + 1) % REFR_MODES.length);
+  if (kind === 'wipe') dirt.wipe();
+  if (kind === 'unlevel') setLevelCal(false);
 });
 // 屈折の強さ（uRefr: 0 = リアル、1 = 派手）
 const REFR_MODES = [{ name: 'リアル', v: 0 }, { name: 'ほどほど', v: 0.35 }, { name: '派手', v: 1 }];
@@ -1203,10 +2392,10 @@ resize();
 function render() {
   camera.updateMatrixWorld();
   waterUniforms.uViewProj.value.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-  water.visible = surface.visible = glass.visible = false;
+  water.visible = surface.visible = glass.visible = dirt.mesh.visible = drops.mesh.visible = false;
   renderer.setRenderTarget(sceneRT);
   renderer.render(scene, camera);
-  water.visible = surface.visible = glass.visible = true;
+  water.visible = surface.visible = glass.visible = dirt.mesh.visible = drops.mesh.visible = true;
   renderer.setRenderTarget(null);
   renderer.render(scene, camera);
 }
@@ -1226,7 +2415,12 @@ function frame(now) {
     stepRings(h);
   }
   updateBubbles(dt);
+  updateImpactSounds(dt);
+  dolphin.update(dt);
+  motes.update(dt);
+  drops.update(dt);
   updateGame(dt);
+  dirt.update(dt, gEff);
   syncVisuals();
   render();
 }

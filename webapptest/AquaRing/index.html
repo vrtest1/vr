@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
@@ -27,8 +27,10 @@
     background: rgba(255,255,255,0.75); border-radius: 999px; padding: 6px 14px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12); font-size: 16px;
   }
-  #hud .right { display: flex; gap: 8px; }
-  #reset, #bgBtn { pointer-events: auto; border: none; cursor: pointer; color: #5a3220; font: inherit; }
+  #hud .right, #hud .left { display: flex; gap: 8px; align-items: center; }
+  #dolphinBtn { padding: 4px 10px; font-size: 20px; line-height: 1.2; min-width: 44px; font-variant-numeric: tabular-nums; }
+  #dolphinBtn.cool { opacity: 0.55; font-size: 13px; padding: 7px 10px; }
+  #reset, #bgBtn, #levelBtn, #dolphinBtn { pointer-events: auto; border: none; cursor: pointer; color: #5a3220; font: inherit; }
   #bgPanel {
     position: fixed; z-index: 10; top: calc(env(safe-area-inset-top) + 54px); right: 12px; max-width: 300px;
     display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end;
@@ -81,9 +83,13 @@
 </head>
 <body>
 <div id="hud">
-  <div class="pill" id="score">輪 0 / 12</div>
+  <div class="left">
+    <button class="pill" id="dolphinBtn" title="お助けイルカ">🐬</button>
+    <div class="pill" id="score">輪 0 / 12</div>
+  </div>
   <div class="pill" id="time">0.0 秒</div>
   <div class="right">
+    <button class="pill hidden" id="levelBtn">水平</button>
     <button class="pill" id="bgBtn">背景</button>
     <button class="pill" id="reset">リセット</button>
   </div>
@@ -95,6 +101,8 @@
   <button data-bg="camera">カメラ</button>
   <button data-bg="flip">前/後</button>
   <button data-bg="refr" id="refrBtn">屈折: リアル</button>
+  <button data-bg="wipe">拭き上げ</button>
+  <button data-bg="unlevel" id="unlevelBtn" class="hidden">水平を元に戻す</button>
   <button data-bg="close">×</button>
   <div id="bgMsg"></div>
   <input type="file" id="bgFile" accept="image/*" hidden>
@@ -107,8 +115,10 @@
   <div class="card">
     <h1>AQUA RING</h1>
     <p>ボタンを押すと水流が起きて、輪っかが舞い上がります。<br>棒に全部の輪をかけたらクリア！</p>
-    <p>📱 本体を傾けると水と輪が傾きます。振ると水が揺れます。</p>
-    <p style="font-size:12px;color:#8a6a50">PC: <kbd>F</kbd>/<kbd>J</kbd> 水流、<kbd>←</kbd><kbd>→</kbd> 傾き、<kbd>Space</kbd> 揺らす、ドラッグでも傾き</p>
+    <p>📱 本体を傾けると水と輪が傾きます。振ると水が揺れます。<br>寝転がって遊ぶときは右上の「水平」で今の持ち方を基準にできます。</p>
+    <p style="font-size:13px">💧 ボタンは連打するほど水流が強くなります<br>🐬 左上のイルカが輪を1つ入れてくれます（10分に1回）</p>
+    <p style="font-size:13px">👆 ケースを触ると指紋が付き、なぞると汚れが伸びます（背景 → 拭き上げ でピカピカに）</p>
+    <p style="font-size:12px;color:#8a6a50">PC: <kbd>F</kbd>/<kbd>J</kbd> 水流、<kbd>←</kbd><kbd>→</kbd> 傾き、<kbd>Space</kbd> 揺らす、ケースの外をドラッグでも傾き</p>
     <button id="startBtn">スタート</button>
   </div>
 </div>
@@ -119,6 +129,6 @@
     <button id="againBtn">もう一回</button>
   </div>
 </div>
-<script type="module" src="./main.js?v=2"></script>
+<script type="module" src="./main.js?v=16"></script>
 </body>
 </html>
