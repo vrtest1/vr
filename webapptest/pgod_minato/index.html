@@ -193,7 +193,7 @@
   <div class="card" id="dataCard" style="display:block">
     <h2>実データの構成（2026-11-08 取得）</h2>
     <p><b>建物（近景・遠景）</b>：国土交通省 Project PLATEAU「3D都市モデル（Project PLATEAU）横浜市（2024年度）」の<b>実LOD2モデル</b>（西区・中区、3D Tiles形式）を使用。屋根形状や外壁テクスチャを含む実形状データをダウンロードし、頂点クラスタリングで間引いて軽量化しました。テクスチャは各棟ごとに切り出してWebP形式の共有アトラス（5ページ、各4096×4096の高解像度版）に統合し、全棟でマテリアルを共有してドローコールを抑えています。収録は全2,175棟・約13万ポリゴンで、中心部と横浜スタジアム周辺の計1,418棟が破壊可能オブジェクト、遠景757棟はページごとに1メッシュへマージしています。横浜スタジアム（中区・横浜公園）も破壊可能オブジェクトとして収録しました。建物名・実測高も同データの属性に基づきます。</p>
-    <p><b>観覧車（コスモクロック21）</b>：PLATEAUの建物データに収録されていないため、実寸（高さ112.5m・直径100m）と実位置（ランドマークタワーの東 約480m）に基づく手作りモデルを追加しています。ゆっくり回転し、ゴンドラは常に水平を保ちます。建物と同様に破壊でき、倒壊時は横倒しになります。</p>
+    <p><b>観覧車（コスモクロック21）</b>：PLATEAUの建物データに収録されていないため、実寸（高さ112.5m・直径100m）と実位置（ランドマークタワーの東 約480m）に基づく手作りモデルを追加しています。ゆっくり回転し、ゴンドラは常に水平を保ちます。中心のハブには実物どおりオレンジ色のデジタル時計があり、実際の現在時刻を表示します（表示部は輪と一緒に回らず、常に正立しています）。建物と同様に破壊でき、倒壊時は横倒しになります。</p>
     <p><b>地形（標高）</b>：国土地理院「標高タイル（基盤地図情報 数値標高モデル）」DEM5A（z15・テキスト形式）から、みなとみらい周辺 約2.7km×2.7km（南端は関内・横浜スタジアムまで拡張）を22m間隔グリッドで取得し、地形メッシュを生成。建物データと同一の座標フレームで再取得し、位置ズレを解消しました。生DEMのスパイクノイズは中央値フィルタで除去し、平滑化してから使用しています。歩行の足跡・咆哮・熱線で地形が実際に凹み、焦げ色に変化します。</p>
     <p><b>遠景</b>：国土地理院「全国最新写真（シームレス）」空中写真タイル（z16）を合成し、上記DEM地形に貼り付け。遠くの市街地・港・海は実写の空中写真で表現し、近景の市街地をPLATEAU建物モデルで描く遠近の使い分けにしています。ミニマップも同じ空中写真です。</p>
     <p>配信URL（形式）：<br>
@@ -828,6 +828,25 @@ function strut(parent, ax,ay,az, bx,by,bz, r, mat){
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), b.sub(a).normalize());
   m.castShadow=true; parent.add(m); return m;
 }
+/* コスモクロック21のデジタル表示：実際の現在時刻をオレンジ色の発光文字で描く。コロンは1秒周期で点滅 */
+function drawCosmoDigital(d){
+  const now=new Date();
+  const hh=String(now.getHours()).padStart(2,'0'), mm=String(now.getMinutes()).padStart(2,'0');
+  const colonOn=now.getMilliseconds()<560;
+  const key=hh+':'+mm+':'+(colonOn?1:0);
+  if(key===d.last) return; d.last=key;
+  const g=d.g;
+  g.fillStyle='#060606'; g.fillRect(0,0,512,192);
+  g.font='700 138px Arial, "Hiragino Kaku Gothic ProN", sans-serif';
+  g.textBaseline='middle';
+  g.shadowColor='#ff6a00'; g.shadowBlur=30;
+  g.fillStyle='#ff9a1e';
+  g.textAlign='right'; g.fillText(hh, 232, 104); g.fillText(hh, 232, 104); // 二重描きで発光を強く
+  g.textAlign='left';  g.fillText(mm, 280, 104); g.fillText(mm, 280, 104);
+  if(colonOn){ g.textAlign='center'; g.fillText(':', 256, 100); g.fillText(':', 256, 100); }
+  g.shadowBlur=0;
+  d.tex.needsUpdate=true;
+}
 function buildCosmoClock(){
   const baseY=terrainH(COSMO_E, COSMO_N)-0.4;
   const rotY=1.77; // 輪の平面をほぼ南北（ややNNW-SSE）に：空中写真で見える輪の向きに合わせる
@@ -853,20 +872,19 @@ function buildCosmoClock(){
   for(let i=0;i<12;i++){ const a=i/12*Math.PI*2;
     const sp=new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, COSMO_R, 6), steel);
     sp.position.set(Math.cos(a)*COSMO_R/2, Math.sin(a)*COSMO_R/2, 0); sp.rotation.z=a-Math.PI/2; spinner.add(sp); }
-  /* ハブと時計盤（世界最大の時計という実物の顔） */
+  /* ハブとデジタル時計表示：実物のコスモクロック21はアナログ盤ではなく、中心ハブに
+     オレンジ色の文字で現在時刻を表示するデジタル時計。表示部は輪と一緒に回らず常に正立させるため
+     spinner ではなく tip 側に取り付け、実際の現在時刻（HH:MM）を発光文字で表示する */
   const hub=new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.2, 7.5, 14), steelDark);
   hub.rotation.x=Math.PI/2; spinner.add(hub);
-  const clockCv=document.createElement('canvas'); clockCv.width=clockCv.height=128;
-  { const g=clockCv.getContext('2d'); g.fillStyle='#10222b'; g.beginPath(); g.arc(64,64,62,0,7); g.fill();
-    g.strokeStyle='#57d7ee'; g.lineWidth=5; g.beginPath(); g.arc(64,64,57,0,7); g.stroke();
-    g.fillStyle='#eaf7fa'; for(let i=0;i<12;i++){ const a=i/12*Math.PI*2; g.save(); g.translate(64+Math.sin(a)*46, 64-Math.cos(a)*46); g.rotate(a); g.fillRect(-2.5,-7,5,14); g.restore(); }
-    g.strokeStyle='#ffffff'; g.lineCap='round';
-    g.lineWidth=7; g.beginPath(); g.moveTo(64,64); g.lineTo(64+Math.sin(5.42)*27, 64-Math.cos(5.42)*27); g.stroke(); // 時針 10:10
-    g.lineWidth=5; g.beginPath(); g.moveTo(64,64); g.lineTo(64+Math.sin(1.05)*40, 64-Math.cos(1.05)*40); g.stroke(); // 分針
-    g.fillStyle='#ffb02e'; g.beginPath(); g.arc(64,64,6,0,7); g.fill(); }
+  const clockCv=document.createElement('canvas'); clockCv.width=512; clockCv.height=192;
   const clockTex=new THREE.CanvasTexture(clockCv); clockTex.colorSpace=THREE.SRGBColorSpace;
-  for(const cz of [-3.85, 3.85]){ const disc=new THREE.Mesh(new THREE.CircleGeometry(3.6, 24), new THREE.MeshBasicMaterial({map:clockTex}));
-    disc.position.z=cz; if(cz<0) disc.rotation.y=Math.PI; spinner.add(disc); }
+  const digital={g:clockCv.getContext('2d'), tex:clockTex, last:''};
+  const housing=new THREE.Mesh(new THREE.BoxGeometry(28, 12, 7.6), new THREE.MeshStandardMaterial({color:0x14181a, roughness:0.6, metalness:0.3}));
+  housing.position.y=hubH; housing.castShadow=true; tip.add(housing);
+  for(const sz of [-1,1]){ const panel=new THREE.Mesh(new THREE.PlaneGeometry(27, 10.1), new THREE.MeshBasicMaterial({map:clockTex}));
+    panel.position.set(0, hubH, 4.35*sz); if(sz<0) panel.rotation.y=Math.PI; tip.add(panel); }
+  drawCosmoDigital(digital);
   /* ゴンドラ：実物60基を32基に間引き。ピボットを逆回転させて常に水平を保つ */
   const gondolaCols=[0xff5a4e,0xffb02e,0x57e389,0x4ea8ff,0xff7ac2,0xffe066,0x3fd4c0,0xff8a5c];
   const gondolas=[];
@@ -882,7 +900,7 @@ function buildCosmoClock(){
   const b={mesh:root, cx:COSMO_E, cy:COSMO_N, h:COSMO_H, baseY:baseY, br:48, area:area, value:value,
            hp:value*0.055, maxHp:value*0.055, name:'コスモクロック21', dead:false, dmg:false, anim:0, label:null,
            isWheel:true, fallHit:false, wheelFallen:false,
-           wheel:{tip:tip, spinner:spinner, gondolas:gondolas, angle:0, rotY:rotY}};
+           wheel:{tip:tip, spinner:spinner, gondolas:gondolas, angle:0, rotY:rotY, digital:digital}};
   const lb=makeLabel('コスモクロック21'); lb.position.set(COSMO_E, baseY+COSMO_H+15, -COSMO_N); scene.add(lb); b.label=lb;
   buildings.push(b); wheelB=b;
 }
@@ -893,6 +911,7 @@ function updateWheel(dt){
   W.angle+=dt*0.13*spin; // ゆっくり回転（約48秒で1周：実物より速いが回転が目に見える速度）
   W.spinner.rotation.z=W.angle;
   for(const p of W.gondolas) p.rotation.z=-W.angle; // ゴンドラは常に水平
+  if(W.digital) drawCosmoDigital(W.digital); // デジタル時計は実時刻に追随（表示部自体は回転しない）
 }
 buildCosmoClock();
 
