@@ -29,6 +29,8 @@
   #progGoal{font-size:12px;color:var(--accent);white-space:nowrap;}
   #progBarWrap{position:relative;height:10px;background:var(--bar-bg);border-radius:5px;margin-top:6px;overflow:visible;}
   #progBar{height:100%;width:0%;background:linear-gradient(90deg,#ff8a3c,#ffb02e);border-radius:5px;transition:width .25s;}
+  #progBox.cleared #progBar{background:linear-gradient(90deg,#2fae5f,#57e389);}
+  #progBox.cleared #progGoal{color:var(--ok);font-weight:800;}
   #progTick{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;opacity:.85;}
   #progTick::after{content:"目標";position:absolute;top:11px;left:-10px;font-size:9px;color:#fff;white-space:nowrap;}
   #timerBox{text-align:center;min-width:104px;}
@@ -158,7 +160,7 @@
   <div class="card">
     <h1>ゴジラ <span class="sub">みなとみらい</span></h1>
     <p class="tagline">実在の街を踏み歩く怪獣ゲーム。建物は国土交通省PLATEAUの実データ（横浜市・みなとみらい地区）、地形は国土地理院の標高データで再現しています。</p>
-    <div class="goalBox">ミッション：制限時間 <b>4:00</b> 以内に街の<b>破壊率 40%</b> を達成せよ。歩いて踏み潰す、放射熱線で焼き払う、咆哮の衝撃波でなぎ倒す——自衛隊ヘリの攻撃で体力が尽きれば敗北です。ヘリは発射前に赤い照準線で狙ってきます。咆哮は衝撃波に加えて体力も回復します（回復はクールダウンあり）。</div>
+    <div class="goalBox">ミッション：制限時間 <b>4:00</b> 以内に街の<b>破壊率 40%</b> を達成せよ。<b>40%達成でクリア確定</b>——その時点でゲームは終わらず、残り時間いっぱい破壊を続けられます（結果発表は時間切れのとき）。歩いて踏み潰す、放射熱線で焼き払う、咆哮の衝撃波でなぎ倒す——達成前に自衛隊ヘリの攻撃で体力が尽きれば敗北です。ヘリは発射前に赤い照準線で狙ってきます。咆哮は衝撃波に加えて体力も回復します（回復はクールダウンあり）。</div>
     <div class="ctrlGrid">
       <span><b>W A S D / 矢印</b> 移動・旋回</span><span><b>🎮 左スティック</b> 移動・旋回</span>
       <span><b>Space 長押し</b> 放射熱線</span><span><b>🎮 RT / A</b> 放射熱線</span>
@@ -746,28 +748,70 @@ function buildFromLOD2(mani, bin, mats){
     const fm=new THREE.Mesh(geo, mats[page]); fm.receiveShadow=true; scene.add(fm);
   }
 }
+async function fetchRetry(url, tries){
+  let lastErr=null;
+  for(let i=0;i<tries;i++){
+    try{ const r=await fetch(url); if(!r.ok) throw new Error(url+' (HTTP '+r.status+')'); return r; }
+    catch(e){ lastErr=e; }
+  }
+  throw lastErr;
+}
 async function loadCity(){
   const btn=$('btnStart');
+  const note=document.getElementById('loadNote');
   try{
-    const [mr, br2]=await Promise.all([fetch('assets/lod2.json'), fetch('assets/lod2geo.bin')]);
-    if(!mr.ok || !br2.ok) throw new Error('fetch failed');
+    // ジオメトリ（実LOD2の形状そのもの）を最優先で確保する：一時的な通信失敗では落とさない
+    const [mr, br2]=await Promise.all([fetchRetry('assets/lod2.json', 3), fetchRetry('assets/lod2geo.bin', 3)]);
     const mani=await mr.json(); const bin=await br2.arrayBuffer();
-    const tl=new THREE.TextureLoader(); const mats=[];
-    const texs=await Promise.all(Array.from({length:mani.pages}, function(_,p){ return tl.loadAsync('assets/atlas'+p+'.webp'); })); // 4096アトラスは大きいので並列ロードして開始を速くする
+    // 全レコードの参照範囲がバイナリ内に収まるか事前検証（途中で壊れた街を作らない）
+    let need=0;
+    for(const rec of mani.buildings){
+      need=Math.max(need, rec[8]+rec[9]*6, rec[10]+rec[9]*3, rec[11]+rec[9]*4, rec[12]+rec[13]*2);
+    }
+    if(bin.byteLength<need) throw new Error('assets/lod2geo.bin が不完全です ('+bin.byteLength+' / '+need+' bytes)');
+    // テクスチャはページ単位で読み込む。以前は5枚一括の Promise.all で、4096px WebPの
+    // デコードが1枚でも失敗（端末側のメモリ不足など）すると街全体が簡易モデルに落ちていた。
+    // 失敗したページだけを直列で再試行し、それでも駄目ならそのページだけ無地マテリアルにする
+    // （形状は実LOD2のまま。街ごとフォールバックはしない）。
+    const tl=new THREE.TextureLoader(); const mats=[]; const texs=new Array(mani.pages).fill(null);
+    await Promise.all(Array.from({length:mani.pages}, function(_,p){
+      return tl.loadAsync('assets/atlas'+p+'.webp').then(function(t){ texs[p]=t; }).catch(function(){});
+    }));
     for(let p=0;p<mani.pages;p++){
-      const tex=texs[p];
-      tex.colorSpace=THREE.SRGBColorSpace; tex.flipY=false; tex.anisotropy=MAX_ANISO;
-      mats.push(new THREE.MeshStandardMaterial(Object.assign({map:tex}, bMatLOD2Base)));
+      for(let i=0;i<2 && !texs[p];i++){
+        note.textContent='実LOD2の街データを読み込み中… テクスチャ再試行中 '+(p+1)+'/'+mani.pages;
+        try{ texs[p]=await tl.loadAsync('assets/atlas'+p+'.webp'); }catch(e){ texs[p]=null; }
+      }
+      if(texs[p]){
+        const tex=texs[p];
+        tex.colorSpace=THREE.SRGBColorSpace; tex.flipY=false; tex.anisotropy=MAX_ANISO;
+        mats.push(new THREE.MeshStandardMaterial(Object.assign({map:tex}, bMatLOD2Base)));
+      }else{
+        console.warn('atlas'+p+'.webp の読み込みに失敗したため、このページの建物は無地表示になります');
+        mats.push(new THREE.MeshStandardMaterial(Object.assign({color:0xb9b2a6}, bMatLOD2Base)));
+      }
     }
     buildFromLOD2(mani, bin, mats);
     CITY.mode='lod2';
   }catch(err){
+    // ジオメトリ自体が読めなかった場合のみ簡易モデルに落とす。理由は必ず画面とコンソールに出す
+    console.error('実LOD2データの読み込みに失敗しました:', err);
+    const eb=$('errBox');
+    if(eb){
+      eb.style.display='block';
+      if(location.protocol==='file:'){
+        // zipを解凍して index.html を直接開いたケース：ブラウザ仕様で assets の fetch がブロックされる
+        eb.textContent='実データ（PLATEAU LOD2）の読み込みに失敗しました。index.html をローカルファイルとして直接開くと、ブラウザの仕様で assets の読み込みがブロックされます。http配信（GitHub Pages など）経由で開いてください。いまは簡易モデルで起動しています。';
+      }else{
+        eb.textContent='実データ（PLATEAU LOD2）の読み込みに失敗しました（'+(err&&err.message?err.message:err)+'）。簡易モデルで起動します。';
+      }
+    }
     buildProcedural();
     CITY.mode='fallback';
   }
   CITY.ready=true;
   btn.disabled=false; btn.textContent='上陸開始';
-  document.getElementById('loadNote').style.display='none';
+  note.style.display='none';
 }
 
 /* ================= コスモクロック21（PLATEAU未収録のため手作り追加） =================
@@ -861,6 +905,53 @@ const finMat=new THREE.MeshStandardMaterial({color:0x6d7a72, roughness:0.7, flat
 const eyeMat=new THREE.MeshStandardMaterial({color:0x201505, emissive:0xffa726, emissiveIntensity:1.6});
 const G={};
 function part(parent, geo, mat, x,y,z){ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=true; parent.add(m); return m; }
+// 丸みボックス：直方体の全12辺と8角を円弧で落としたローポリ形状。円弧は seg 分割の面で近似し、外寸（幅・高さ・奥行）は元の箱と同一に保つ
+function roundedBox(w,h,d,r,seg){
+  seg=seg||3;
+  const hx=w/2, hy=h/2, hz=d/2;
+  r=Math.min(r, hx*0.92, hy*0.92, hz*0.92);
+  const a=hx-r, b=hy-r, e=hz-r, faces=[];
+  const P=(x,y,z)=>[x,y,z];
+  // 6面（平らな部分）
+  [-1,1].forEach(s=>{
+    faces.push([P(s*hx,-b,-e), P(s*hx,b,-e), P(s*hx,b,e), P(s*hx,-b,e)]);
+    faces.push([P(-a,s*hy,-e), P(a,s*hy,-e), P(a,s*hy,e), P(-a,s*hy,e)]);
+    faces.push([P(-a,-b,s*hz), P(a,-b,s*hz), P(a,b,s*hz), P(-a,b,s*hz)]);
+  });
+  const arc=k=>k/seg*Math.PI/2;
+  // 12辺（四半円柱を seg 枚の面で近似）
+  [-1,1].forEach(sy=>[-1,1].forEach(sz=>{
+    for(let k=0;k<seg;k++){ const t0=arc(k), t1=arc(k+1);
+      faces.push([P(-a, sy*(b+r*Math.cos(t0)), sz*(e+r*Math.sin(t0))), P(a, sy*(b+r*Math.cos(t0)), sz*(e+r*Math.sin(t0))), P(a, sy*(b+r*Math.cos(t1)), sz*(e+r*Math.sin(t1))), P(-a, sy*(b+r*Math.cos(t1)), sz*(e+r*Math.sin(t1)))]); }
+  }));
+  [-1,1].forEach(sx=>[-1,1].forEach(sz=>{
+    for(let k=0;k<seg;k++){ const t0=arc(k), t1=arc(k+1);
+      faces.push([P(sx*(a+r*Math.cos(t0)), -b, sz*(e+r*Math.sin(t0))), P(sx*(a+r*Math.cos(t0)), b, sz*(e+r*Math.sin(t0))), P(sx*(a+r*Math.cos(t1)), b, sz*(e+r*Math.sin(t1))), P(sx*(a+r*Math.cos(t1)), -b, sz*(e+r*Math.sin(t1)))]); }
+  }));
+  [-1,1].forEach(sx=>[-1,1].forEach(sy=>{
+    for(let k=0;k<seg;k++){ const t0=arc(k), t1=arc(k+1);
+      faces.push([P(sx*(a+r*Math.cos(t0)), sy*(b+r*Math.sin(t0)), -e), P(sx*(a+r*Math.cos(t0)), sy*(b+r*Math.sin(t0)), e), P(sx*(a+r*Math.cos(t1)), sy*(b+r*Math.sin(t1)), e), P(sx*(a+r*Math.cos(t1)), sy*(b+r*Math.sin(t1)), -e)]); }
+  }));
+  // 8角（八分球を seg×seg の面で近似）
+  const cPt=(sx,sy,sz,th,ph)=>P(sx*a+sx*r*Math.sin(th)*Math.cos(ph), sy*b+sy*r*Math.cos(th), sz*e+sz*r*Math.sin(th)*Math.sin(ph));
+  [-1,1].forEach(sx=>[-1,1].forEach(sy=>[-1,1].forEach(sz=>{
+    for(let i=0;i<seg;i++) for(let j=0;j<seg;j++)
+      faces.push([cPt(sx,sy,sz,arc(i),arc(j)), cPt(sx,sy,sz,arc(i+1),arc(j)), cPt(sx,sy,sz,arc(i+1),arc(j+1)), cPt(sx,sy,sz,arc(i),arc(j+1))]);
+  })));
+  const pos=[];
+  faces.forEach(f=>{
+    const ux=f[1][0]-f[0][0], uy=f[1][1]-f[0][1], uz=f[1][2]-f[0][2];
+    const vx=f[2][0]-f[1][0], vy=f[2][1]-f[1][1], vz=f[2][2]-f[1][2];
+    const nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+    let cx=0, cy=0, cz=0; f.forEach(p=>{ cx+=p[0]; cy+=p[1]; cz+=p[2]; });
+    const pts=(nx*cx+ny*cy+nz*cz<0)? f.slice().reverse() : f;
+    for(let i=1;i<pts.length-1;i++) pos.push(pts[0][0],pts[0][1],pts[0][2], pts[i][0],pts[i][1],pts[i][2], pts[i+1][0],pts[i+1][1],pts[i+1][2]);
+  });
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+  geo.computeVertexNormals();
+  return geo;
+}
 {
   const B=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
   G.hips=part(godzilla, B(15,8,10.5), skinMat, 0,19,0);
@@ -906,9 +997,9 @@ function part(parent, geo, mat, x,y,z){ const m=new THREE.Mesh(geo,mat); m.posit
     G.tail.push(g); parent=g; px=0; py=-0.4; pz=len; }
   // 頭
   G.head=new THREE.Group(); G.head.position.set(0,43.5,-0.6); godzilla.add(G.head);
-  part(G.head, B(8.6,6.8,10.5), skinMat, 0,2.6,-0.8);
-  part(G.head, B(6.8,3.6,6.5), skinMat, 0,0.9,-6.2);
-  G.jaw=part(G.head, B(6.2,1.8,6), skinMat, 0,-1.7,-5.9);
+  part(G.head, roundedBox(8.6,6.8,10.5, 2.2), skinMat, 0,2.6,-0.8);
+  part(G.head, roundedBox(6.8,3.6,6.5, 1.15), skinMat, 0,0.9,-6.2);
+  G.jaw=part(G.head, roundedBox(6.2,1.8,6, 0.6), skinMat, 0,-1.7,-5.9);
   part(G.head, new THREE.SphereGeometry(1.05,8,8), eyeMat, -3.4,3.8,-4.6);
   part(G.head, new THREE.SphereGeometry(1.05,8,8), eyeMat, 3.4,3.8,-4.6);
   for(let t=0;t<4;t++){ part(G.head, new THREE.ConeGeometry(0.55,1.7,4), bellyMat, -2.4+t*1.6, -0.4, -8.6).rotation.x=Math.PI; }
@@ -952,7 +1043,7 @@ function updateParticles(dt){ for(let i=0;i<PMAX;i++){ const p=parts[i]; if(!p||
 <script>
 "use strict";
 /* ================= ゲーム状態 ================= */
-const state={ mode:'title', time:TIME_LIMIT, hp:100, energy:100, destroyedValue:0, down:0, dmgOku:0, helisDown:0,
+const state={ mode:'title', time:TIME_LIMIT, hp:100, energy:100, destroyedValue:0, down:0, dmgOku:0, helisDown:0, cleared:false,
   charge:0, firing:false, roarCd:0, healCd:0, roarAnim:0, hitFlash:0, lastHurt:-9, shake:0, stepPhase:0, stepSide:-1, msgT:0, phaseRate:0, stepImpact:0, stepImpactSide:-1 };
 const gz={ e:-105, n:-50, heading:0, speed:0, walkPhase:0 };   // heading: 0=北, 時計回り正（東=π/2）
 let titleAngle=0;
@@ -969,7 +1060,7 @@ function resetGame(){
   demVals.set(demOrig);
   { const posA=terrainGeo.attributes.position; for(let i=0;i<demVals.length;i++){ posA.array[i*3+1]=demVals[i]<-2.5?-5:demVals[i]; terrainColors[i*3]=1; terrainColors[i*3+1]=1; terrainColors[i*3+2]=1; }
     posA.needsUpdate=true; terrainGeo.attributes.color.needsUpdate=true; terrainGeo.computeVertexNormals(); }
-  Object.assign(state,{time:TIME_LIMIT, hp:100, energy:100, destroyedValue:0, down:0, dmgOku:0, helisDown:0, charge:0, firing:false, roarCd:0, healCd:0, phaseRate:0, lastHurt:-9, stepSide:-1, stepImpact:0, stepImpactSide:-1, shake:0});
+  Object.assign(state,{time:TIME_LIMIT, hp:100, energy:100, destroyedValue:0, down:0, dmgOku:0, helisDown:0, cleared:false, charge:0, firing:false, roarCd:0, healCd:0, phaseRate:0, lastHurt:-9, stepSide:-1, stepImpact:0, stepImpactSide:-1, shake:0});
   craterCount=0; resetGodzillaPos(); resetHelis(); updateHUD();
 }
 function startGame(){ if(!CITY.ready) return; ensureAudio(); resetGame(); state.mode='play'; $('startOverlay').style.display='none'; $('endOverlay').style.display='none'; $('hud').classList.add('on'); showMsg('破壊率 '+TARGET_PCT+'% を目指せ！', 2.2); }
@@ -979,7 +1070,8 @@ function endGame(won, reason){
   if(won){ t.textContent='MISSION CLEAR!'; t.className='clear'; Snd.clear(); }
   else { t.textContent= reason==='hp' ? 'ゴジラ力尽きる…' : 'TIME UP'; t.className='fail'; Snd.fail(); }
   const pct=progressPct();
-  $('rank').textContent = won ? ('ランク '+(state.time>90?'S':state.time>45?'A':'B')+' — みなとみらいは壊滅した') : (pct>=30?'ランク C — あと一歩だった':pct>=15?'ランク D — まだまだ暴れ足りない':'ランク E — 散歩で終わった');
+  /* 40%達成後も時間いっぱい遊べるようになったため、勝ち時のランクは残り時間ではなく最終破壊率で決める */
+  $('rank').textContent = won ? ('ランク '+(pct>=75?'S':pct>=55?'A':'B')+(reason==='hp' ? ' — 目標達成後に力尽きたが、ミッションは達成' : ' — 目標達成！時間いっぱい暴れきった')) : (pct>=30?'ランク C — あと一歩だった':pct>=15?'ランク D — まだまだ暴れ足りない':'ランク E — 散歩で終わった');
   $('rProg').textContent=pct.toFixed(1)+' %（目標 '+TARGET_PCT+'%）';
   $('rDown').textContent=state.down+' 棟';
   $('rDmg').textContent=Math.round(state.dmgOku).toLocaleString()+' 億円';
@@ -1115,6 +1207,8 @@ function updateHUD(){
   const pct=progressPct();
   $('progPct').textContent=pct.toFixed(1)+'%';
   $('progBar').style.width=Math.min(100,pct)+'%';
+  $('progGoal').textContent = state.cleared ? '目標達成！' : '目標 '+TARGET_PCT+'%';
+  $('progBox').classList.toggle('cleared', !!state.cleared);
   $('stDown').textContent=state.down;
   $('stDmg').textContent=Math.round(state.dmgOku).toLocaleString();
   $('hpFill').style.width=Math.max(0,state.hp)+'%';
@@ -1245,8 +1339,14 @@ function updateCamera(dt){
 }
 function stepPlay(dt, pad){
   state.time-=dt;
-  if(state.time<=0){ state.time=0; endGame(progressPct()>=TARGET_PCT, 'time'); }
-  if(progressPct()>=TARGET_PCT){ endGame(true); return; }
+  if(state.time<=0){ state.time=0; endGame(state.cleared || progressPct()>=TARGET_PCT, 'time'); }
+  /* 目標達成は「クリア確定」の合図のみ：ゲームは止めず、残り時間いっぱい破壊を続けられる（結果発表は時間切れ時） */
+  if(state.mode==='play' && !state.cleared && progressPct()>=TARGET_PCT){
+    state.cleared=true; Snd.clear();
+    showMsg('目標 '+TARGET_PCT+'% 達成！ 残り時間も壊し続けよう！', 3.2);
+    state.shake=Math.min(1.2, state.shake+0.4);
+    updateHUD();
+  }
   state.roarCd=Math.max(0, state.roarCd-dt); state.healCd=Math.max(0, state.healCd-dt); state.roarAnim=Math.max(0, state.roarAnim-dt);
   /* 入力統合 */
   let fwd=0, turn=0;
@@ -1406,7 +1506,7 @@ function updateHelis(dt){
         state.shake=Math.min(0.9, state.shake+0.18);
         spawnP(tr.to.x, tr.to.y, tr.to.z, 10, {color:0xffb35c, up:6, spread:12, life:0.5, grav:-4});
         const hc=$('hpChip'); hc.classList.remove('hit'); void hc.offsetWidth; hc.classList.add('hit');
-        if(state.hp<=0){ state.hp=0; endGame(false,'hp'); } }
+        if(state.hp<=0){ state.hp=0; endGame(state.cleared || progressPct()>=TARGET_PCT,'hp'); } }
       continue; }
     tr.mesh.position.lerpVectors(tr.from, tr.to, k);
     tr.trailT+=dt;
