@@ -160,12 +160,12 @@
   <div class="card">
     <h1>ゴジラ <span class="sub">みなとみらい</span></h1>
     <p class="tagline">実在の街を踏み歩く怪獣ゲーム。建物は国土交通省PLATEAUの実データ（横浜市・みなとみらい地区）、地形は国土地理院の標高データで再現しています。</p>
-    <div class="goalBox">ミッション：制限時間 <b>4:00</b> 以内に街の<b>破壊率 40%</b> を達成せよ。<b>40%達成でクリア確定</b>——その時点でゲームは終わらず、残り時間いっぱい破壊を続けられます（結果発表は時間切れのとき）。歩いて踏み潰す、放射熱線で焼き払う、咆哮の衝撃波でなぎ倒す——達成前に自衛隊ヘリの攻撃で体力が尽きれば敗北です。ヘリは発射前に赤い照準線で狙ってきます。咆哮は衝撃波に加えて体力も回復します（回復はクールダウンあり）。</div>
+    <div class="goalBox">ミッション：制限時間 <b>4:00</b> 以内に街の<b>破壊率 40%</b> を達成せよ。<b>40%達成でクリア確定</b>——その時点でゲームは終わらず、残り時間いっぱい破壊を続けられます（結果発表は時間切れのとき）。歩いて踏み潰す、体当たりと尻尾で薙ぎ倒す、放射熱線で焼き払う、咆哮の衝撃波でなぎ倒す——達成前に自衛隊ヘリの攻撃で体力が尽きれば敗北です。ヘリは発射前に赤い照準線で狙ってきます。咆哮は衝撃波に加えて体力も回復します（回復はクールダウンあり）。</div>
     <div class="ctrlGrid">
       <span><b>W A S D / 矢印</b> 移動・旋回</span><span><b>🎮 左スティック</b> 移動・旋回</span>
       <span><b>Space 長押し</b> 放射熱線</span><span><b>🎮 RT / A</b> 放射熱線</span>
       <span><b>E / K</b> 咆哮（衝撃波＋体力回復）</span><span><b>🎮 B / X</b> 咆哮</span>
-      <span><b>タッチ</b> 左スティック＋右ボタン</span><span><b>縦・横</b> どちらでもOK</span>
+      <span><b>タッチ</b> 左スティック＋右ボタン</span><span><b>体当たり・尻尾</b> 触れている間も破壊（旋回で薙ぎ払い）</span>
     </div>
     <button class="bigBtn" id="btnStart" type="button">上陸開始</button>
     <p class="srcLine">データ出典：PLATEAU 3D都市モデル（横浜市2024）の実LOD2形状を軽量化して収録／地理院DEM5A標高タイル／全国最新写真タイル — 2026-11-08取得 <button id="btnData1" type="button">出典の詳細</button></p>
@@ -1011,6 +1011,7 @@ function roundedBox(w,h,d,r,seg){
   G.tail=[]; let parent=godzilla, px=0, py=17.5, pz=5;
   for(let i=0;i<5;i++){ const g=new THREE.Group(); g.position.set(px,py,pz); parent.add(g);
     const len=11-i*1.1, rad=4.6-i*0.78;
+    g.userData.len=len; g.userData.rad=rad; // 尻尾の当たり判定（節の長さ・太さ）用
     const seg=part(g, new THREE.CylinderGeometry(rad*0.78, rad, len, 7), skinMat, 0,0,len/2); seg.rotation.x=Math.PI/2;
     const fin=part(g, new THREE.ConeGeometry(rad*0.5,4.5-i*0.5,4), finMat, 0, rad*0.75, len/2); fin.scale.z=0.4; G.fins.push(fin);
     G.tail.push(g); parent=g; px=0; py=-0.4; pz=len; }
@@ -1081,6 +1082,7 @@ function resetGame(){
     posA.needsUpdate=true; terrainGeo.attributes.color.needsUpdate=true; terrainGeo.computeVertexNormals(); }
   Object.assign(state,{time:TIME_LIMIT, hp:100, energy:100, destroyedValue:0, down:0, dmgOku:0, helisDown:0, cleared:false, charge:0, firing:false, roarCd:0, healCd:0, phaseRate:0, lastHurt:-9, stepSide:-1, stepImpact:0, stepImpactSide:-1, shake:0});
   craterCount=0; resetGodzillaPos(); resetHelis(); updateHUD();
+  tailPrev.length=0; bodyFxT=0; tailFxT=0;
 }
 function startGame(){ if(!CITY.ready) return; ensureAudio(); resetGame(); state.mode='play'; $('startOverlay').style.display='none'; $('endOverlay').style.display='none'; $('hud').classList.add('on'); showMsg('破壊率 '+TARGET_PCT+'% を目指せ！', 2.2); }
 function endGame(won, reason){
@@ -1356,6 +1358,56 @@ function updateCamera(dt){
   if(state.shake>0 && !reducedMotion){ state.shake=Math.max(0, state.shake-dt*1.7); sx=(Math.random()-0.5)*state.shake*3.4; sy=(Math.random()-0.5)*state.shake*2.6; }
   camera.lookAt(gz.e+fx*80+sx, terrainH(gz.e,gz.n)+68+sy, -(gz.n+fn*80));
 }
+/* ================= 体当たり＆尻尾の当たり判定 ================= */
+let bodyFxT=0, tailFxT=0;
+const tailPrev=[]; // 前フレームの尾サンプル点。スイープ速度（薙ぎ払いの勢い）の算出用
+const _tv=new THREE.Vector3();
+function tailSamplePoints(){
+  /* 尾の各節の中点と先端のワールド座標（E/N系）を返す。姿勢は直近の描画フレームのものを使う（1フレーム遅れは無視できる） */
+  godzilla.updateMatrixWorld(true);
+  const pts=[];
+  for(let i=0;i<G.tail.length;i++){ const g=G.tail[i], len=g.userData.len||10, rad=(g.userData.rad||4)*2.4;
+    for(const f of [0.5,1]){ _tv.set(0,0,len*f); g.localToWorld(_tv); pts.push({e:_tv.x, n:-_tv.z, rad:rad}); } }
+  return pts;
+}
+function updateContactDamage(dt){
+  /* 体当たり（東京タワー編から移植）：従来は着地イベントでしか削れず、体が触れていても歩行位相が
+     合わない・止まっている・旋回中だと無反応だった。ビルの当たり半径にゴジラの体の張り出し約26mを
+     足した範囲へ中心が入っている間は接触ダメージを継続的に与える（単独で約7秒＝踏み潰し3歩分相当）。
+     接触中は接触点に土煙と小さな揺れを出して、判定が入っていることを目に見えるようにする */
+  let bodyPt=null;
+  for(const b of buildings){ if(b.dead) continue; const d=Math.hypot(b.cx-gz.e, b.cy-gz.n);
+    if(d<b.br+26){ damageBuilding(b, b.maxHp*dt*0.14, 'body'); if(!bodyPt) bodyPt=b; } }
+  if(bodyPt){ bodyFxT-=dt;
+    if(bodyFxT<=0){ bodyFxT=0.45;
+      const mx2=(gz.e+bodyPt.cx)/2, mn2=(gz.n+bodyPt.cy)/2, gy3=terrainH(mx2,mn2);
+      spawnP(mx2, gy3+6, -mn2, 10, {color:0xbfae94, up:6, spread:18, life:0.9, grav:-4});
+      state.shake=Math.min(1.05, state.shake+0.08);
+    } } else bodyFxT=0;
+  /* 尻尾：尾の各節がビルに触れている間、継続ダメージを与える。ダメージ倍率はその節の移動速度
+     （スイープの勢い）で決まる：静止〜歩行の尾引きずりは控えめ（最大で約5〜12%/秒）、旋回で
+     振り回すと先端ほど速くなり最大約20%/秒まで伸びて薙ぎ倒せる。踏み潰し（34%/歩・約1歩/秒）
+     は超えない範囲に抑えた */
+  const pts=tailSamplePoints();
+  let tailHit=null;
+  for(const b of buildings){ if(b.dead) continue;
+    if(Math.hypot(b.cx-gz.e, b.cy-gz.n) > b.br+135) continue; // 尾の届く範囲外は粗く除外
+    let best=-1, bestPt=null;
+    for(let i=0;i<pts.length;i++){ const p=pts[i];
+      if(Math.hypot(b.cx-p.e, b.cy-p.n) < b.br + p.rad*0.85){
+        let spd=0;
+        if(tailPrev[i]) spd=Math.hypot(p.e-tailPrev[i].e, p.n-tailPrev[i].n)/Math.max(dt,0.001);
+        const fac=clamp(0.45+spd/50, 0.45, 1.8);
+        if(fac>best){ best=fac; bestPt=p; } } }
+    if(bestPt){ damageBuilding(b, b.maxHp*dt*0.11*best, 'tail'); if(!tailHit) tailHit={pt:bestPt, fac:best}; } }
+  for(let i=0;i<pts.length;i++) tailPrev[i]={e:pts[i].e, n:pts[i].n};
+  if(tailHit){ tailFxT-=dt;
+    if(tailFxT<=0){ tailFxT=0.35;
+      const p=tailHit.pt, gy4=terrainH(p.e,p.n), hard=tailHit.fac>1.1;
+      spawnP(p.e, gy4+7, -p.n, hard?16:9, {color:0xbfae94, up:7, spread:22, life:0.9, grav:-4});
+      state.shake=Math.min(1.05, state.shake + (hard?0.13:0.06));
+    } } else tailFxT=0;
+}
 function stepPlay(dt, pad){
   state.time-=dt;
   if(state.time<=0){ state.time=0; endGame(state.cleared || progressPct()>=TARGET_PCT, 'time'); }
@@ -1398,6 +1450,8 @@ function stepPlay(dt, pad){
   gz.e=clamp(gz.e+fx*gz.speed*dt, -1240, 1240);
   gz.n=clamp(gz.n+fn*gz.speed*dt, -1520, 990); // 南は横浜スタジアムの先まで到達可能に拡張
   /* 歩行の接触破壊＆足跡は歩行サイクルの着地イベント（onFootstep）で処理 */
+  /* 体当たり＆尻尾の接触破壊（継続ダメージ） */
+  updateContactDamage(dt);
   /* 咆哮リング */
   if(roarRing.visible){ const s=1+ (0.9-state.roarAnim)*275; roarRing.scale.set(s,s,s); ringMat.opacity=Math.max(0, state.roarAnim/0.9)*0.55; if(state.roarAnim<=0) roarRing.visible=false; }
   /* 体力回復 */
