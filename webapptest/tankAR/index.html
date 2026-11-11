@@ -6480,6 +6480,11 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
     function netActive(){ return NET.mode !== 'off'; }
     function isHost(){ return NET.mode === 'host'; }
     function isGuest(){ return NET.mode === 'guest'; }
+    /* ホスト→ゲストのエフェクト用イベント。ゲストがつながっている時だけ積む
+       （相手不在のまま積み続けると、途中参加の瞬間に過去の爆発などが一斉再生されるため） */
+    function netEv(o){ if (isHost() && NET.peerId) NET.pendingEvents.push(o); }
+    /* 発砲などの主体をゲスト側で特定するキー：1P/2P は固定名、敵は netId */
+    function netTankKey(t){ return t === player ? 'p1' : (t === player2 ? 'p2' : (t && t.netId)); }
     function playersList(){
       var a = [];
       if (player) a.push(player);
@@ -6543,7 +6548,16 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       for (var i=0;i<all.length;i++){
         var o = all[i];
         if (!o || o === self || !o.alive) continue;
-        if (Math.abs(o.x - x) < 0.82 && Math.abs(o.z - z) < 0.82) return true;
+        if (Math.abs(o.x - x) < 0.82 && Math.abs(o.z - z) < 0.82){
+          /* 既に重なってしまっている相手（出現・復活が重なった等）からは、離れる方向の移動だけ許す。
+             これが無いとどちらへ動いても重なり判定になり、両者とも永久に動けなくなる */
+          if (self && Math.abs(o.x - self.x) < 0.82 && Math.abs(o.z - self.z) < 0.82){
+            var dNow = (o.x - self.x) * (o.x - self.x) + (o.z - self.z) * (o.z - self.z);
+            var dNew = (o.x - x) * (o.x - x) + (o.z - z) * (o.z - z);
+            if (dNew > dNow) continue;
+          }
+          return true;
+        }
       }
       return false;
     }
@@ -6746,6 +6760,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       bullets.push({ mesh: mesh, owner: t, x: bx, z: bz, y: mz3.y, dir: t.dir,
         speed: t.isPlayer ? (t.power >= 2 ? 9.6 : 7.6) : t.bulletSpeed, alive: true });
       spawnMuzzle(t, d);
+      netEv({ e:'f', k: netTankKey(t), d: t.dir, p: t.isPlayer ? 1 : 0 });
       t.tiltV = (t.tiltV || 0) + 1.05; /* 反動の初速（数度のチルト＋揺れ） */
       /* 発砲音も砲口位置から定位させる */
       var sp = sfxPos(t.x + d.x * mz3.dist, t.z + d.z * mz3.dist);
@@ -6787,6 +6802,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       t.mesh.position.set(t.x, 0, t.z);
       wreckGroup.add(t.mesh);
       wrecks.push({ mesh:t.mesh, x:t.x, z:t.z, t:0, life:6 + Math.random() * 4, flameAcc:0, smokeAcc:0 });
+      if (t.netId !== undefined) netEv({ e:'w', id: t.netId, x:r2(t.x), z:r2(t.z) });
     }
     function clearWrecks(){
       wrecks.forEach(function(w){ wreckGroup.remove(w.mesh); });
@@ -6822,8 +6838,9 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
     }
     function explodeTank(t, byPlayer){
       spawnExplosion(new THREE.Vector3(t.x, 0.2, t.z), true);
-      if (isHost()) NET.pendingEvents.push({ e:'x', x:r2(t.x), z:r2(t.z) });
-      if (t.isPlayer || t.type === 'armored') SFX.bigBoom(sfxPos(t.x, t.z)); else SFX.boom(sfxPos(t.x, t.z));
+      var bigSnd = (t.isPlayer || t.type === 'armored');
+      netEv({ e:'x', x:r2(t.x), z:r2(t.z), s: bigSnd ? 1 : 0 });
+      if (bigSnd) SFX.bigBoom(sfxPos(t.x, t.z)); else SFX.boom(sfxPos(t.x, t.z));
       if (!t.isPlayer){
         /* 確率で炎上残骸が残る（装甲種ほど高確率） */
         var chance = t.type === 'armored' ? 0.7 : (t.type === 'basic' ? 0.3 : 0.45);
@@ -6832,7 +6849,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       removeTank(t);
     }
     function hitTank(t, shooter){
-      if (t.invincibleT > 0){ SFX.ping(sfxPos(t.x, t.z)); return; }
+      if (t.invincibleT > 0){ SFX.ping(sfxPos(t.x, t.z)); netEv({ e:'i', x:r2(t.x), z:r2(t.z) }); return; }
       if (!t.isPlayer && shooter && !shooter.isPlayer) return;
       t.hp--;
       if (!t.isPlayer && t.type === 'armored' && t.hp > 0){
@@ -6840,6 +6857,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
         t.mesh.userData.bodyMats.forEach(function(m){ m.color.setHex(col); });
         SFX.thunk(sfxPos(t.x, t.z));
         spawnDebris(new THREE.Vector3(t.x, 0.4, t.z), 0xffca3a, 4, 0.08);
+        netEv({ e:'h', x:r2(t.x), z:r2(t.z) });
         return;
       }
       if (t.hp > 0) return;
@@ -6871,6 +6889,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
             if (o === b || !o.alive || o.owner === b.owner) continue;
             if (Math.abs(o.x - b.x) < 0.22 && Math.abs(o.z - b.z) < 0.22){
               SFX.pop(sfxPos(b.x, b.z));
+              netEv({ e:'c', x:r2(b.x), z:r2(b.z) });
               killBullet(o); dead = true; break;
             }
           }
@@ -6904,7 +6923,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
           }
           /* タイルヒット */
           var c = worldToCell(b.x), r = worldToCell(b.z);
-          if (c < 0 || r < 0 || c >= GRID || r >= GRID){ SFX.puff(sfxPos(b.x, b.z)); dead = true; break; }
+          if (c < 0 || r < 0 || c >= GRID || r >= GRID){ SFX.puff(sfxPos(b.x, b.z)); netEv({ e:'o', x:r2(b.x), z:r2(b.z) }); dead = true; break; }
           var tile = tileAt(c, r);
           if (tile.type === T_BRICK){
             if (damageBrick(c, r, b.dir)) SFX.brick(sfxPos(b.x, b.z));
@@ -6913,9 +6932,11 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
             if (b.owner && b.owner.isPlayer && b.owner.power >= 3){
               tileGroup.remove(tile.group); delete tiles[key2(c, r)];
               SFX.brick(sfxPos(b.x, b.z)); spawnDebris(new THREE.Vector3(b.x, 0.4, b.z), 0xd6dae0, 6, 0.09);
+              netEv({ e:'s', x:r2(b.x), z:r2(b.z), k:1 });
             } else {
               SFX.steel(sfxPos(b.x, b.z));
               spawnDebris(new THREE.Vector3(b.x, 0.4, b.z), 0xffe9a0, 2, 0.06);
+              netEv({ e:'s', x:r2(b.x), z:r2(b.z), k:0 });
             }
             dead = true; break;
           }
@@ -6972,6 +6993,13 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       for (var i = 0; i < enemies.length; i++){
         if (Math.abs(enemies[i].x - wx) < 1 && Math.abs(enemies[i].z - wz) < 1) return false;
       }
+      /* プレイヤー（1P/2P）が出現地点にいる時も見送る（真上に出現して重なり、互いに動けなくなっていた）。
+         見送った場合は呼び出し側のタイマーで少し後に再挑戦する */
+      var pl = playersList();
+      for (var pi = 0; pi < pl.length; pi++){
+        var q = pl[pi];
+        if (q && q.alive && Math.abs(q.x - wx) < 1 && Math.abs(q.z - wz) < 1) return false;
+      }
       var idx = G.spawned;
       var type = G.comp[idx] || 'basic';
       var spec = ENEMY_TYPES[type], style = ENEMY_STYLE[type];
@@ -6984,6 +7012,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       enemies.push(t);
       G.spawned++;
       SFX.spawn(sfxPos(wx, wz));
+      netEv({ e:'n', x:r2(wx), z:r2(wz) });
       spawnDebris(new THREE.Vector3(wx, 0.4, wz), 0xbfe8ff, 5, 0.07);
       updateEnemyIcons();
       return true;
@@ -7026,7 +7055,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
     }
     function destroyHQ(){
       setHQAlive(false);
-      if (isHost()) NET.pendingEvents.push({ e:'x', x:r2(cellToWorld(HQ_CELL.c)), z:r2(cellToWorld(HQ_CELL.r)) });
+      netEv({ e:'x', x:r2(cellToWorld(HQ_CELL.c)), z:r2(cellToWorld(HQ_CELL.r)), s:1 });
       spawnExplosion(new THREE.Vector3(cellToWorld(HQ_CELL.c), 0.3, cellToWorld(HQ_CELL.r)), true);
       SFX.bigBoom(sfxPos(cellToWorld(HQ_CELL.c), cellToWorld(HQ_CELL.r)));
       gameOver('司令部（ワシ）が破壊された…');
@@ -7037,11 +7066,12 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       who = who || player;
       addScoreFor(who ? (who.pIdx || 1) : 1, 500);
       SFX.power(who ? sfxPos(who.x, who.z) : null);
+      netEv({ e:'u', x: who ? r2(who.x) : null, z: who ? r2(who.z) : null });
       var bannerText = kind === 'star' ? 'POWER UP!' : kind === 'helmet' ? '無敵!' :
                  kind === 'tank' ? '1UP!' : kind === 'shovel' ? '鉄壁化!' :
                  kind === 'grenade' ? '全滅!' : '敵停止!';
       showBanner(bannerText, 1.2);
-      if (isHost()) NET.pendingEvents.push({ e:'b', text: bannerText });
+      netEv({ e:'b', text: bannerText });
       if (!who) return;
       if (kind === 'star'){
         who.power = Math.min(3, who.power + 1);
@@ -8059,6 +8089,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
     var gBullets = [];
     var gStage = -1;
     function clearGuestEntities(){
+      clearWrecks();
       for (var id in gEn){ if (gEn[id]) removeTank(gEn[id]); }
       gEn = {};
       gBullets.forEach(function(m){ bulletGroup.remove(m); });
@@ -8164,10 +8195,18 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
           if (t.type === 'armored') t.mesh.userData.bodyMats.forEach(function(m){ m.color.setHex(ARMOR_TINTS[clamp(t.hp - 1, 0, 3)]); });
         }
       });
+      /* ホスト側で炎上残骸になった敵（'w' イベント）は、除去せず残骸に変える */
+      var wreckIds = {};
+      (s.ev || []).forEach(function(ev){ if (ev.e === 'w') wreckIds[ev.id] = ev; });
       for (var id in gEn){
         if (!seen[id]){
           /* 爆発と音はホストの 'x' イベント側で再現するので、ここでは静かに除去 */
-          removeTank(gEn[id]);
+          var wev = wreckIds[id];
+          if (wev){
+            var wt = gEn[id];
+            wt.x = wev.x; wt.z = wev.z;
+            try { makeWreck(wt); } catch(e){ removeTank(wt); }
+          } else removeTank(gEn[id]);
           delete gEn[id];
         }
       }
@@ -8192,15 +8231,53 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       } else if (powerup) clearPowerup();
       /* 爆発・バナー等のイベントは各端末でローカル再現 */
       (s.ev || []).forEach(function(ev){
-        if (ev.e === 'x'){
-          spawnExplosion(new THREE.Vector3(ev.x, 0.2, ev.z), true);
-          SFX.bigBoom(sfxPos(ev.x, ev.z));
-        } else if (ev.e === 'b'){
-          showBanner(ev.text, 1.2);
-        }
+        try { guestPlayEvent(ev); } catch(e){ console.warn('イベント再現失敗', ev, e); }
       });
       updateHUD(); updateEnemyIcons();
       guestUiSync(s);
+    }
+    /* ホストから届いたエフェクト用イベントを、ホストと同じ見た目・音でローカル再現する */
+    function guestTankByKey(k){
+      if (k === 'p1') return player;
+      if (k === 'p2') return player2;
+      return gEn[k] || null;
+    }
+    function guestPlayEvent(ev){
+      var P = (ev.x !== null && ev.x !== undefined) ? sfxPos(ev.x, ev.z) : null;
+      switch (ev.e){
+        case 'x': /* 戦車撃破・司令部：大爆発（s:0 は小さい爆発音） */
+          spawnExplosion(new THREE.Vector3(ev.x, 0.2, ev.z), true);
+          if (ev.s === 0) SFX.boom(P); else SFX.bigBoom(P);
+          break;
+        case 'b': showBanner(ev.text, 1.2); break;
+        case 'f': { /* 発砲：マズルフラッシュ・砲煙・反動・発砲音 */
+          var t = guestTankByKey(ev.k);
+          if (!t || !t.alive || !t.mesh) break;
+          var d = DIRS[ev.d] || DIRS[t.dir];
+          spawnMuzzle(t, d);
+          t.tiltV = (t.tiltV || 0) + 1.05;
+          var mz = muzzleOf(t), sp = sfxPos(t.x + d.x * mz.dist, t.z + d.z * mz.dist);
+          if (ev.p) SFX.shoot(sp); else SFX.eshoot(sp);
+          break;
+        }
+        case 'w': break; /* 炎上残骸は敵の除去処理側で変換済み */
+        case 'i': SFX.ping(P); break; /* 無敵中の被弾 */
+        case 'h': /* 装甲戦車への命中（撃破に至らない） */
+          SFX.thunk(P);
+          spawnDebris(new THREE.Vector3(ev.x, 0.4, ev.z), 0xffca3a, 4, 0.08);
+          break;
+        case 'o': SFX.puff(P); break; /* 画面端への着弾 */
+        case 's': /* 鉄壁：k=1 破壊／k=0 弾かれ火花 */
+          if (ev.k){ SFX.brick(P); spawnDebris(new THREE.Vector3(ev.x, 0.4, ev.z), 0xd6dae0, 6, 0.09); }
+          else { SFX.steel(P); spawnDebris(new THREE.Vector3(ev.x, 0.4, ev.z), 0xffe9a0, 2, 0.06); }
+          break;
+        case 'c': SFX.pop(P); break; /* 弾同士の相殺 */
+        case 'n': /* 敵の出現 */
+          SFX.spawn(P);
+          spawnDebris(new THREE.Vector3(ev.x, 0.4, ev.z), 0xbfe8ff, 5, 0.07);
+          break;
+        case 'u': SFX.power(P); break; /* パワーアップ取得 */
+      }
     }
     function guestUiSync(s){
       var inGame = (s.s === 'playing' || s.s === 'intro' || s.s === 'paused');
@@ -8256,6 +8333,12 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
         /* 補間速度から疑似速度を作る（キャタピラー音・チルト用） */
         var ivx = (t.x - px) / Math.max(dt, 0.001), ivz = (t.z - pz) / Math.max(dt, 0.001);
         t.vx = clamp(ivx, -9, 9); t.vz = clamp(ivz, -9, 9);
+        /* 砂煙：ホストの tryMove と同じ係数で、補間した移動量から出す（ワープ時は出さない） */
+        var gdist = Math.sqrt((t.x - px) * (t.x - px) + (t.z - pz) * (t.z - pz));
+        if (gdist < 0.5){
+          t.dustAcc = (t.dustAcc || 0) + gdist * 5.2;
+          while (t.dustAcc >= 1){ t.dustAcc -= 1; emitTrackDust(t); }
+        }
         if (t.shield) t.shield.visible = !!t.invS && Math.sin(G.time * 10) > -0.6;
       }
       if (powerup){
@@ -8707,6 +8790,10 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       if (isGuest()){
         guestSendInput();
         guestInterp(dt);
+        /* ゲスト側の敵は enemies 配列に入らないので、反動・走行チルトはここで更新（補間で位置を置いた後） */
+        if (G.state === 'playing' || G.state === 'intro' || G.state === 'clear' || G.state === 'over' || G.observe){
+          for (var gid in gEn) if (gEn[gid] && gEn[gid].alive) updateTankTilt(gEn[gid], dt);
+        }
       }
       /* 水面アニメーション */
       waterTex.offset.y = (G.time * 0.045) % 1;
