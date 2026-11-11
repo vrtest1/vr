@@ -7645,6 +7645,59 @@ window.Trystero = { joinRoom: bn, selfId: B, getRelaySockets: Pn, defaultRelayUr
        全タイル種別＋レンガ残量・パワーアップ・スコア/残機・状態遷移・爆発/バナーイベント）、
        ゲスト→ホスト 'inp'（方向＋発砲、変化時＋400msキープアライブ）、
        ゲスト→ホスト 'ctl'（次へ進めるリクエスト）。エフェクトと音は各端末でローカル生成。 */
+    /* ---------- 接続診断パネル（URLに ?debug=1 を付けたときだけ表示） ----------
+       トラッカー（相手探し）の接続状態と、WebRTC 接続ごとの状態・ICE候補の種類を表示する。
+       Trystero は RTCPeerConnection をグローバルから参照するので、ここで包んで観測する。 */
+    (function(){
+      if (!/[?&]debug=1/.test(location.search)) return;
+      var box = document.createElement('pre');
+      box.style.cssText = 'position:fixed;left:4px;bottom:4px;z-index:99999;max-width:96vw;max-height:50vh;overflow:auto;margin:0;padding:6px 8px;background:rgba(0,0,0,.8);color:#8f8;font:11px/1.35 monospace;white-space:pre-wrap;pointer-events:none;';
+      document.body.appendChild(box);
+      var pcs = [], seq = 0, Orig = window.RTCPeerConnection;
+      function countTypes(sdp){
+        var o = {}, re = / typ (\w+)/g, m;
+        while ((m = re.exec(sdp || ''))) o[m[1]] = (o[m[1]] || 0) + 1;
+        var a = []; for (var k in o) a.push(k + ':' + o[k]); return a.join(',') || '-';
+      }
+      if (Orig){
+        var Wrapped = function(cfg){
+          var pc = new Orig(cfg);
+          pcs.push({ pc: pc, n: ++seq, t0: Date.now() });
+          if (pcs.length > 40) pcs.shift();
+          return pc;
+        };
+        Wrapped.prototype = Orig.prototype;
+        Object.setPrototypeOf(Wrapped, Orig);
+        window.RTCPeerConnection = Wrapped;
+      }
+      var RS = ['CONNECTING','OPEN','CLOSING','CLOSED'];
+      setInterval(function(){
+        var L = [];
+        L.push('secure=' + window.isSecureContext + ' subtle=' + !!(window.crypto && crypto.subtle) + ' RTC=' + !!Orig);
+        L.push('mode=' + NET.mode + ' code=' + (NET.code || '-') + ' peer=' + (NET.peerId || '-'));
+        try {
+          var socks = window.Trystero && Trystero.getRelaySockets ? Trystero.getRelaySockets() : {};
+          var any = false;
+          for (var u in socks){ any = true; var ws = socks[u]; L.push('tracker ' + u.replace('wss://','') + ' : ' + (ws ? RS[ws.readyState] : 'none')); }
+          if (!any) L.push('tracker : (未接続 / ルーム未参加)');
+        } catch(e){ L.push('tracker err: ' + e.message); }
+        /* 相手の応答（remoteDescription）が来た接続だけを詳しく表示。未使用の待機オファーは件数のみ */
+        var shown = 0, idle = 0, sampleLocal = '-';
+        for (var i = pcs.length - 1; i >= 0; i--){
+          var r = pcs[i], pc = r.pc;
+          if (!pc.remoteDescription){ idle++; if (sampleLocal === '-') sampleLocal = countTypes(pc.localDescription && pc.localDescription.sdp); continue; }
+          if (shown++ >= 8) continue;
+          L.push('#' + r.n + ' ' + Math.round((Date.now() - r.t0) / 1000) + 's conn=' + pc.connectionState +
+            ' ice=' + pc.iceConnectionState + ' gath=' + pc.iceGatheringState + ' sig=' + pc.signalingState +
+            ' | local[' + countTypes(pc.localDescription && pc.localDescription.sdp) + ']' +
+            ' remote[' + countTypes(pc.remoteDescription && pc.remoteDescription.sdp) + ']');
+        }
+        L.push('待機オファー ' + idle + '件（自分の候補 local[' + sampleLocal + ']）');
+        if (!shown) L.push('相手とのWebRTCやりとり: まだなし');
+        box.textContent = L.join('\n');
+      }, 1000);
+    })();
+
     var netStatusEl = document.getElementById('netStatus');
     var netCodeRow = document.getElementById('netCodeRow');
     var netCodeEl = document.getElementById('netCode');
