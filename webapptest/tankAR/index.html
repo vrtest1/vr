@@ -5061,6 +5061,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
 */
 })();
 
+
 </script>
     <script>
     'use strict';
@@ -5203,18 +5204,47 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       var d = Math.sqrt(dx * dx + dz * dz);
       return Math.min(1, 10 / Math.max(4, d));
     }
+    /* ワンショット用Pannerはプールで使い回す（HRTFノードの毎回生成がスパイク源だった）。
+       同時使用の上限を超えたら、遠くて小さい音だけ間引き、それ以外は従来の手動減衰で鳴らす。
+       近距離の主音の聞こえ方は従来通り。返却は各音源の onended で行う */
+    var PANNER_POOL_MAX = 14;
+    var pannerFree = [], pannerBusy = 0;
+    var muteNode = null;
+    function acquirePanner(x, y, z){
+      var p = pannerFree.pop();
+      if (!p){
+        if (pannerBusy >= PANNER_POOL_MAX) return null;
+        p = makePanner(x, y, z);
+        if (!p) return null;
+        p.connect(masterNode());
+      } else setPannerPos(p, x, y, z);
+      pannerBusy++;
+      return p;
+    }
+    function releasePanner(p){
+      if (!p) return;
+      pannerBusy--;
+      if (pannerFree.length < PANNER_POOL_MAX) pannerFree.push(p);
+      else { try { p.disconnect(); } catch(e){} }
+    }
     /* 位置つき再生の出口：Pannerが作れればそれ経由、無理なら素通し＋手動減衰率を返す */
     function audioOut(x, y, z){
-      var p = makePanner(x, y, z);
-      if (p){ p.connect(masterNode()); return { node: p, att: 1, panner: p }; }
-      return { node: masterNode(), att: fallbackAtt(x, z), panner: null };
+      var p = acquirePanner(x, y, z);
+      if (p) return { node: p, att: 1, panner: p };
+      var att = fallbackAtt(x, z);
+      if (AC && pannerBusy >= PANNER_POOL_MAX && att < 0.35){
+        /* 上限超過時：遠距離・小音量のワンショットだけ間引く */
+        if (!muteNode){ try { muteNode = AC.createGain(); muteNode.gain.value = 0; muteNode.connect(masterNode()); } catch(e){} }
+        if (muteNode) return { node: muteNode, att: 0, panner: null, muted: true };
+      }
+      return { node: masterNode(), att: att, panner: null };
     }
     function sfxPos(x, z){ return { x: x, y: 0.45, z: z }; }
     /* ワンショット音量：Panner経由は平均的な減衰ぶんを少し持ち上げ、従来の聴感バランスに寄せる */
     function shotVol(vol, out){ return vol * (out.panner ? 1.5 : out.att); }
     /* リスナーをカメラへ連動：非VR時は俯瞰カメラ、VR時はXRカメラ（ヘッドポーズ）。
        ジオラマの変換は平行移動＋一様スケールのみ（回転なし）なので、向きベクトルはそのまま使える。 */
-    var _lisV = null, _lisF = null, _lisQ = null, _lisU = null;
+    var _lisV = null, _lisF = null, _lisQ = null, _lisU = null, _lisLp = null;
     function updateAudioListener(){
       if (!AC || !AC.listener) return;
       try {
@@ -5229,7 +5259,9 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
         camObj.getWorldQuaternion(_lisQ);
         _lisU.set(0, 1, 0).applyQuaternion(_lisQ);
         diorama.updateMatrixWorld();
-        var lp = diorama.worldToLocal(_lisV.clone());
+        if (!_lisLp) _lisLp = new THREE.Vector3();
+        _lisLp.copy(_lisV);
+        var lp = diorama.worldToLocal(_lisLp);
         listenerLocal.x = lp.x; listenerLocal.y = lp.y; listenerLocal.z = lp.z;
         var L = AC.listener;
         if (L.positionX){
@@ -5252,19 +5284,34 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       g.gain.setValueAtTime(out ? shotVol(vol || 0.06, out) : (vol || 0.06), t);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(g); g.connect(out ? out.node : masterNode()); o.start(t); o.stop(t + dur + 0.02);
+      if (out && out.panner) o.onended = function(){ releasePanner(out.panner); };
+    }
+    /* ノイズバッファはサンプル長ごとに生成して使い回す（毎回の生成がスパイク源だった）。
+       波形の作り方（ランダム×線形減衰エンベロープ）は従来と同一で、同じ長さの
+       バーストは同じバッファを共有するだけなので音の構成は変わらない */
+    var noiseBufCache = {};
+    var noiseBufCount = 0;
+    function getNoiseBuf(len){
+      var buf = noiseBufCache[len];
+      if (buf) return buf;
+      buf = AC.createBuffer(1, len, AC.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i=0;i<len;i++) d[i] = (Math.random()*2-1) * (1 - i/len);
+      if (noiseBufCount < 24){ noiseBufCache[len] = buf; noiseBufCount++; }
+      return buf;
     }
     function noiseBurst(dur, vol, freq, pos, opts){
       if (!AC || !soundOn) return;
       opts = opts || {};
       var t = AC.currentTime + (opts.delay || 0), len = Math.max(1, Math.floor(AC.sampleRate * dur));
-      var buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0);
-      for (var i=0;i<len;i++) d[i] = (Math.random()*2-1) * (1 - i/len);
+      var buf = getNoiseBuf(len);
       var src = AC.createBufferSource(); src.buffer = buf;
       var f = AC.createBiquadFilter(); f.type = opts.type || 'lowpass'; f.frequency.setValueAtTime(freq || 900, t);
       if (opts.freqEnd) f.frequency.exponentialRampToValueAtTime(Math.max(30, opts.freqEnd), t + dur);
       var out = pos ? audioOut(pos.x, pos.y, pos.z) : null;
       var g = AC.createGain(); g.gain.value = out ? shotVol(vol || 0.16, out) : (vol || 0.16);
       src.connect(f); f.connect(g); g.connect(out ? out.node : masterNode()); src.start(t);
+      if (out && out.panner) src.onended = function(){ releasePanner(out.panner); };
     }
     /* ワンショット効果音：引数 p（sfxPos）で発生位置に定位。pause等のUI音は位置なし（中央）
        発砲・着弾・爆発は単発の電子音ではなく、ノイズ＋低音＋金属音の層で合成する */
@@ -5400,6 +5447,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
         g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
         o.connect(f); f.connect(g); g.connect(out ? out.node : masterNode());
         o.start(t); o.stop(t + 0.08);
+        if (out && out.panner) o.onended = function(){ releasePanner(out.panner); };
       } catch(e){}
       noiseBurst(0.03, Math.min(0.08, vol * 0.55), onIce ? 3200 : 2400, pos);
     }
@@ -5854,15 +5902,50 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
     var particles = [];
     var particleGroup = new THREE.Group(); diorama.add(particleGroup);
     var debrisGeo = new THREE.BoxGeometry(0.09, 0.09, 0.09);
+    var puffGeo = new THREE.SphereGeometry(0.5, 7, 6);
+    var flashGeo = new THREE.SphereGeometry(1, 10, 8);
+    /* ===== プール（スパイク対策）=====
+       従来は発生のたびに Mesh＋Material を新規生成し、消滅時は remove だけで
+       dispose しないリークもあった。Mesh＋Material とパーティクル記録を
+       プールで使い回し、生成／GCのスパイクをなくす。
+       個数・大きさ・色・寿命・速度などの見た目パラメータは従来と完全同一で、
+       各 spawn が従来通り全パラメータを設定する。 */
+    function makeFxPool(geo){ return { geo: geo, free: [] }; }
+    var debrisPool = makeFxPool(debrisGeo);
+    var puffPool = makeFxPool(puffGeo);
+    var flashPool = makeFxPool(flashGeo);
+    function poolMesh(pool){
+      var m = pool.free.pop();
+      if (!m){
+        m = new THREE.Mesh(pool.geo, new THREE.MeshBasicMaterial({ transparent: true }));
+      }
+      if (m.parent !== particleGroup) particleGroup.add(m);
+      m.visible = true;
+      return m;
+    }
+    function poolBack(pool, m){
+      if (!m) return;
+      m.visible = false;
+      pool.free.push(m);
+    }
+    var fxRecFree = [];
+    function fxRec(){ return fxRecFree.pop() || {}; }
+    function fxRecBack(r){ fxRecFree.push(r); }
     function spawnDebris(pos, color, n, size){
       for (var i=0;i<n;i++){
-        var m = new THREE.Mesh(debrisGeo, new THREE.MeshBasicMaterial({ color:color, transparent:true }));
+        var m = poolMesh(debrisPool);
+        m.material.color.setHex(color);
+        m.material.opacity = 1;
         m.position.copy(pos);
+        m.rotation.set(0, 0, 0);
         m.scale.setScalar((size || 0.09) / 0.09);
-        particleGroup.add(m);
-        particles.push({ mesh:m, life:0.55 + Math.random()*0.25, t:0,
-          vx:(Math.random()-0.5)*3.4, vy:2 + Math.random()*2.6, vz:(Math.random()-0.5)*3.4,
-          rx:(Math.random()-0.5)*9, rz:(Math.random()-0.5)*9 });
+        var r = fxRec();
+        r.mesh = m; r.pool = debrisPool; r.kind = null;
+        r.life = 0.55 + Math.random()*0.25; r.t = 0;
+        r.vx = (Math.random()-0.5)*3.4; r.vy = 2 + Math.random()*2.6; r.vz = (Math.random()-0.5)*3.4;
+        r.rx = (Math.random()-0.5)*9; r.rz = (Math.random()-0.5)*9;
+        r.grow = 0; r.growBase = 0; r.op0 = 0; r.baseScale = 0;
+        particles.push(r);
       }
     }
     function spawnExplosion(pos, big){
@@ -5870,11 +5953,18 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       spawnDebris(pos, 0xff5533, big ? 14 : 7, 0.11);
       spawnDebris(pos, 0x555049, big ? 11 : 5, 0.12);
       spawnDebris(pos, 0xffe9a0, big ? 8 : 4, 0.08);
-      var flash = new THREE.Mesh(new THREE.SphereGeometry(big ? 0.62 : 0.38, 10, 8),
-        new THREE.MeshBasicMaterial({ color:0xffd98a, transparent:true, opacity:0.95 }));
+      var flash = poolMesh(flashPool);
+      flash.material.color.setHex(0xffd98a);
+      flash.material.opacity = 0.95;
       flash.position.copy(pos); flash.position.y = 0.35;
-      particleGroup.add(flash);
-      particles.push({ mesh:flash, life:0.26, t:0, vx:0, vy:0.4, vz:0, rx:0, rz:0, grow:3.4 });
+      flash.rotation.set(0, 0, 0);
+      var fr = fxRec();
+      fr.mesh = flash; fr.pool = flashPool; fr.kind = null;
+      fr.life = 0.26; fr.t = 0; fr.vx = 0; fr.vy = 0.4; fr.vz = 0; fr.rx = 0; fr.rz = 0;
+      fr.grow = 3.4; fr.op0 = 0; fr.baseScale = 0;
+      fr.growBase = big ? 0.62 : 0.38; /* 従来の球半径。拡大は growBase × (1 + t × grow) で従来と同一 */
+      flash.scale.setScalar(fr.growBase);
+      particles.push(fr);
       /* 爆発直後の煙も少し出す */
       for (var si=0; si<(big ? 5 : 3); si++){
         spawnPuff(pos.x + (Math.random()-0.5)*0.3, 0.45 + Math.random()*0.25, pos.z + (Math.random()-0.5)*0.3,
@@ -5882,16 +5972,20 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       }
     }
     /* ふわりと広がって薄れる煙・砂塵パフ（kind: smoke/dust/flame で挙動を分ける） */
-    var puffGeo = new THREE.SphereGeometry(0.5, 7, 6);
     function spawnPuff(x, y, z, color, size, life, vy, grow, op0, vx, vz){
       if (particles.length > 420) return; /* VRでの負荷上限 */
-      var m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color:color, transparent:true, opacity:op0 }));
+      var m = poolMesh(puffPool);
+      m.material.color.setHex(color);
+      m.material.opacity = op0;
       m.position.set(x, y, z);
+      m.rotation.set(0, 0, 0);
       m.scale.setScalar(size / 0.5);
-      particleGroup.add(m);
-      particles.push({ mesh:m, kind:'puff', life:life, t:0, op0:op0,
-        vx:(vx || 0) + (Math.random()-0.5)*0.22, vy:vy, vz:(vz || 0) + (Math.random()-0.5)*0.22,
-        rx:0, rz:0, grow:grow, baseScale:size / 0.5 });
+      var r = fxRec();
+      r.mesh = m; r.pool = puffPool; r.kind = 'puff';
+      r.life = life; r.t = 0; r.op0 = op0;
+      r.vx = (vx || 0) + (Math.random()-0.5)*0.22; r.vy = vy; r.vz = (vz || 0) + (Math.random()-0.5)*0.22;
+      r.rx = 0; r.rz = 0; r.grow = grow; r.baseScale = size / 0.5; r.growBase = 0;
+      particles.push(r);
     }
     /* 戦車の履帯後方に出す砂煙：地形で量・色を変える（土=茶多め／氷=白少なめ／水=なし／森=普通） */
     function emitTrackDust(t){
@@ -5915,7 +6009,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
     function updateParticles(dt){
       for (var i=particles.length-1;i>=0;i--){
         var p = particles[i]; p.t += dt;
-        if (p.t >= p.life){ particleGroup.remove(p.mesh); particles.splice(i,1); continue; }
+        if (p.t >= p.life){ poolBack(p.pool, p.mesh); particles.splice(i,1); fxRecBack(p); continue; }
         var k = p.t / p.life;
         if (p.kind === 'puff'){
           /* 煙・砂塵：重力なしでゆっくり上昇しつつ減速、膨らんで薄れる */
@@ -5933,7 +6027,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
         p.mesh.position.z += p.vz * dt;
         p.mesh.rotation.x += p.rx * dt; p.mesh.rotation.z += p.rz * dt;
         p.mesh.material.opacity = 1 - k;
-        if (p.grow) p.mesh.scale.setScalar(1 + p.t * p.grow);
+        if (p.grow) p.mesh.scale.setScalar((p.growBase || 1) * (1 + p.t * p.grow));
       }
     }
 
@@ -6546,6 +6640,8 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
     /* ================= マズルフラッシュ（閃光＋瞬間ポイントライト） ================= */
     var muzzleFlashes = [];
     var muzzleLights = [];
+    /* マズルフラッシュのメッシュもプールで使い回す（形・色・寿命は従来と同一） */
+    var muzzlePool = makeFxPool(new THREE.SphereGeometry(0.17, 8, 7));
     (function initMuzzleLights(){
       for (var i=0;i<3;i++){
         var li = new THREE.PointLight(0xffc46b, 0, 4.5, 1.6);
@@ -6562,11 +6658,12 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
     function spawnMuzzle(t, d){
       var mz2 = muzzleOf(t);
       var mx = t.x + d.x * mz2.dist, mz = t.z + d.z * mz2.dist;
-      var flash = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 7),
-        new THREE.MeshBasicMaterial({ color:0xffe9a0, transparent:true, opacity:0.95 }));
+      var flash = poolMesh(muzzlePool);
+      flash.material.color.setHex(0xffe9a0);
+      flash.material.opacity = 0.95;
       flash.position.set(mx, mz2.y, mz);
+      flash.rotation.set(0, 0, 0);
       flash.scale.set(1, 0.8, 1);
-      particleGroup.add(flash);
       var light = null;
       for (var i=0;i<muzzleLights.length;i++) if (!muzzleLights[i].visible){ light = muzzleLights[i]; break; }
       if (light){
@@ -6582,7 +6679,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       for (var i=muzzleFlashes.length-1;i>=0;i--){
         var f = muzzleFlashes[i]; f.t += dt;
         if (f.t >= f.life){
-          particleGroup.remove(f.mesh);
+          poolBack(muzzlePool, f.mesh);
           if (f.light){ f.light.visible = false; f.light.intensity = 0; }
           muzzleFlashes.splice(i,1); continue;
         }
@@ -6736,6 +6833,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       updateEnemyIcons();
       checkStageClear();
     }
+    var _bulletTargets = [];
     function updateBullets(dt){
       for (var i = bullets.length - 1; i >= 0; i--){
         var b = bullets[i];
@@ -6757,9 +6855,16 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
           }
           if (dead) break;
           /* 戦車ヒット：自軍の弾は敵へ、敵の弾は両プレイヤーへ */
+          /* 対象リストは生成せず使い回す（毎ステップの slice/filter を避ける。走査対象・順序は従来と同一：
+             自軍弾→敵全員（ループ内で生存チェック）、敵弾→生存プレイヤー。命中時は即 break する） */
           var targets;
-          if (b.owner && b.owner.isPlayer) targets = enemies.slice();
-          else targets = playersList().filter(function(p){ return p.alive; });
+          if (b.owner && b.owner.isPlayer) targets = enemies;
+          else {
+            _bulletTargets.length = 0;
+            if (player && player.alive) _bulletTargets.push(player);
+            if (player2 && player2.alive) _bulletTargets.push(player2);
+            targets = _bulletTargets;
+          }
           for (var k = 0; k < targets.length; k++){
             var t = targets[k];
             if (!t || !t.alive) continue;
@@ -7029,7 +7134,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       if (player2){ removeTank(player2); player2 = null; }
       clearPowerup();
       clearWrecks();
-      muzzleFlashes.forEach(function(f){ particleGroup.remove(f.mesh); if (f.light){ f.light.visible = false; f.light.intensity = 0; } });
+      muzzleFlashes.forEach(function(f){ poolBack(muzzlePool, f.mesh); if (f.light){ f.light.visible = false; f.light.intensity = 0; } });
       muzzleFlashes = [];
     }
     function startStage(idx){
@@ -7102,8 +7207,60 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
     var keyFire = false;
     var KEYMAP = { KeyW:'up', ArrowUp:'up', KeyS:'down', ArrowDown:'down',
                    KeyA:'left', ArrowLeft:'left', KeyD:'right', ArrowRight:'right' };
+    /* テキスト入力中はゲーム操作にキーを取られないための判定。
+       ルームコード欄に限らず、ページ内の全ての入力欄を保護する。
+       INPUT は type の列挙ではなく「ボタン系だけ除外」の方式にして、
+       text／password 等どの type でも漏らさない（コード欄の実装は type=text）。
+       SELECT／TEXTAREA／contenteditable も対象。
+       ボタンやチェックボックス等は対象外（従来のキー挙動を維持）。 */
+    function isTextEditingEl(el){
+      if (!el || el === document.body || el === document.documentElement) return false;
+      if (el.isContentEditable) return true;
+      var tag = el.tagName;
+      if (tag === 'TEXTAREA') return !el.disabled && !el.readOnly;
+      if (tag === 'SELECT') return !el.disabled;
+      if (tag === 'INPUT'){
+        var type = (el.type || 'text').toLowerCase();
+        if (type === 'button' || type === 'submit' || type === 'reset' ||
+            type === 'checkbox' || type === 'radio' || type === 'file' ||
+            type === 'range' || type === 'color' || type === 'image') return false;
+        return !el.disabled && !el.readOnly;
+      }
+      return false;
+    }
+    function isTextEditingEvent(e){
+      /* 二重ガード：①イベントの実ターゲットが入力欄の中か（closest 判定で、
+         ターゲットが欄内の子要素でも拾う）、②実フォーカスが入力欄か。
+         どちらか一方でも入力欄なら入力中とみなし、片方の判定が環境差で
+         外れてももう片方でキーを守る。keydown／keyup の両方がこの判定を使う。 */
+      var t = e && e.target;
+      if (t){
+        if (typeof t.closest === 'function'){
+          var hit = t.closest('input, textarea, select, [contenteditable]');
+          if (hit && isTextEditingEl(hit)) return true;
+        }
+        if (isTextEditingEl(t)) return true;
+      }
+      return isTextEditingEl(document.activeElement);
+    }
+    function clearKeyState(){
+      pressedDirs.length = 0;
+      keyFire = false;
+    }
+    /* 入力欄へ入る／出る瞬間に押しっぱなし状態をリセットし、固着を防ぐ。
+       フォーカスが外れれば次の keydown から従来通り即座に操作が効く。 */
+    document.addEventListener('focusin', function(e){
+      if (isTextEditingEl(e.target)) clearKeyState();
+    });
+    document.addEventListener('focusout', function(e){
+      if (isTextEditingEl(e.target)) clearKeyState();
+    });
     window.addEventListener('keydown', function(e){
-      if (e.target && (e.target.closest('input, textarea, select, [contenteditable]'))) return;
+      /* 入力欄フォーカス中はゲーム操作として処理しない。
+         preventDefault もしないので、文字入力・削除・カーソル移動・選択など
+         入力欄本来の編集操作がそのまま効き、矢印／スペースによる
+         ページスクロールやボタン誤作動も入力欄側の既定動作で防がれる。 */
+      if (isTextEditingEvent(e)) return;
       ensureAudio();
       if (G.state === 'intro'){ finishIntro(); return; }
       if (KEYMAP[e.code]){ dirDown(KEYMAP[e.code]); e.preventDefault(); }
@@ -7114,7 +7271,12 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       else if (e.code === 'KeyC'){ resetCam(); }
     });
     window.addEventListener('keyup', function(e){
-      if (e.target && (e.target.closest('input, textarea, select, [contenteditable]'))) return;
+      /* 入力中に離されたキーで状態が残らないよう、該当キーだけ解除して戻る */
+      if (isTextEditingEvent(e)){
+        if (KEYMAP[e.code]) dirUp(KEYMAP[e.code]);
+        else if (e.code === 'Space') keyFire = false;
+        return;
+      }
       if (KEYMAP[e.code]) dirUp(KEYMAP[e.code]);
       else if (e.code === 'Space') keyFire = false;
     });
@@ -7281,6 +7443,7 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       vrGrab.hands = {}; vrGrab.base = null;
     }
     var _gq = new THREE.Quaternion(), _gf = new THREE.Vector3();
+    var _grabV1 = new THREE.Vector3(), _grabVa = new THREE.Vector3(), _grabVb = new THREE.Vector3(), _grabMid = new THREE.Vector3();
     function gripYaw(idx){
       xrGripObjs[idx].getWorldQuaternion(_gq);
       _gf.set(0, 0, -1).applyQuaternion(_gq);
@@ -7333,14 +7496,14 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       var b = vrGrab.base;
       if (idxs.length === 1){
         var ix1 = idxs[0];
-        var p1 = xrGripObjs[ix1].getWorldPosition(new THREE.Vector3());
-        vrT.pos.copy(b.pos).add(p1.clone().sub(b.grips[ix1].p));
+        var p1 = xrGripObjs[ix1].getWorldPosition(_grabV1);
+        vrT.pos.copy(b.pos).add(p1.sub(b.grips[ix1].p));
         vrT.yaw = b.yaw + angDelta(gripYaw(ix1), b.grips[ix1].yaw);
       } else {
-        var pa = xrGripObjs[idxs[0]].getWorldPosition(new THREE.Vector3());
-        var pb = xrGripObjs[idxs[1]].getWorldPosition(new THREE.Vector3());
-        var mid = pa.clone().add(pb).multiplyScalar(0.5);
-        vrT.pos.copy(b.pos).add(mid.clone().sub(b.mid));
+        var pa = xrGripObjs[idxs[0]].getWorldPosition(_grabVa);
+        var pb = xrGripObjs[idxs[1]].getWorldPosition(_grabVb);
+        var mid = _grabMid.addVectors(pa, pb).multiplyScalar(0.5);
+        vrT.pos.copy(b.pos).add(mid.sub(b.mid));
         if (b.dist > 0.05){
           vrT.scale = clamp(b.scale * (pa.distanceTo(pb) / b.dist), VR_BASE_SCALE * 0.3, VR_BASE_SCALE * 3);
         }
@@ -7384,8 +7547,13 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       vrT.scale = VR_BASE_SCALE;
       arAnchor = vrT.pos.clone();
       vrGrab.hands = {}; vrGrab.base = null;
-      /* ヘルプ看板もジオラマの上に追随させる（VR時は従来位置に戻す） */
-      vrHelp.position.set(vrT.pos.x, vrT.pos.y + 0.52, vrT.pos.z);
+      /* ヘルプ看板もジオラマの上に追随させる（VR時は従来位置に戻す）。
+         xrBoard と同一平面で重なって Z ファイティングしていたため、こちらは
+         見る側（手前）へ 0.10 ずらし、xrBoard 側は上＋奥へ離して物理的に分離する */
+      vrHelp.position.set(
+        vrT.pos.x + Math.sin(vrT.yaw) * 0.10,
+        vrT.pos.y + 0.52,
+        vrT.pos.z + Math.cos(vrT.yaw) * 0.10);
       vrHelp.rotation.set(0, vrT.yaw, 0);
       return true;
     }
@@ -7644,95 +7812,6 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
        全タイル種別＋レンガ残量・パワーアップ・スコア/残機・状態遷移・爆発/バナーイベント）、
        ゲスト→ホスト 'inp'（方向＋発砲、変化時＋400msキープアライブ）、
        ゲスト→ホスト 'ctl'（次へ進めるリクエスト）。エフェクトと音は各端末でローカル生成。 */
-    /* ---------- 接続診断パネル（URLに ?debug=1 を付けたときだけ表示） ----------
-       トラッカー（相手探し）の接続状態と、WebRTC 接続ごとの状態・ICE候補の種類を表示する。
-       Trystero は RTCPeerConnection をグローバルから参照するので、ここで包んで観測する。 */
-    (function(){
-      if (!/[?&]debug=1/.test(location.search)) return;
-      var box = document.createElement('pre');
-      box.style.cssText = 'position:fixed;left:4px;bottom:4px;z-index:99999;max-width:96vw;max-height:50vh;overflow:auto;margin:0;padding:6px 8px;background:rgba(0,0,0,.8);color:#8f8;font:11px/1.35 monospace;white-space:pre-wrap;pointer-events:none;';
-      document.body.appendChild(box);
-      var pcs = [], seq = 0, Orig = window.RTCPeerConnection;
-      function countTypes(sdp){
-        var o = {}, re = / typ (\w+)/g, m;
-        while ((m = re.exec(sdp || ''))) o[m[1]] = (o[m[1]] || 0) + 1;
-        var a = []; for (var k in o) a.push(k + ':' + o[k]); return a.join(',') || '-';
-      }
-      if (Orig){
-        var Wrapped = function(cfg){
-          var pc = new Orig(cfg);
-          pcs.push({ pc: pc, n: ++seq, t0: Date.now() });
-          /* 上限超過時は「相手の応答が来ていない待機オファー」の古いものから捨てる（接続の記録は残す） */
-          if (pcs.length > 60){
-            for (var j = 0; j < pcs.length; j++){ if (!pcs[j].pc.remoteDescription){ pcs.splice(j, 1); break; } }
-            if (pcs.length > 80) pcs.shift();
-          }
-          return pc;
-        };
-        Wrapped.prototype = Orig.prototype;
-        Object.setPrototypeOf(Wrapped, Orig);
-        window.RTCPeerConnection = Wrapped;
-      }
-      /* リレー（Nostr）通信の集計：送信数・受信数・相手からのイベント受信数・リレーのエラー */
-      var wsStat = {}, OrigWS = window.WebSocket;
-      function wsKey(u){ return String(u).replace('wss://','').replace(/\/$/,''); }
-      if (OrigWS){
-        var WrappedWS = function(url, proto){
-          var ws = proto === undefined ? new OrigWS(url) : new OrigWS(url, proto);
-          var st = wsStat[wsKey(url)] || (wsStat[wsKey(url)] = { open:0, close:0, out:0, msg:0, ev:0, err:'' });
-          ws.addEventListener('open', function(){ st.open++; });
-          ws.addEventListener('close', function(e){ st.close++; if (!st.err) st.err = 'close ' + e.code; });
-          var origSend = ws.send;
-          ws.send = function(){ st.out++; return origSend.apply(ws, arguments); };
-          ws.addEventListener('message', function(e){
-            st.msg++;
-            try {
-              var m = JSON.parse(e.data);
-              if (m[0] === 'EVENT') st.ev++;
-              else if (m[0] === 'OK' && m[2] === false) st.err = 'OK false: ' + m[3];
-              else if (m[0] === 'NOTICE' || m[0] === 'CLOSED') st.err = m[0] + ': ' + (m[2] || m[1]);
-            } catch(e2){}
-          });
-          return ws;
-        };
-        WrappedWS.prototype = OrigWS.prototype;
-        Object.setPrototypeOf(WrappedWS, OrigWS);
-        window.WebSocket = WrappedWS;
-      }
-      var RS = ['CONNECTING','OPEN','CLOSING','CLOSED'];
-      setInterval(function(){
-        var L = [];
-        L.push(navigator.userAgent.replace(/^Mozilla\/5\.0 /,'').slice(0, 90));
-        L.push('secure=' + window.isSecureContext + ' subtle=' + !!(window.crypto && crypto.subtle) + ' RTC=' + !!Orig);
-        L.push('mode=' + NET.mode + ' code=' + (NET.code || '-') + ' peer=' + (NET.peerId || '-'));
-        try {
-          var socks = window.Trystero && Trystero.getRelaySockets ? Trystero.getRelaySockets() : {};
-          var total = 0, open = 0, rows = [];
-          for (var u in socks){
-            total++; var ws = socks[u], st = wsStat[wsKey(u)] || {}, rs = ws ? RS[ws.readyState] : 'none';
-            if (rs === 'OPEN') open++;
-            rows.push('  ' + wsKey(u).slice(0, 28) + ' ' + rs + ' 送' + (st.out||0) + ' 受' + (st.msg||0) + ' EVENT' + (st.ev||0) + (st.err ? ' [' + String(st.err).slice(0, 40) + ']' : ''));
-          }
-          L.push('relay ' + open + '/' + total + ' OPEN' + (total ? '' : '（未接続 / ルーム未参加）'));
-          L.push.apply(L, rows.slice(0, 8));
-        } catch(e){ L.push('relay err: ' + e.message); }
-        /* 相手の応答（remoteDescription）が来た接続だけを詳しく表示。未使用の待機オファーは件数のみ */
-        var shown = 0, idle = 0, sampleLocal = '-';
-        for (var i = pcs.length - 1; i >= 0; i--){
-          var r = pcs[i], pc = r.pc;
-          if (!pc.remoteDescription){ idle++; if (sampleLocal === '-') sampleLocal = countTypes(pc.localDescription && pc.localDescription.sdp); continue; }
-          if (shown++ >= 8) continue;
-          L.push('#' + r.n + ' ' + Math.round((Date.now() - r.t0) / 1000) + 's conn=' + pc.connectionState +
-            ' ice=' + pc.iceConnectionState + ' gath=' + pc.iceGatheringState + ' sig=' + pc.signalingState +
-            ' | local[' + countTypes(pc.localDescription && pc.localDescription.sdp) + ']' +
-            ' remote[' + countTypes(pc.remoteDescription && pc.remoteDescription.sdp) + ']');
-        }
-        L.push('待機オファー ' + idle + '件（作成累計' + seq + '）（自分の候補 local[' + sampleLocal + ']）');
-        if (!shown) L.push('相手とのWebRTCやりとり: まだなし');
-        box.textContent = L.join('\n');
-      }, 1000);
-    })();
-
     var netStatusEl = document.getElementById('netStatus');
     var netCodeRow = document.getElementById('netCodeRow');
     var netCodeEl = document.getElementById('netCode');
@@ -7744,22 +7823,19 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
     var statNetEl = document.getElementById('statNet');
     var netHudStatusEl = document.getElementById('netHudStatus');
     var NET_APP_ID = 'battlecity3d-coop-v1';
+    /* 接続待ちウォッチドッグ：参加から20秒たっても相手が見つからなければ状態表示で知らせる。
+       netSession は入り直し・退出のたびに進め、古いタイマーが新しい接続を誤判定しないようにする */
     var netWaitTimer = null;
     var netSession = 0;
-    function clearNetWait(){ if(netWaitTimer){ clearTimeout(netWaitTimer); netWaitTimer = null; } }
+    function clearNetWait(){ if (netWaitTimer){ clearTimeout(netWaitTimer); netWaitTimer = null; } }
     function startNetWait(){
       clearNetWait();
       var session = ++netSession;
       netWaitTimer = setTimeout(function(){
-        if(session !== netSession || !netActive() || NET.peerId) return;
+        if (session !== netSession || !netActive() || NET.peerId) return;
         netSetStatus((isHost() ? '参加者を待機中' : 'ホスト未発見') +
           '：20秒間接続できません。リレー／WebRTC通信を確認してください。「オンラインを退出する」から再試行できます。');
       }, 20000);
-    }
-    function sendHostNow(){
-      if(isHost() && NET.peerId && NET.sendSnap){
-        try { NET.sendSnap(buildSnapshot(), NET.peerId); } catch(e){ console.warn('初期同期送信失敗',e); }
-      }
     }
     var CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     function netSetStatus(msg){
@@ -7792,13 +7868,17 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       }
       netLeaveRoom(true);
       var room;
+      /* Trystero は nostr 方式：相手の発見は公開 Nostr リレー経由（旧 torrent 方式の
+         WebTorrent トラッカーは使わない）。リレー指定はバンドルの既定に任せる */
       try {
         room = window.Trystero.joinRoom({ appId: NET_APP_ID }, code, {
           onJoinError: function(d){ console.warn('Trystero join error', d); if (NET.room === room) netSetStatus('ルーム接続エラー：' + ((d && (d.error || d.message)) || d)); }
         });
       }
       catch(e){ netSetStatus('ルーム接続に失敗しました：' + (e && e.message)); return; }
-      /* Trystero（nostr版）の action を、旧来の [送信関数, 受信登録関数] 形に合わせる薄いアダプタ */
+      /* Trystero（nostr版）の action を、旧来の [送信関数, 受信登録関数] 形に合わせる薄いアダプタ。
+         nostr版の makeAction は { send(data, {target}), onMessage = fn } を返すオブジェクト形なので、
+         ここで吸収して以降のコード（NET.sendSnap 等）は従来どおり使う */
       function act(name){
         var a = room.makeAction(name);
         return [
@@ -7832,9 +7912,20 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       var shrAction = act('shr');
       NET.sendShr = shrAction[0];
       shrAction[1](function(data){ if (data) onShrMessage(data); });
-      /* この版の Trystero では onPeerJoin/onPeerLeave はセッター（関数を代入して登録） */
-      room.onPeerJoin = function(id){ if(NET.room !== room) return; NET.peerId = id; clearNetWait(); onNetPeerJoin(); };
-      room.onPeerLeave = function(id){ if (NET.room === room && id === NET.peerId){ NET.peerId = null; onNetPeerLeave(); } };
+      /* 【重要】同梱 Trystero（nostr版）の onPeerJoin / onPeerLeave は
+         getter/setter のアクセサプロパティ（本体実装: set onPeerJoin(fn){ 内部ハンドラ = fn }）で、
+         「関数を代入して登録」が正しい方式。呼び出し登録（room.onPeerJoin(fn)）は
+         getter が返す現在値（初期は無処理）への呼び出しになり、登録されないので使わない。
+         （旧 torrent 版 0.21.6 では逆に呼び出し登録が正しかった。方式はバンドルごとに異なる）
+         NET.room !== room の間は入り直し前の旧ルームの通知なので無視する。 */
+      room.onPeerJoin = function(id){
+        if (NET.room !== room) return;
+        NET.peerId = id; clearNetWait(); onNetPeerJoin();
+      };
+      room.onPeerLeave = function(id){
+        if (NET.room !== room) return;
+        if (id === NET.peerId){ NET.peerId = null; onNetPeerLeave(); }
+      };
       if (asHost){
         netCodeEl.textContent = code;
         netSetStatus('ルームを作成しました。相手の参加を待っています…（このまま1人でも開始できます。2Pは途中参加OK）');
@@ -7844,13 +7935,21 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       syncNetHud();
       refreshXRUI(); /* オンライン中でもXRボタンは有効のまま（配置は各端末ローカル） */
     }
+    /* 参加直後にホストの現在状態を即送る（定期送信は約15Hzだが、参加→即同期を確実にする）。
+       データチャンネル開通直後の取りこぼしに備え、短い間隔で数回送る（冪等な全量スナップショット） */
+    function sendHostSnapshotNow(){
+      if (!isHost() || !NET.peerId || !NET.sendSnap) return;
+      try { NET.sendSnap(buildSnapshot(), NET.peerId); } catch(e){}
+    }
     function onNetPeerJoin(){
       if (isHost()){
         netSetStatus('2Pが参加しました！協力プレイ中です');
         /* プレイ中の途中参加：その場で2P戦車を出現させる */
         if ((G.state === 'playing' || G.state === 'paused' || G.state === 'intro') && !player2 && !G.out2) spawnPlayer2();
         NET.snapT = 0; /* すぐスナップショットを送る */
-        setTimeout(sendHostNow, 150);
+        sendHostSnapshotNow();
+        setTimeout(sendHostSnapshotNow, 150);
+        setTimeout(sendHostSnapshotNow, 600);
       } else {
         netSetStatus('ホストに接続しました！ホストが開始すると自動で始まります（あなたは2P・緑色）');
       }
@@ -8508,12 +8607,16 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       } else if (G.state === 'playing' && !isGuest()){
         /* 出現管理（シミュレーションはホスト／オフラインのみ。ゲストはスナップショット描画） */
         G.spawnTimer -= dt;
-        var aliveCount = enemies.filter(function(e){ return e.alive; }).length;
+        var aliveCount = 0;
+        for (var ec = 0; ec < enemies.length; ec++) if (enemies[ec].alive) aliveCount++;
         if (G.spawned < ENEMY_TOTAL && aliveCount < ENEMY_MAX_ALIVE && G.spawnTimer <= 0){
           spawnEnemy();
           G.spawnTimer = 1.7;
         }
-        enemies = enemies.filter(function(e){ return e.alive; });
+        /* 死んだ敵をインプレースで除去（毎フレームの配列生成を避ける。順序・内容は従来と同一） */
+        var ew = 0;
+        for (var ei = 0; ei < enemies.length; ei++) if (enemies[ei].alive) enemies[ew++] = enemies[ei];
+        enemies.length = ew;
         /* 自機 */
         if (player && player.alive){
           if (player.invincibleT > 0) player.invincibleT -= dt;
@@ -8619,9 +8722,15 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
         /* 掴んでいる本人だけがフレーム内配置を共有送信する（最大20回/秒） */
         if (SHARED.grabbing && SHARED.frame){ syncSharedFromVrT(); sendSharedPlace(false); }
         vrHelp.visible = true;
-        /* XR内ステータスボードをジオラマの上空に追随させる */
+        /* XR内ステータスボードをジオラマの上空に追随させる。
+           以前は vrHelp と同じ平面（同じ奥行き・回転）で上下が約3.5cm重なり
+           Z ファイティングしていたため、高さを +0.78 → +0.98 に上げ、
+           奥行きも背面側へ 0.12 ずらして同一平面に置かない */
         xrBoard.mesh.visible = true;
-        xrBoard.mesh.position.set(vrT.pos.x, vrT.pos.y + 0.78, vrT.pos.z);
+        xrBoard.mesh.position.set(
+          vrT.pos.x - Math.sin(vrT.yaw) * 0.12,
+          vrT.pos.y + 0.98,
+          vrT.pos.z - Math.cos(vrT.yaw) * 0.12);
         xrBoard.mesh.rotation.set(0, vrT.yaw, 0);
         xrBoard.setLines(xrBoardLines());
       }
