@@ -7728,8 +7728,9 @@ window.Trystero = { joinRoom: bn, selfId: B, getRelaySockets: Pn, defaultRelayUr
       var shrAction = room.makeAction('shr');
       NET.sendShr = shrAction[0];
       shrAction[1](function(data){ if (data) onShrMessage(data); });
-      room.onPeerJoin = function(id){ if(NET.room !== room) return; NET.peerId = id; clearNetWait(); onNetPeerJoin(); };
-      room.onPeerLeave = function(id){ if (NET.room === room && id === NET.peerId){ NET.peerId = null; onNetPeerLeave(); } };
+      /* Trystero の onPeerJoin/onPeerLeave は「コールバックを渡して呼ぶ」登録関数（代入では登録されない） */
+      room.onPeerJoin(function(id){ if(NET.room !== room) return; NET.peerId = id; clearNetWait(); onNetPeerJoin(); });
+      room.onPeerLeave(function(id){ if (NET.room === room && id === NET.peerId){ NET.peerId = null; onNetPeerLeave(); } });
       if (asHost){
         netCodeEl.textContent = code;
         netSetStatus('ルームを作成しました。相手の参加を待っています…（このまま1人でも開始できます。2Pは途中参加OK）');
