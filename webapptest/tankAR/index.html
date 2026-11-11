@@ -82,6 +82,18 @@
       }
       .side .spacer{ flex:1; }
       .pad-status{ font-size:10.5px; line-height:1.5; color:var(--ink-soft); font-weight:700; }
+      /* 右HUDの高さはゲーム画面に合わせ、中身が増えても（2P欄・ONLINE欄）枠全体を縦に伸ばさない。
+         伸びると下の AR/VR ボタンが画面外へ押し出され、Quest ブラウザでは消えたように見えていた。
+         contain:size で HUD 自身の中身の高さを枠の高さ計算から外し、溢れた分は HUD 内でスクロール */
+      /* 縦画面（スマホ）は従来通り HUD に合わせて画面が縦に伸びるレイアウトを維持するため、横長の時だけ適用 */
+      @media (orientation:landscape){
+        .side{ contain:size; overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; }
+      }
+      /* ONLINE の状態文は HUD では2行まで（全文はタイトルカードの netStatus に表示される） */
+      #netHudStatus{
+        display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2;
+        overflow:hidden;
+      }
 
       /* ===== 下部コントロールバー ===== */
       .bar{
@@ -5287,18 +5299,27 @@ var vn=Object.freeze,Pe=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff
       if (out && out.panner) o.onended = function(){ releasePanner(out.panner); };
     }
     /* ノイズバッファはサンプル長ごとに生成して使い回す（毎回の生成がスパイク源だった）。
-       波形の作り方（ランダム×線形減衰エンベロープ）は従来と同一で、同じ長さの
-       バーストは同じバッファを共有するだけなので音の構成は変わらない */
+       波形の作り方（ランダム×線形減衰エンベロープ）は従来と同一。
+       同じ長さで1本だけだと毎回まったく同じ波形になり単調に聞こえるため、
+       長さごとに NOISE_VARIANTS 本まで作り置きし、再生のたびにランダムに選ぶ */
+    var NOISE_VARIANTS = 3;
     var noiseBufCache = {};
     var noiseBufCount = 0;
-    function getNoiseBuf(len){
-      var buf = noiseBufCache[len];
-      if (buf) return buf;
-      buf = AC.createBuffer(1, len, AC.sampleRate);
+    function makeNoiseBuf(len){
+      var buf = AC.createBuffer(1, len, AC.sampleRate);
       var d = buf.getChannelData(0);
       for (var i=0;i<len;i++) d[i] = (Math.random()*2-1) * (1 - i/len);
-      if (noiseBufCount < 24){ noiseBufCache[len] = buf; noiseBufCount++; }
       return buf;
+    }
+    function getNoiseBuf(len){
+      var list = noiseBufCache[len];
+      if (!list){
+        if (noiseBufCount >= 24) return makeNoiseBuf(len); /* 長さの種類が多すぎる場合は従来通り都度生成 */
+        list = noiseBufCache[len] = [];
+        noiseBufCount++;
+      }
+      if (list.length < NOISE_VARIANTS){ var nb = makeNoiseBuf(len); list.push(nb); return nb; }
+      return list[Math.floor(Math.random() * list.length)];
     }
     function noiseBurst(dur, vol, freq, pos, opts){
       if (!AC || !soundOn) return;
