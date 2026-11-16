@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>シルエットカメラ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#05060c; --fg:#e8e8f4; --accent:#9c9cf0; --panel:rgba(10,12,28,.72); }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font-family:"Hiragino Mincho ProN","Yu Mincho","YuMincho",serif; overflow:hidden; }
+  #stage { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  canvas { max-width:100%; max-height:100%; display:block; }
+  video { display:none; }
+  #start { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:20px; text-align:center; padding:16px; background:var(--bg); z-index:5; }
+  #start h1 { font-weight:400; letter-spacing:.3em; font-size:clamp(20px,6vw,40px); margin:0; color:var(--accent); }
+  #start p { margin:0; opacity:.75; line-height:1.8; }
+  button { font:inherit; color:var(--fg); background:transparent; border:1px solid var(--accent);
+    padding:10px 22px; border-radius:2px; cursor:pointer; letter-spacing:.15em; }
+  button:active { background:rgba(156,156,240,.2); }
+  #ui { position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    background:var(--panel); display:none; flex-wrap:wrap; gap:10px 16px; align-items:center; justify-content:center; z-index:4; font-size:14px; }
+  #ui label { display:flex; align-items:center; gap:6px; }
+  #ui input[type=range] { width:110px; accent-color:var(--accent); }
+  #ui input[type=color] { width:32px; height:26px; border:none; background:none; padding:0; }
+  #ui select { font:inherit; background:#111; color:var(--fg); border:1px solid #444; padding:4px; }
+  #ui textarea { flex-basis:100%; max-width:640px; height:64px; font:15px/1.5 "Shippori Mincho",serif;
+    background:rgba(0,0,0,.5); color:var(--fg); border:1px solid #444; padding:6px 8px; resize:vertical; }
+  #ui.hidden { display:none !important; }
+  #toggleUi { position:fixed; top:10px; right:12px; z-index:6; padding:4px 10px; font-size:13px; display:none;
+    background:rgba(0,0,0,.4); }
+  #guide { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:7; display:none;
+    width:min(420px, calc(100% - 32px)); padding:22px 20px; text-align:center; line-height:1.8;
+    background:rgba(8,10,30,.82); border:1px solid var(--accent); }
+  #guide h2 { margin:0 0 6px; font-weight:500; font-size:20px; color:var(--accent); letter-spacing:.1em; }
+  #guide p { margin:0 0 16px; font-size:14px; opacity:.85; }
+  #guide .big { font-size:17px; padding:12px 28px; background:var(--accent); color:#0a0a20; font-weight:700; }
+  #guide .skip { display:block; margin:12px auto 0; border:none; font-size:13px; opacity:.6; }
+  #count { position:fixed; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column;
+    z-index:7; pointer-events:none; text-shadow:0 0 12px #000, 2px 2px 4px #000; }
+  #count b { font-size:min(40vw, 220px); font-weight:500; color:#fff; line-height:1; }
+  #count span { font-size:18px; margin-top:12px; }
+  button.hot { background:var(--accent); color:#0a0a20; font-weight:700; animation:pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow:0 0 0 0 rgba(156,156,240,.7); } 50% { box-shadow:0 0 0 8px rgba(156,156,240,0); } }
+  #msg { position:fixed; top:12px; left:0; right:0; text-align:center; font-size:13px; opacity:.7; z-index:4; pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="out"></canvas></div>
+<video id="video" playsinline muted></video>
+<div id="msg"></div>
+
+<div id="start">
+  <h1>シルエットカメラ</h1>
+  <p>カメラに映った人を<br>シルエットに変えます。</p>
+  <button id="startBtn">カメラを起動</button>
+</div>
+
+<div id="ui">
+  <label>モード
+    <select id="mode">
+      <option value="kama">影（青紫）</option>
+      <option value="unity">Unityエラー（マゼンタ）</option>
+    </select>
+  </label>
+  <label>色 <input type="color" id="color" value="#8a8ae0"></label>
+  <label>濃さ <input type="range" id="alpha" min="0" max="1" step="0.01" value="1"></label>
+  <label>背景を暗く <input type="range" id="dim" min="0" max="0.8" step="0.01" value="0.25"></label>
+  <button id="bgSave" class="hot">背景を撮影</button>
+  <button id="bgClear" style="display:none">背景クリア</button>
+  <button id="flip">カメラ切替</button>
+  <button id="shot">撮影</button>
+  <label>文字 <input type="checkbox" id="textOn" checked></label>
+  <label>位置
+    <select id="textPos"><option value="top">上</option><option value="bottom">下</option></select>
+  </label>
+  <label>大きさ <input type="range" id="textSize" min="0.6" max="1.8" step="0.05" value="1"></label>
+  <textarea id="script" placeholder="1行が1ページ。画面をタップで次へ">　その夜、山荘には吹雪が吹きつけていた。
+　暖炉の前に、見覚えのない影がひとつ立っている。
+「……誰だ？」
+　返事はなかった。影はただ、こちらを見つめている。</textarea>
+</div>
+<button id="toggleUi">パネル</button>
+
+<div id="guide">
+  <h2>① 背景を撮影</h2>
+  <p>カメラを机などに<b>固定</b>してください。<br>ボタンを押したら3秒以内に<b>画面の外へ</b>出てください。<br>無人の背景を覚えて、人を消すのに使います。</p>
+  <button class="big" id="guideShot">背景を撮影</button>
+  <button class="skip" id="guideSkip">撮影しないで始める（人が透けます）</button>
+</div>
+<div id="count"><b></b><span>画面の外へ出てください</span></div>
+
+<script type="module">
+import { FilesetResolver, ImageSegmenter } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const $ = id => document.getElementById(id);
+const video = $("video"), out = $("out"), ctx = out.getContext("2d");
+const maskCanvas = document.createElement("canvas"), mctx = maskCanvas.getContext("2d");
+const msg = t => $("msg").textContent = t || "";
+
+const PRESETS = {
+  kama:  { color:"#8a8ae0", alpha:1.0,  dim:0.25 },
+  unity: { color:"#ff00ff", alpha:1.0,  dim:0.0  },
+};
+
+let segmenter, facing = "user", stream, smooth = null, maskImg = null, lastTs = -1;
+// 保存した背景（無人の画）。人物の部分をこれで置き換えて「透明」にする
+const plate = document.createElement("canvas"), pctx = plate.getContext("2d");
+const ghost = document.createElement("canvas"), gctx = ghost.getContext("2d");
+// マスクを数ピクセル太らせた版（人の縁や動いた瞬間のはみ出し防止）
+const fat = document.createElement("canvas"), fctx = fat.getContext("2d");
+let hasPlate = false, countdown = null;
+
+function clearPlate() {
+  hasPlate = false; $("bgClear").style.display = "none";
+  $("bgSave").classList.add("hot"); $("bgSave").textContent = "背景を撮影";
+}
+
+function showGuide(on) { $("guide").style.display = on ? "block" : "none"; }
+
+function savePlate() {
+  if (countdown) return;
+  showGuide(false);
+  let n = 3;
+  const cnt = $("count"), num = cnt.querySelector("b");
+  cnt.style.display = "flex";
+  const tick = () => {
+    if (n > 0) { num.textContent = n; n--; countdown = setTimeout(tick, 1000); return; }
+    cnt.style.display = "none";
+    plate.width = video.videoWidth; plate.height = video.videoHeight;
+    pctx.drawImage(video, 0, 0);
+    hasPlate = true; countdown = null;
+    $("bgClear").style.display = "";
+    $("bgSave").classList.remove("hot"); $("bgSave").textContent = "背景を撮り直す";
+    msg("背景を保存しました。カメラは動かさないでください");
+    setTimeout(() => msg(""), 2500);
+  };
+  tick();
+}
+
+async function initSegmenter() {
+  msg("モデル読み込み中…");
+  const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  const opts = d => ({
+    baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite", delegate: d },
+    runningMode: "VIDEO", outputConfidenceMasks: true, outputCategoryMask: false,
+  });
+  // iOS Safari は GPU デリゲートだとエラー無しで空マスクを返すことがあるので最初から CPU
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  visionFs = vision; makeOpts = opts;
+  if (!isIOS) {
+    try { segmenter = await ImageSegmenter.createFromOptions(vision, opts("GPU")); delegate = "GPU"; } catch {}
+  }
+  if (!segmenter) { segmenter = await ImageSegmenter.createFromOptions(vision, opts("CPU")); delegate = "CPU"; }
+  msg(`人物検出: ${delegate}`); setTimeout(() => msg(""), 3000);
+}
+
+// GPU で空マスクが続いたら CPU に作り直す（1回だけ）
+let visionFs, makeOpts, delegate = "", emptyFrames = 0, switching = false;
+async function fallbackToCPU() {
+  if (switching || delegate !== "GPU") return;
+  switching = true;
+  const old = segmenter; segmenter = null;
+  try { segmenter = await ImageSegmenter.createFromOptions(visionFs, makeOpts("CPU")); delegate = "CPU"; old.close(); }
+  catch { segmenter = old; }
+  switching = false;
+}
+
+async function startCamera() {
+  stream?.getTracks().forEach(t => t.stop());
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+  });
+  video.srcObject = stream;
+  await video.play();
+  smooth = null;
+}
+
+function render() {
+  requestAnimationFrame(render);
+  if (video.readyState < 2) return;
+  const w = video.videoWidth, h = video.videoHeight;
+  if (out.width !== w || out.height !== h) { out.width = w; out.height = h; }
+
+  const ts = performance.now();
+  if (segmenter && ts > lastTs) {
+    lastTs = ts;
+    segmenter.segmentForVideo(video, ts, r => {
+      const masks = r.confidenceMasks; if (!masks?.length) return;
+      // selfie_segmenter は人物の確率1枚。複数返る場合は最後を人物として扱う
+      const m = masks[masks.length - 1];
+      const arr = m.getAsFloat32Array();
+      if (delegate === "GPU") {
+        let mx = 0; for (let i = 0; i < arr.length; i += 97) if (arr[i] > mx) mx = arr[i];
+        emptyFrames = mx < 0.02 ? emptyFrames + 1 : 0;
+        if (emptyFrames > 90) fallbackToCPU();
+      }
+      buildMask(arr, m.width, m.height);
+    });
+  }
+
+  const mirror = facing === "user";
+  ctx.save();
+  if (mirror) { ctx.translate(w, 0); ctx.scale(-1, 1); }
+  ctx.drawImage(video, 0, 0, w, h);
+  if (maskImg) {
+    // マスクを上下左右斜めにずらして重ね描き＝膨張。縁の人が見えないようにする
+    if (fat.width !== w || fat.height !== h) { fat.width = w; fat.height = h; }
+    fctx.clearRect(0, 0, w, h);
+    fctx.imageSmoothingEnabled = true;
+    const r = Math.max(2, Math.min(w, h) * 0.012);
+    for (const k of [r * 0.5, r])
+      for (let a = 0; a < 8; a++)
+        fctx.drawImage(maskCanvas, Math.cos(a * Math.PI / 4) * k, Math.sin(a * Math.PI / 4) * k, w, h);
+    fctx.drawImage(maskCanvas, 0, 0, w, h);
+  }
+  if (hasPlate && (plate.width !== w || plate.height !== h)) clearPlate();
+  if (hasPlate && maskImg) {
+    // 人物の形に切り抜いた保存背景を重ねる → 人が透ける
+    if (ghost.width !== w || ghost.height !== h) { ghost.width = w; ghost.height = h; }
+    gctx.globalCompositeOperation = "source-over";
+    gctx.drawImage(plate, 0, 0);
+    gctx.globalCompositeOperation = "destination-in";
+    gctx.drawImage(fat, 0, 0);
+    ctx.drawImage(ghost, 0, 0);
+  }
+  const dim = +$("dim").value;
+  if (dim > 0) { ctx.fillStyle = `rgba(0,0,10,${dim})`; ctx.fillRect(0, 0, w, h); }
+  if (maskImg) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = +$("alpha").value;
+    ctx.drawImage(fat, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  if ($("textOn").checked) drawNovelText(w, h);
+}
+
+// ---- ノベルゲーム風テキスト（キャンバスに描くので撮影にも写る） ----
+let page = 0, pageStart = performance.now(), skipType = false;
+const CHAR_MS = 55;
+const pages = () => $("script").value.split("\n").filter(l => l.trim());
+
+function currentLine() { const p = pages(); return p.length ? p[page % p.length] : ""; }
+function lineDone() { return skipType || (performance.now() - pageStart) / CHAR_MS >= currentLine().length; }
+
+function advance() {
+  if (!lineDone()) { skipType = true; return; }
+  page = (page + 1) % Math.max(1, pages().length);
+  pageStart = performance.now(); skipType = false;
+}
+
+function wrap(text, maxW) {
+  const lines = []; let cur = "";
+  for (const ch of text) {
+    // 句読点・閉じ括弧は行頭に来ないよう前の行にぶら下げる
+    if (ctx.measureText(cur + ch).width > maxW && cur && !"、。，．」』）！？…―".includes(ch)) { lines.push(cur); cur = ch; }
+    else cur += ch;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function drawNovelText(w, h) {
+  const full = currentLine(); if (!full) return;
+  const n = skipType ? full.length : Math.floor((performance.now() - pageStart) / CHAR_MS);
+  const shown = [...full].slice(0, n).join("");
+  const fs = Math.round(Math.min(w, h) * 0.055 * +$("textSize").value);
+  const margin = w * 0.08, lh = fs * 1.7;
+  ctx.save();
+  ctx.font = `500 ${fs}px "Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif`;
+  ctx.textBaseline = "top";
+  const lines = wrap(full, w - margin * 2);              // 全文で改行位置を決めて、文字送りで行がずれないようにする
+  const top = $("textPos").value === "top"
+    ? Math.max(margin, h * 0.06)                            // 上：パネルに隠れない
+    : h - margin * 0.6 - lh * Math.max(3, lines.length);    // 下
+  let left = shown.length;
+  ctx.fillStyle = "#fff";
+  for (let i = 0; i < lines.length && left > 0; i++) {
+    const part = [...lines[i]].slice(0, left).join(""); left -= [...lines[i]].length;
+    const y = top + i * lh;
+    // 影は2回重ねて濃く（ぼかし＋右下ずらし）
+    ctx.shadowColor = "rgba(0,0,0,.95)"; ctx.shadowBlur = fs * 0.35; ctx.shadowOffsetX = fs * 0.06; ctx.shadowOffsetY = fs * 0.06;
+    ctx.fillText(part, margin, y);
+    ctx.shadowBlur = fs * 0.12;
+    ctx.fillText(part, margin, y);
+  }
+  // 文字送り完了の印
+  if (lineDone() && Math.floor(performance.now() / 500) % 2) {
+    ctx.shadowBlur = fs * 0.2;
+    ctx.font = `${fs * 0.6}px serif`;
+    ctx.fillText("▼", w - margin, top + lh * lines.length - lh * 0.15);
+  }
+  ctx.restore();
+}
+
+function buildMask(conf, mw, mh) {
+  if (!smooth || smooth.length !== conf.length) smooth = new Float32Array(conf);
+  if (maskCanvas.width !== mw || maskCanvas.height !== mh) {
+    maskCanvas.width = mw; maskCanvas.height = mh; maskImg = mctx.createImageData(mw, mh);
+  }
+  const hex = $("color").value;
+  const R = parseInt(hex.slice(1,3),16), G = parseInt(hex.slice(3,5),16), B = parseInt(hex.slice(5,7),16);
+  // 透明モードは輪郭のはみ出し（人の縁が残る）を防ぐため、マスクを少し太らせる
+  const lo = 0.12, span = 0.25;
+  const d = maskImg.data;
+  for (let i = 0; i < conf.length; i++) {
+    const s = smooth[i] = Math.max(conf[i], smooth[i] * 0.5 + conf[i] * 0.5); // 新しく人が来た所は即座に塗り、離れた所はゆっくり消す
+    const e = Math.min(1, Math.max(0, (s - lo) / span));               // 輪郭をくっきり
+    const j = i * 4;
+    d[j] = R; d[j+1] = G; d[j+2] = B; d[j+3] = e * 255;
+  }
+  mctx.putImageData(maskImg, 0, 0);
+}
+
+function applyPreset(k) {
+  const p = PRESETS[k];
+  $("color").value = p.color; $("alpha").value = p.alpha; $("dim").value = p.dim;
+}
+
+$("mode").onchange = e => applyPreset(e.target.value);
+$("bgSave").onclick = savePlate;
+$("guideShot").onclick = savePlate;
+$("guideSkip").onclick = () => showGuide(false);
+$("stage").onclick = advance;
+document.addEventListener("keydown", e => { if ((e.key === " " || e.key === "Enter") && e.target.tagName !== "TEXTAREA") { e.preventDefault(); advance(); } });
+$("script").oninput = () => { page = 0; pageStart = performance.now(); skipType = false; };
+// スマホ（タッチ端末）は下にパネルが被るので文字は上、PCは下
+$("textPos").value = matchMedia("(pointer: coarse)").matches ? "top" : "bottom";
+$("toggleUi").onclick =() => $("ui").classList.toggle("hidden");
+$("bgClear").onclick = clearPlate;
+$("flip").onclick = async () => { clearPlate(); facing = facing === "user" ? "environment" : "user"; try { await startCamera(); showGuide(true); } catch (e) { msg("カメラ切替に失敗: " + e.message); } };
+$("shot").onclick = () => out.toBlob(b => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = `silhouette_${Date.now()}.png`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}, "image/png");
+
+$("startBtn").onclick = async () => {
+  $("startBtn").disabled = true;
+  try {
+    await Promise.all([initSegmenter(), startCamera()]);
+    await document.fonts.load('500 32px "Shippori Mincho"').catch(() => {});
+    $("start").style.display = "none"; $("ui").style.display = "flex"; $("toggleUi").style.display = "block";
+    pageStart = performance.now();
+    showGuide(true);
+    render();
+  } catch (e) {
+    $("startBtn").disabled = false;
+    msg("起動に失敗しました: " + e.message + "（HTTPS か localhost で開いてください）");
+  }
+};
+</script>
+</body>
+</html>
