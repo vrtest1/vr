@@ -1,0 +1,10 @@
+{
+  "name": "Nissan 4x4",
+  "credit": "\"Nissan 4x4\" by Gabee (https://sketchfab.com/3d-models/9d39d85373e14f54a02b95f0e2852546), CC BY 4.0",
+  "url": "models/nissan/web/nissan.glb",
+  "yaw": 0,
+  "length": 0,
+  "wheels": { "fl": "Wheel_FL", "fr": "Wheel_FR", "rl": "Wheel_RL", "rr": "Wheel_RR" },
+  "driverEye": [-0.36, 0.6, 0.15],
+  "hoodEye": [0, 0.55, -0.9]
+}

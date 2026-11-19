@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>オフロード・ドライブ</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../examples/shared/demo.css">
+<link rel="stylesheet" href="drive.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="bar"></div>
+<div id="loading">世界をつくっています…</div>
+
+<div id="meter" hidden>
+  <div id="speed">0</div><div id="unit">km/h</div>
+  <div id="rpm"><div id="rpmFill"></div></div>
+  <div id="gearRow"><span id="gear">1</span><span id="range">4H</span></div>
+</div>
+
+<div id="help" hidden>
+  <b>W / ↑</b> アクセル　<b>S / ↓</b> ブレーキ・バック　<b>A D / ← →</b> ハンドル<br>
+  <b>Space</b> サイドブレーキ　<b>L</b> 4H / 4L 切替　<b>C</b> 視点　<b>R</b> 起こす　<b>ドラッグ</b> 見回す<br>
+  <b>B</b> BGM　<b>N</b> 次の曲　<b>G</b> キャノンボール　<b>H</b> この説明を消す　<b>M</b> 音　PS4: R2 アクセル、L2 ブレーキ、左スティック ハンドル、× / ○ サイド、R1 視点、L1 4L、SHARE 起こす　Xbox: RT / LT、A / B サイド、RB 視点、LB 4L、ビュー 起こす
+</div>
+
+<div id="touch" hidden>
+  <div class="pad left"><button data-k="left">◀</button><button data-k="right">▶</button></div>
+  <div class="pad right"><button data-k="brake">ブレーキ</button><button data-k="gas">アクセル</button></div>
+</div>
+
+<div id="padToast" hidden></div>
+<div id="credit"></div>
+<div id="error"></div>
+<script>
+  window.addEventListener('error', function (e) {
+    var t = e.target;
+    if (!t || t === window || (t.tagName !== 'SCRIPT' && t.tagName !== 'LINK')) return;
+    var el = document.getElementById('error');
+    el.textContent = '読み込みに失敗しました: ' + (t.src || t.href) +
+      '\n\noffroad-drive フォルダの start.command から起動してください。';
+    el.style.display = 'grid';
+  }, true);
+</script>
+<script type="module" src="main.js"></script>
+</body>
+</html>

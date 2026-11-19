@@ -1,0 +1,6 @@
+Nissan 4x4
+  作者 / Author: Gabee
+  出典 / Source: https://sketchfab.com/3d-models/9d39d85373e14f54a02b95f0e2852546
+  ライセンス / License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+  変更 / Changes: FBX を glTF (web/nissan.glb) に変換、寸法を 4.95 m に、テクスチャを縮小、
+  ガラスの色と不透明度を 1 枚に合成、タイヤに名前を付けて回転の中心を移動 (convert.py)。
