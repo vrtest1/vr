@@ -61,7 +61,7 @@ export class Games {
     // The HUD sits under the bar (however many rows it wraps to) and, on a
     // narrow phone screen, under the meter too.
     const place = () => {
-      const narrow = innerWidth <= 700;
+      const narrow = innerWidth <= 700 || matchMedia('(pointer: coarse) and (orientation: portrait)').matches;
       const meter = document.getElementById('meter');
       const below = Math.max(o.bar.getBoundingClientRect().bottom, narrow && meter ? meter.getBoundingClientRect().bottom : 0);
       ui.hud.style.top = `${Math.round(below + 8)}px`;
