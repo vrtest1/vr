@@ -469,7 +469,7 @@ async function main() {
   buttons([['high', 'high'], ['medium', 'medium'], ['low', 'low']], w.quality, (q) => { w.setQuality(q); rainFx.setCount(RAIN_COUNT[q] ?? RAIN_COUNT.medium); });
   // Tonight's moon (random; a new moon is as dark as no moon at all). Click for another.
   const moonButton = document.createElement('button');
-  const updateMoonButton = () => { moonButton.textContent = `${moon.phase.icon} ${moon.phase.name}`; };
+  const updateMoonButton = () => { moonButton.textContent = `${moon.phase.icon} ${t(moon.phase.name, moon.phase.en)}`; };
   moonButton.title = t('月を変える', 'Another moon');
   moonButton.addEventListener('click', (e) => { e.stopPropagation(); moon.randomize(); updateMoonButton(); shareEnv(); });
   updateMoonButton();
@@ -1004,8 +1004,14 @@ async function main() {
   // is at the bottom. Measured, not fixed in the CSS: the meter moves with the
   // notch (safe area) and its height changes with the fonts.
   const landscapeTouch = matchMedia('(pointer: coarse) and (min-width: 701px)');
+  // Phone held upright: the meter goes just under the top bar, measured, since
+  // the bar's height changes with the notch and the fonts (iPhone).
+  const portraitTouch = matchMedia('(pointer: coarse) and (max-width: 700px)');
   const layoutCorner = () => {
-    const m = $('meter').getBoundingClientRect();
+    const meterEl = $('meter');
+    const b = bar.getBoundingClientRect();
+    meterEl.style.top = portraitTouch.matches && b.height ? `${Math.round(b.bottom + 14)}px` : '';
+    const m = meterEl.getBoundingClientRect();
     if (!m.height) return;
     const atTop = m.top < innerHeight / 2;
     const maps = [minimap.canvas, document.querySelector('.cb-map')].filter(Boolean);
@@ -1028,6 +1034,7 @@ async function main() {
     }
   };
   addEventListener('resize', layoutCorner);
+  new ResizeObserver(layoutCorner).observe(bar); // ☰ opened or closed
   setInterval(layoutCorner, 500); // also catches the radar changing place when a race starts or ends
   setTimeout(layoutCorner, 0);
 
