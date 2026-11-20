@@ -37,7 +37,7 @@
   #help { display: none; }
 }
 
-#credit { position: fixed; left: 50%; bottom: 2px; transform: translateX(-50%); font-size: 10.5px; color: rgba(255, 255, 255, .72);
+#credit { position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: 2px; font-size: 10.5px; color: rgba(255, 255, 255, .72);
   text-shadow: 0 1px 2px rgba(0, 0, 0, .6); z-index: 3; max-width: 90vw; text-align: center; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #help { bottom: 22px; }
 
@@ -155,7 +155,11 @@ html, body { touch-action: manipulation; }
   html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
   input { -webkit-user-select: text; user-select: text; }
   #help { display: none !important; }
-  #bar { top: calc(6px + env(safe-area-inset-top)); width: max-content; }
+  /* Centred with margin, not left: 50% + translate: before the translate the
+     bar sticks out past the right edge, and iOS Safari then zooms the whole
+     page out to fit it (the meter ended up under the open menu). */
+  html, body { overflow: hidden; }
+  #bar { top: calc(6px + env(safe-area-inset-top)); width: max-content; left: 0; right: 0; margin: 0 auto; transform: none; }
   #bar button { font-size: 15px; padding: 9px 13px; min-height: 42px; }
   #bar.collapsed > :not(.keep) { display: none; }
   #bar .menu { min-width: 46px; font-size: 18px; }
@@ -167,7 +171,7 @@ html, body { touch-action: manipulation; }
   #meter { right: calc(18px + env(safe-area-inset-right)); }
 }
 @media (pointer: coarse) and (max-width: 700px) {
-  #bar.collapsed { left: calc(10px + env(safe-area-inset-left)); transform: none; }
+  #bar.collapsed { left: calc(10px + env(safe-area-inset-left)); right: auto; margin: 0; transform: none; }
   #touch .pad { gap: 10px; }
   #touch .left { left: calc(12px + env(safe-area-inset-left)); }
   #touch .right { right: calc(12px + env(safe-area-inset-right)); }
