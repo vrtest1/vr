@@ -12,13 +12,14 @@
 // glow on the ground is a decal fitted to the terrain.
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { t } from './i18n.js';
 
 const KINDS = {
-  boost: { label: 'ブースト', icon: '⚡', color: new THREE.Color(1.0, 0.38, 0.62), time: 8 },
-  grip: { label: 'グリップ', icon: '🛞', color: new THREE.Color(0.3, 0.72, 1.0), time: 12 },
-  warp: { label: 'ワープ', icon: '✨', color: new THREE.Color(1.0, 0.82, 0.22), time: 0 },
+  boost: { label: t('ブースト', 'Boost'), icon: '⚡', color: new THREE.Color(1.0, 0.38, 0.62), time: 8 },
+  grip: { label: t('グリップ', 'Grip'), icon: '🛞', color: new THREE.Color(0.3, 0.72, 1.0), time: 12 },
+  warp: { label: t('ワープ', 'Warp'), icon: '✨', color: new THREE.Color(1.0, 0.82, 0.22), time: 0 },
   // The rare special one: rainbow, flashing, 30 s of super armour.
-  rainbow: { label: 'スーパー', icon: '🌈', color: new THREE.Color(1, 1, 1), time: 30 },
+  rainbow: { label: t('スーパー', 'Super'), icon: '🌈', color: new THREE.Color(1, 1, 1), time: 30 },
 };
 const RADIUS = 1.5;     // m: about a car's width across with the nubs
 const FALL = 3.2;       // s from the sky to the ground
@@ -213,6 +214,9 @@ export class StarDrops {
 
   // --- stars shared by a mini-game (net/games.js decides who gets them) -------
 
+  /** The minimap is on screen and shows the stars itself: no radar then (main.js sets it). */
+  minimapShown = false;
+
   /** No stars of our own while a game is on. */
   pauseLocal = false;
 
@@ -232,6 +236,9 @@ export class StarDrops {
 
   /** Remove all game stars. */
   clearShared() { for (const s of this.stars.filter((x) => x.shared !== null)) this.#remove(s); }
+
+  /** Remove every star, ours and the game's (a new world: they would hang over other ground). */
+  clear() { for (const s of [...this.stars]) this.#remove(s); this.#timer = 4 + Math.random() * 4; }
 
   /** Drop one now (tests, or a debug key). */
   spawnNow(kind = null) { this.#spawn(kind); }
@@ -360,7 +367,7 @@ export class StarDrops {
             const z = p.z + ((goal.z - p.z) / d) * jump + Math.cos(a) * r;
             if (ground.height(x, z) < ground.water(x, z) + 0.6 || ground.normal(x, z, n).y < 0.9) continue;
             place(x, z, heading);
-            toast(`${k.icon} ワープ！ ゴールまで ${Math.round(Math.hypot(goal.x - x, goal.z - z))} m`);
+            toast(t(`${k.icon} ワープ！ ゴールまで ${Math.round(Math.hypot(goal.x - x, goal.z - z))} m`, `${k.icon} Warp! ${Math.round(Math.hypot(goal.x - x, goal.z - z))} m to the goal`));
             return;
           }
         }
@@ -372,10 +379,10 @@ export class StarDrops {
     if (kind === 'rainbow') {
       sound.chime?.('rainbow');
       sound.rainbow?.(true);
-      toast('🌈 スーパーアーマー！ 木をすり抜け、ぶつかった車を弾き飛ばす（30秒）');
+      toast(t('🌈 スーパーアーマー！ 木をすり抜け、ぶつかった車を弾き飛ばす（30秒）', '🌈 Super armour! Through trees, and other trucks go flying (30 s)'));
       return;
     }
-    toast(`${fx.icon} ${fx.label}！（${fx.time}秒）`);
+    toast(t(`${fx.icon} ${fx.label}！（${fx.time}秒）`, `${fx.icon} ${fx.label}! (${fx.time} s)`));
   }
 
   // --- radar -------------------------------------------------------------------
@@ -384,7 +391,7 @@ export class StarDrops {
     // In a race the minimap is too large a scale for stars a stone's throw
     // away, so the radar sits above it.
     const racing = this.#o.cannonball.state === 'running' || this.#o.cannonball.state === 'countdown';
-    const show = this.stars.length > 0;
+    const show = this.stars.length > 0 && !this.minimapShown;
     this.#radar.hidden = !show;
     this.#radar.classList.toggle('above-map', racing);
     if (!show) return;

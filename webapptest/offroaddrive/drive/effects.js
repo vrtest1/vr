@@ -41,7 +41,7 @@ void main() {
 }`;
 
 export class Dust {
-  #n; #pos; #vel; #age; #life; #size; #color; #geo; #next = 0;
+  #n; #pos; #vel; #age; #life; #size; #color; #fall; #geo; #next = 0;
   points;
   material;
 
@@ -53,6 +53,7 @@ export class Dust {
     this.#life = new Float32Array(count).fill(1);
     this.#size = new Float32Array(count);
     this.#color = new Float32Array(count * 3);
+    this.#fall = new Float32Array(count);
     const g = (this.#geo = new THREE.BufferGeometry());
     g.setAttribute('position', new THREE.BufferAttribute(this.#pos, 3).setUsage(THREE.DynamicDrawUsage));
     g.setAttribute('aAge', new THREE.BufferAttribute(this.#age, 1).setUsage(THREE.DynamicDrawUsage));
@@ -70,8 +71,12 @@ export class Dust {
     this.points.renderOrder = 2;
   }
 
-  /** Emit one puff at `p` drifting with velocity `v`. */
-  emit(p, v, size, life, r, gc, b) {
+  /**
+   * Emit one puff at `p` drifting with velocity `v`. `fall` (m/s² down):
+   * by default light colours (water spray) fall and dark ones (dust) linger;
+   * mud clumps and big splashes pass their own.
+   */
+  emit(p, v, size, life, r, gc, b, fall = r > 0.8 ? 1.5 : -0.25) {
     const i = this.#next;
     this.#next = (i + 1) % this.#n;
     this.#pos.set([p.x, p.y, p.z], i * 3);
@@ -80,6 +85,7 @@ export class Dust {
     this.#life[i] = life;
     this.#size[i] = size;
     this.#color.set([r, gc, b], i * 3);
+    this.#fall[i] = fall;
   }
 
   update(dt, wind, camera, renderer) {
@@ -90,7 +96,7 @@ export class Dust {
       const k = Math.exp(-2.2 * dt);
       const j = i * 3;
       vel[j] = vel[j] * k + wind.x * (1 - k);
-      vel[j + 1] = vel[j + 1] * k + (this.#color[j] > 0.8 ? -1.5 : 0.25) * dt; // spray falls, dust lingers
+      vel[j + 1] = vel[j + 1] * k - this.#fall[i] * dt; // spray and mud fall, dust lingers
       vel[j + 2] = vel[j + 2] * k + wind.z * (1 - k);
       pos[j] += vel[j] * dt; pos[j + 1] += vel[j + 1] * dt; pos[j + 2] += vel[j + 2] * dt;
     }
@@ -227,6 +233,13 @@ export class TireTracks {
 
   /** Forget where each wheel was (after a reset), so no strip joins across the jump. */
   break() { this.#last = [null, null, null, null]; }
+
+  /** Wipe every mark (a new world: the old ruts would float over new ground). */
+  clear() {
+    this.break();
+    this.#alpha.fill(0);
+    this.#geo.getAttribute('aAlpha').needsUpdate = true;
+  }
 
   /**
    * @param {number} dt

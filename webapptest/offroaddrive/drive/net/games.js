@@ -13,6 +13,7 @@
 // Nothing here trusts a message beyond its shape.
 import * as THREE from 'three';
 import { haloTexture } from '../stars.js';
+import { t, placeName } from '../i18n.js';
 
 const TAG_TIME = 180;    // s
 const STAR_TIME = 120;   // s
@@ -43,7 +44,7 @@ export class Games {
     this.#o = o;
     const ui = this.#ui;
     ui.button = document.createElement('button');
-    ui.button.textContent = 'ミニゲーム';
+    ui.button.textContent = t('ミニゲーム', 'Mini-games');
     ui.button.addEventListener('click', (e) => { e.stopPropagation(); this.#togglePanel(); });
     o.bar.appendChild(ui.button);
     const el = (cls) => { const d = document.createElement('div'); d.className = cls; d.hidden = true; document.body.appendChild(d); return d; };
@@ -80,7 +81,7 @@ export class Games {
   get #isHost() { return !this.#o.net.active || this.#o.net.isHost; }
   #players() {
     const { net } = this.#o;
-    if (!net.active) return [{ id: 'me', name: net.me.name || 'あなた', color: net.me.color, self: true }];
+    if (!net.active) return [{ id: 'me', name: net.me.name || t('あなた', 'You'), color: net.me.color, self: true }];
     return net.players;
   }
   #name(id) { return this.#players().find((p) => p.id === id)?.name ?? '?'; }
@@ -99,19 +100,19 @@ export class Games {
     const players = this.#players().length;
     const racing = ['countdown', 'running'].includes(this.#o.cannonball.state);
     ui.panel.innerHTML = `
-      <h2>ミニゲーム</h2>
-      <h3>👹 鬼ごっこ（3分）</h3>
-      <p>鬼が車にぶつけると鬼が交代（交代して3秒はタッチ無効）。鬼だった時間がいちばん短い人の勝ち。2人以上で。</p>
-      <h3>⭐ 星集め（2分）</h3>
-      <p>みんなの近くに降ってくる星を早い者勝ちで取る。普通の星1点、虹の星3点。星の効果も付きます。1人でも練習できます。</p>
-      ${!host ? '<p><b>ゲームを始めるのはホストです。</b></p>'
-        : racing ? '<p><b>キャノンボールの最中は始められません。</b></p>'
-        : this.mode ? '<div class="cb-row"><button data-go="stop">今のゲームをやめる</button></div>'
+      <h2>${t('ミニゲーム', 'Mini-games')}</h2>
+      <h3>👹 ${t('鬼ごっこ（3分）', 'Tag (3 min)')}</h3>
+      <p>${t('鬼が車にぶつけると鬼が交代（交代して3秒はタッチ無効）。鬼だった時間がいちばん短い人の勝ち。2人以上で。', 'Whoever is “it” passes it on by bumping another truck (no tag-backs for 3 s). Least time as “it” wins. Two or more players.')}</p>
+      <h3>⭐ ${t('星集め（2分）', 'Star hunt (2 min)')}</h3>
+      <p>${t('みんなの近くに降ってくる星を早い者勝ちで取る。普通の星1点、虹の星3点。星の効果も付きます。1人でも練習できます。', 'Stars fall near everyone: first come, first served. A star is 1 point, a rainbow star 3, and they work as power-ups too. You can practise alone.')}</p>
+      ${!host ? t('<p><b>ゲームを始めるのはホストです。</b></p>', '<p><b>The host starts the games.</b></p>')
+        : racing ? t('<p><b>キャノンボールの最中は始められません。</b></p>', '<p><b>Not during a Cannonball race.</b></p>')
+        : this.mode ? `<div class="cb-row"><button data-go="stop">${t('今のゲームをやめる', 'Stop this game')}</button></div>`
         : `<div class="cb-row">
-            <button data-go="tag" ${players < 2 ? 'disabled' : ''}>鬼ごっこ<small>${players < 2 ? 'マルチで2人以上' : `${players}人`}</small></button>
-            <button data-go="stars">星集め<small>${players}人</small></button>
+            <button data-go="tag" ${players < 2 ? 'disabled' : ''}>${t('鬼ごっこ', 'Tag')}<small>${players < 2 ? t('マルチで2人以上', 'Two or more online') : t(`${players}人`, `${players} players`)}</small></button>
+            <button data-go="stars">${t('星集め', 'Star hunt')}<small>${t(`${players}人`, `${players} player${players > 1 ? 's' : ''}`)}</small></button>
           </div>`}
-      <div class="cb-row"><button data-go="close" data-act="close">閉じる</button></div>`;
+      <div class="cb-row"><button data-go="close" data-act="close">${t('閉じる', 'Close')}</button></div>`;
     ui.panel.hidden = false;
   }
 
@@ -281,7 +282,7 @@ export class Games {
       this.#ui.result.hidden = true;
       stars.pauseLocal = true;
       sound.chime?.('go');
-      const text = d.mode === 'tag' ? '👹 鬼ごっこスタート！' : '⭐ 星集めスタート！';
+      const text = d.mode === 'tag' ? t('👹 鬼ごっこスタート！', '👹 Tag: go!') : t('⭐ 星集めスタート！', '⭐ Star hunt: go!');
       toast(text);
       chat?.add(null, text);
     } else if (d.t === 'state' && (d.mode === 'tag' || d.mode === 'stars')) {
@@ -304,7 +305,7 @@ export class Games {
       this.#oni = d.to;
       this.#graceUntil = now + TAG_GRACE;
       sound.chime?.('other-goal');
-      const text = d.to === self ? '👹 あなたが鬼！ だれかにぶつけろ！' : `👹 ${this.#name(d.to)} が鬼になった！`;
+      const text = d.to === self ? t('👹 あなたが鬼！ だれかにぶつけろ！', '👹 You’re it! Bump someone!') : t(`👹 ${this.#name(d.to)} が鬼になった！`, `👹 ${this.#name(d.to)} is it!`);
       toast(text);
       chat?.add(null, text);
     } else if (d.t === 'took' && Number.isInteger(d.id)) {
@@ -312,6 +313,12 @@ export class Games {
     } else if (d.t === 'end') {
       this.#end(d);
     }
+  }
+
+  /** The host left: whoever judged the game is gone, so it is over (for everyone, each on their own). */
+  hostLost() {
+    this.#h = null;
+    if (this.mode) this.#end({ stopped: true });
   }
 
   #end(d) {
@@ -325,18 +332,19 @@ export class Games {
     this.#ui.board.hidden = true;
     for (const a of this.#auras.values()) a.visible = false;
     for (const r of this.#o.remotes.list.values()) delete r.tag.dataset.oni;
-    if (d.stopped || !Array.isArray(d.rank) || !mode) { chat?.add(null, 'ミニゲームを終了しました'); return; }
+    if (d.stopped || !Array.isArray(d.rank) || !mode) { chat?.add(null, t('ミニゲームを終了しました', 'Mini-game over')); return; }
     const rank = d.rank.filter((r) => r && isId(r.id) && Number.isFinite(r.v));
-    const fmt = (v) => (mode === 'tag' ? `鬼 ${clock(v)}` : `${v} 点`);
+    const fmt = (v) => (mode === 'tag' ? t(`鬼 ${clock(v)}`, `it for ${clock(v)}`) : t(`${v} 点`, `${v} pt`));
     const medal = (i) => ['🥇', '🥈', '🥉'][i] ?? `${i + 1}.`;
-    const lines = rank.map((r, i) => `${medal(i)} ${esc(this.#name(r.id))}${r.id === this.#self ? '（自分）' : ''}　${fmt(r.v)}`);
+    const lines = rank.map((r, i) => `${medal(i)} ${esc(this.#name(r.id))}${r.id === this.#self ? t('（自分）', ' (you)') : ''}　${fmt(r.v)}`);
     const first = rank[0]?.id === this.#self;
-    this.#ui.result.innerHTML = `<div class="cb-title">${mode === 'tag' ? '👹 鬼ごっこ' : '⭐ 星集め'} 終了！</div>
+    this.#ui.result.innerHTML = `<div class="cb-title">${mode === 'tag' ? t('👹 鬼ごっこ', '👹 Tag') : t('⭐ 星集め', '⭐ Star hunt')} ${t('終了！', 'over!')}</div>
       <div class="cb-sub game-rank">${lines.join('<br>')}</div>`;
     this.#ui.result.hidden = false;
     setTimeout(() => { this.#ui.result.hidden = true; }, 7000);
     sound.chime?.(first ? 'goal-first' : 'goal');
-    chat?.add(null, `${mode === 'tag' ? '👹 鬼ごっこ' : '⭐ 星集め'}の結果: ${rank.map((r, i) => `${i + 1}位 ${this.#name(r.id)}（${fmt(r.v)}）`).join('、')}`);
+    chat?.add(null, t(`${mode === 'tag' ? '👹 鬼ごっこ' : '⭐ 星集め'}の結果: ${rank.map((r, i) => `${i + 1}位 ${this.#name(r.id)}（${fmt(r.v)}）`).join('、')}`,
+      `${mode === 'tag' ? '👹 Tag' : '⭐ Star hunt'} results: ${rank.map((r, i) => `${placeName(i + 1).replace(/着$/, '')} ${this.#name(r.id)} (${fmt(r.v)})`).join(', ')}`));
   }
 
   // --- every frame ------------------------------------------------------------------
@@ -373,7 +381,7 @@ export class Games {
           const d = q ? q.distanceTo(vehicle.position) : Infinity;
           if (d < best) { best = d; target = q; label = p.name; }
         }
-      } else { target = this.#pos(this.#oni); label = `鬼 ${this.#name(this.#oni)}`; }
+      } else { target = this.#pos(this.#oni); label = t(`鬼 ${this.#name(this.#oni)}`, `it: ${this.#name(this.#oni)}`); }
     }
     let arrow = '';
     if (target) {
@@ -383,10 +391,10 @@ export class Games {
       const d = Math.hypot(target.x - vehicle.position.x, target.z - vehicle.position.z);
       arrow = `<span class="game-arrow" style="transform:rotate(${yaw - camYaw}rad)">▲</span><span>${esc(label)} ${Math.round(d)} m</span>`;
     }
-    const grace = this.mode === 'tag' && now < this.#graceUntil ? ' <small>（タッチ無効 ' + Math.ceil(this.#graceUntil - now) + '）</small>' : '';
+    const grace = this.mode === 'tag' && now < this.#graceUntil ? ` <small>${t('（タッチ無効 ', '(no tag-backs ')}${Math.ceil(this.#graceUntil - now)}${t('）', ')')}</small>` : '';
     const head = this.mode === 'tag'
-      ? (this.#oni === self ? '<b class="oni">👹 あなたが鬼！</b>' : `👹 鬼: ${esc(this.#name(this.#oni))}`) + grace
-      : `⭐ 星集め　${this.#scores[self] ?? 0} 点`;
+      ? (this.#oni === self ? t('<b class="oni">👹 あなたが鬼！</b>', '<b class="oni">👹 You’re it!</b>') : `👹 ${t('鬼', 'it')}: ${esc(this.#name(this.#oni))}`) + grace
+      : t(`⭐ 星集め　${this.#scores[self] ?? 0} 点`, `⭐ Star hunt　${this.#scores[self] ?? 0} pt`);
     ui.hud.innerHTML = `<span>${head}</span>${arrow}<span class="cb-clock">${clock(left)}</span>`;
     if (ui.hud.hidden) { ui.hud.hidden = false; this.#place(); }
 
@@ -394,7 +402,7 @@ export class Games {
     const rows = this.#players().map((p) => ({
       p, v: this.mode === 'tag' ? (this.#times[p.id] ?? 0) : (this.#scores[p.id] ?? 0),
     })).sort((a, b) => (this.mode === 'tag' ? a.v - b.v : b.v - a.v));
-    ui.board.innerHTML = rows.map((r, i) => `<div class="${r.p.id === self ? 'me' : ''}"><span>${i + 1}</span><i style="background:${esc(r.p.color)}"></i><em>${esc(r.p.name)}${this.mode === 'tag' && r.p.id === this.#oni ? ' 👹' : ''}</em>${this.mode === 'tag' ? clock(r.v) : r.v + ' 点'}</div>`).join('');
+    ui.board.innerHTML = rows.map((r, i) => `<div class="${r.p.id === self ? 'me' : ''}"><span>${i + 1}</span><i style="background:${esc(r.p.color)}"></i><em>${esc(r.p.name)}${this.mode === 'tag' && r.p.id === this.#oni ? ' 👹' : ''}</em>${this.mode === 'tag' ? clock(r.v) : r.v + t(' 点', ' pt')}</div>`).join('');
     ui.board.hidden = false;
   }
 

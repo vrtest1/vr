@@ -4,9 +4,12 @@
 //
 // One player hosts (creates the room). The host owns the shared world (time,
 // weather, moon) and the キャノンボール course; everyone drives their own truck
-// and sends its state ~15 times a second.
+// and sends its state ~15 times a second. When the host leaves, the player with
+// the smallest id takes over: every machine works that out by itself (same
+// list, same rule), and the new host says so with a hello.
 
 import { cleanText } from './chat.js';
+import { t } from '../i18n.js';
 
 const TRYSTERO = 'https://cdn.jsdelivr.net/npm/trystero@0.26.0/+esm';
 const APP_ID = 'offroad-drive.procedural-world.v1';
@@ -38,10 +41,12 @@ export class Multiplayer {
   onChat = () => {};      // (peerId, text) a chat message (already cleaned)
   onEmote = () => {};     // (peerId, index) a stamp
   onGame = () => {};      // (peerId, data) mini-game messages (net/games.js checks them)
-  onHostLeft = () => {};
+  onHostLeft = () => {};  // (oldHost, newHostId) the host left; newHostId took over
+  onBecameHost = () => {}; // we are the new host (send the world to everyone)
   onStatus = () => {};    // (text)
   hostEnv = () => null;   // host: current env to send to a newcomer
   hostSpot = () => null;  // host: where newcomers should appear {x, z, heading}
+  hostRace = () => null;  // host: (peerId) a race in progress for a newcomer to join, or null
   onSpot = () => {};      // guest: (spot) from the host on joining
 
   #a = {};
@@ -57,15 +62,15 @@ export class Multiplayer {
 
   async join(code, { host = false, name, color } = {}) {
     if (this.room) this.leave();
-    this.onStatus('接続の準備中…');
+    this.onStatus(t('接続の準備中…', 'Getting ready to connect…'));
     const { joinRoom, selfId } = await import(TRYSTERO);
     this.selfId = selfId;
     this.code = code.toUpperCase();
     this.isHost = host;
     this.hostId = host ? selfId : null;
-    this.me = { name: name || 'プレイヤー', color: color || COLORS[0] };
+    this.me = { name: name || t('プレイヤー', 'Player'), color: color || COLORS[0] };
     const room = (this.room = joinRoom({ appId: APP_ID, password: this.code }, `room-${this.code}`, {
-      onJoinError: (d) => this.onStatus(`接続できない相手がいます（${d?.error ?? 'error'}）`),
+      onJoinError: (d) => this.onStatus(t(`接続できない相手がいます（${d?.error ?? 'error'}）`, `Could not reach someone (${d?.error ?? 'error'})`)),
     }));
     const act = (name) => (this.#a[name] = room.makeAction(name));
     const hello = act('hello'), state = act('st'), env = act('env'), race = act('race'), fin = act('fin'), spot = act('spot'), hit = act('hit'), chat = act('chat'), emote = act('emote'), game = act('game');
@@ -77,17 +82,43 @@ export class Multiplayer {
         if (e) env.send(e, { target: peerId });
         const s = this.hostSpot();
         if (s) spot.send(s, { target: peerId });
+        const r = this.hostRace(peerId);
+        if (r) race.send(r, { target: peerId });
       }
     };
     room.onPeerLeave = (peerId) => {
       const p = this.peers.get(peerId);
       this.peers.delete(peerId);
-      if (p?.host) { this.hostId = null; this.onHostLeft(p); }
+      if (p?.host || peerId === this.hostId) {
+        // Hand over: the smallest id among those left (us included) hosts now.
+        const next = [this.selfId, ...this.peers.keys()].sort()[0];
+        this.hostId = next;
+        if (next === this.selfId) {
+          this.isHost = true;
+          hello.send({ ...this.me, host: true });
+        } else {
+          const q = this.peers.get(next);
+          if (q) q.host = true;
+        }
+        if (p) this.onHostLeft(p, next);
+        if (this.isHost) this.onBecameHost();
+      }
       this.onPeersChanged();
     };
     hello.onMessage = (data, { peerId }) => {
-      this.peers.set(peerId, { name: String(data?.name ?? '?').slice(0, 16), color: String(data?.color ?? '#fff').slice(0, 9), host: !!data?.host });
-      if (data?.host) this.hostId = peerId;
+      const host = !!data?.host;
+      this.peers.set(peerId, { name: String(data?.name ?? '?').slice(0, 16), color: String(data?.color ?? '#fff').slice(0, 9), host });
+      if (host) {
+        // Two hosts (both took over at once with different lists): the smaller id keeps it.
+        if (this.isHost && this.selfId < peerId) {
+          hello.send({ ...this.me, host: true }, { target: peerId });
+          this.peers.get(peerId).host = false;
+        } else {
+          if (this.isHost) this.isHost = false;
+          for (const [id, q] of this.peers) if (id !== peerId) q.host = false;
+          this.hostId = peerId;
+        }
+      }
       this.onPeersChanged();
     };
     state.onMessage = (data, { peerId }) => { if (Array.isArray(data)) this.onState(peerId, data); };
@@ -108,7 +139,7 @@ export class Multiplayer {
       const text = cleanText(data?.text);
       if (text) this.onChat(peerId, text);
     };
-    this.onStatus(host ? '部屋を作りました。参加者を待っています' : 'ホストを探しています…');
+    this.onStatus(host ? t('部屋を作りました。参加者を待っています', 'Room made. Waiting for players') : t('ホストを探しています…', 'Looking for the host…'));
     this.onPeersChanged();
   }
 
@@ -124,7 +155,7 @@ export class Multiplayer {
 
   sendState(arr) { this.#a.st?.send(arr); }
   sendEnv(env) { if (this.isHost) this.#a.env?.send(env); }
-  sendRace(r) { if (this.isHost) this.#a.race?.send(r); }
+  sendRace(r, peerId = null) { if (this.isHost) this.#a.race?.send(r, peerId ? { target: peerId } : undefined); }
   sendFinish(f) { this.#a.fin?.send(f); }
   sendHit(peerId, h) { this.#a.hit?.send(h, { target: peerId }); }
   sendChat(text) { this.#a.chat?.send({ text: cleanText(text) }); }

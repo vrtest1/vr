@@ -63,11 +63,17 @@ export const TREE_VERT_PARS = /* glsl */ `
 in vec4 aVA;
 in vec4 aVB;
 in vec3 aVTree;
+in float aVBush;            // 1 on bushes: they give way under a vehicle (trees do not)
 uniform vec3 uVCam;
 uniform float uVTime;
 uniform float uVNow;
 uniform vec2 uVWind;
 uniform vec4 uVLod;
+uniform vec4 uVCut[8];      // vehicles in the vegetation (VegetationEngine.setGrassCutouts)
+uniform vec4 uVCutSize[8];  // half width, half length, clearance, roof height above the ground
+uniform int uVCutCount;
+uniform vec4 uVShake[16];   // bushes swaying: where they stand (xz), how hard, which way (angle)
+uniform int uVShakeCount;
 out vec4 vVFade;   // dither window (from, to), fade-in after birth, distance
 out vec3 vVObj;
 out vec3 vVTree;
@@ -110,6 +116,43 @@ export const TREE_VERT = /* glsl */ `
     sin(uVTime * 4.1 + pwvP.z * 2.7 + pwvPhase) * 0.6,
     sin(uVTime * 4.7 + pwvP.x * 3.3 + pwvPhase));
   transformed = pwvP + aVA.xyz;
+
+  // A bush something just went through sways back and forth, dying away (the
+  // strength comes from the app, VegetationEngine.setBushShake): the top
+  // more than the bottom, and the leaves shiver.
+  for (int i = 0; i < 16; i++) {
+    if (i >= uVShakeCount || aVBush < 0.5) break;
+    vec4 k = uVShake[i];
+    if (distance(aVA.xz, k.xy) > 0.3) continue;
+    float h = max(transformed.y - aVA.y, 0.0);
+    float lift = h / (h + 0.8);
+    float ph = aVA.x * 1.3 + aVA.z * 0.7;
+    float swing = sin(uVTime * 13.0 + ph) * 0.7 + sin(uVTime * 21.0 + ph * 1.7 + h * 2.0) * 0.3;
+    vec2 dir = vec2(cos(k.w), sin(k.w));
+    transformed.xz += (dir * swing + vec2(-dir.y, dir.x) * swing * 0.35) * (0.3 * k.z * lift);
+    transformed += aVTree.x * k.z * 0.06 * vec3(
+      sin(uVTime * 31.0 + transformed.y * 7.0 + ph),
+      sin(uVTime * 27.0 + transformed.x * 6.0) * 0.5,
+      sin(uVTime * 29.0 + transformed.z * 7.0));
+  }
+
+  // A vehicle pushing through: what is under it (and a little round it) is
+  // pressed down to the gap under its body, the way it rolls a bush over.
+  // Only up and down: moving leaves sideways would tear the leaf cards apart
+  // where their corners go different ways.
+  for (int i = 0; i < 8; i++) {
+    if (i >= uVCutCount || aVBush < 0.5) break;
+    vec4 c = uVCut[i];
+    vec4 s = uVCutSize[i];
+    vec2 d = transformed.xz - c.xy;
+    vec2 q = abs(vec2(dot(d, c.zw), dot(d, vec2(c.w, -c.z)))) - s.xy;
+    float outside = length(max(q, 0.0));
+    float w = 1.0 - smoothstep(0.0, 0.6, outside);
+    if (w <= 0.0) continue;
+    float h = transformed.y - aVA.y;
+    float low = min(h, s.z * 0.8 + 0.05 * h);
+    transformed.y = aVA.y + mix(h, low, w);
+  }
 
   float pwvD = distance(aVA.xyz, uVCam);
   float pwvS0 = smoothstep(uVLod.x, uVLod.y, pwvD);

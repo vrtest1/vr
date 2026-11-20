@@ -6,6 +6,7 @@
 //   E2s     single note                               -    hold the previous note
 //   .       silence
 //   A4/B4   (lead) start on A4 and bend up to B4
+//   E6~E4   (lead) whammy dive: slide from E6 down to E4 over the whole note
 // Drum patterns are named in DRUMS; each line is one character per step:
 //   k kick, s snare, h closed hat, o open hat, r ride, c crash,
 //   t toms ('1' high, '2' mid, '3' floor); 'x' hit, 'X' accent.
@@ -36,7 +37,23 @@ export const DRUMS = {
   half12: { k: 'x.....x.....', s: '......X.....', h: 'x..x..x..x..', c: 'x...........' },
   fill12: { k: 'x...........', s: '...X..xx....', t: '........1233' },
   end12: { k: 'X...........', c: 'X...........' },
+  // --- 16 steps, thrash (songs 4-6: fast tempos, the kick is short and tight there)
+  skank: { k: 'x...x...x...x...', s: '..x...x...x...x.', h: 'x.x.x.x.x.x.x.x.' },
+  skankCrash: { k: 'x...x...x...x...', s: '..x...x...x...x.', h: '..x.x.x.x.x.x.x.', c: 'x...............' },
+  skankRide: { k: 'x...x...x...x...', s: '..x...x...x...x.', r: 'x.x.x.x.x.x.x.x.' },
+  dbl: { k: 'xxxxxxxxxxxxxxxx', s: '....X.......X...', r: 'x...x...x...x...' },
+  dblCrash: { k: 'xxxxxxxxxxxxxxxx', s: '....X.......X...', c: 'x.......x.......' },
+  gallopK: { k: 'x.xxx.xxx.xxx.xx', s: '....X.......X...', h: 'x...x...x...x...' },
+  gallopCrash: { k: 'x.xxx.xxx.xxx.xx', s: '....X.......X...', h: '....x...x...x...', c: 'x...............' },
+  thHalf: { k: 'x..x..x...x.....', s: '........X.......', h: '....x...x...x...', c: 'x...............' },
+  thHalf2: { k: 'x..x..x...x..x..', s: '........X.......', h: 'x...x...x...x...' },
+  stabs: { k: 'x...x...x...x...', s: '............X...', c: 'x.......x.......' },
+  roll: { k: 'x.......x.......', s: 'x.x.x.x.xxxxXXXX' },
+  tomRun: { k: 'x...............', s: '....X...........', t: '........11223333' },
+  tomBuild: { k: 'x.......x.......', t: '1...1...2...2.33' },
 };
+
+const r = (tok, n) => Array(n).fill(tok).join(' '); // the same token n times (tremolo picking)
 
 // ---------------------------------------------------------------------------
 // 1. 鉄の地平 — Iron Horizon. E minor, mid-tempo, a heavy swaggering groove.
@@ -135,4 +152,136 @@ const longWayDown = (() => {
   };
 })();
 
-export const SONGS = [ironHorizon, dustDevil, longWayDown];
+// ---------------------------------------------------------------------------
+// 4. 地獄の轍 — Hellbound Ruts. E, 224 BPM thrash: tremolo-picked riffs that
+// creep up by semitones, the skank beat, a screaming chorus, a chaotic solo.
+const hellboundRuts = (() => {
+  const intro = r('E2m', 16), intro2 = `${r('E2m', 12)} F2 - E2 -`;
+  const riffA = [`${r('E2m', 4)} F2s F2s ${r('E2m', 4)} G2s G2s F#2s F#2s F2s F2s`,
+    `${r('E2m', 4)} F2s F2s ${r('E2m', 4)} Bb2s Bb2s A2s A2s G2s F2s`];
+  const stabs = 'E2 - . E2m E2m . Bb2 - . A2 - . G2 - F2 -';
+  const verse = ['E2m . E2m . E2m . F2 - E2m . E2m . Bb2 - A2 -', 'E2m . E2m . E2m . G2 - E2m . E2m . F#2 - F2 -'];
+  const pre = ['Bb2 - - - - - - - A2 - - - - - - -', 'Bb2 - - - - - - - C3 - - - B2 - Bb2 -'];
+  const chorus = ['E2 - - - - - - - G2 - - - F#2 - - -', 'F2 - - - - - - - E2 - - - E2m E2m E2m E2m',
+    'E2 - - - - - - - C3 - - - B2 - - -', 'Bb2 - - - A2 - - - G2 - - - F2 - - -'];
+  const hook = ['B4 - - - - - - - D5 - - - C5 - - -', 'C5 - - - - - - - B4 - - - - - - -',
+    'G5 - - - - - - - E5 - - - F5 - - -', 'F5/G5 - - - E5 - - - D5 - - - E5~E4 - - -'];
+  const breakdown = ['E2m . . E2m . . E2m . F2 - - - E2m . . .', 'E2m . . E2m . . E2m . Bb2 - - - A2 - G2 -'];
+  const solo = ['E5 F5 G5 F5 E5 F5 G5 Bb5 A5 G5 F5 E5 F5 E5 D5 E5', 'Bb5/C6 - - - - - - - E6~E4 - - - - - - -',
+    'B4 C5 D5 E5 F5 G5 A5 Bb5 B5 - A5 - G5 - F5 -', 'E5 - F5 - E5 - D5 - C5 - D5 - Bb4/C5 - - -',
+    'E6 D6 B5 Bb5 A5 G5 F5 E5 F5 E5 D5 C5 B4 C5 D5 E5', 'F5/G5 - - - - - - - F5/G5 - - - E5 - - -',
+    'E5 E6 E5 E6 F5 F6 F5 F6 G5 G6 G5 G6 Bb5 Bb6 A5 A6', 'E6~E3 - - - - - - - - - - - . . . .'];
+  const A4 = [...riffA, ...riffA];
+  const V8 = [...verse, ...verse, ...verse, ...verse];
+  const chorusDrums = ['dblCrash', 'dbl', 'dbl', 'dbl', 'dblCrash', 'dbl', 'dbl', 'tomRun'];
+  return {
+    title: '地獄の轍', en: 'Hellbound Ruts', bpm: 224, steps: 16, swing: 0, style: 'thrash',
+    parts: [
+      { gtr: [intro, intro], drums: ['none', 'none'] },
+      { gtr: [intro, intro2], drums: ['tomBuild', 'roll'] },
+      { gtr: [...A4, ...A4], drums: ['dblCrash', 'dbl', 'dbl', 'dbl', 'skankCrash', 'skank', 'skank', 'roll'] },
+      { gtr: [stabs, stabs], drums: ['stabs', 'stabs'] },
+      { gtr: V8, drums: ['skankCrash', 'skank', 'skank', 'skank', 'skank', 'skank', 'skank', 'roll'] },
+      { gtr: [...pre, ...pre], drums: ['thHalf', 'thHalf2', 'thHalf', 'roll'] },
+      { gtr: [...chorus, ...chorus], drums: chorusDrums, lead: [...hook, ...hook] },
+      { gtr: A4, drums: ['skankCrash', 'skank', 'skank', 'roll'] },
+      { gtr: V8, drums: ['skankCrash', 'skank', 'skank', 'skank', 'skank', 'skank', 'skank', 'roll'] },
+      { gtr: [...pre, ...pre], drums: ['thHalf', 'thHalf2', 'thHalf', 'roll'] },
+      { gtr: [...chorus, ...chorus], drums: chorusDrums, lead: [...hook, ...hook] },
+      { gtr: [...breakdown, ...breakdown, ...breakdown, ...breakdown], drums: ['thHalf', 'thHalf2', 'thHalf2', 'thHalf2', 'thHalf', 'thHalf2', 'thHalf2', 'roll'] },
+      { gtr: [...A4, ...A4], drums: ['dblCrash', 'dbl', 'skank', 'skank', 'dblCrash', 'dbl', 'skank', 'roll'], lead: solo },
+      { gtr: [...A4, ...A4], drums: ['skankCrash', 'skank', 'skank', 'skank', 'dblCrash', 'dbl', 'dbl', 'roll'], lead: [...solo.slice(4), ...solo.slice(0, 4)] },
+      { gtr: [...chorus, ...chorus], drums: chorusDrums, lead: [...hook, ...hook] },
+      { gtr: [stabs, stabs, stabs, 'E2 - . E2m E2m . Bb2 - - - - - - - - -'], drums: ['stabs', 'stabs', 'stabs', 'roll'] },
+      { gtr: ['E2 - - - - - - - - - - - - - - -'], drums: ['end'] },
+    ],
+  };
+})();
+
+// ---------------------------------------------------------------------------
+// 5. 黒い嵐 — Black Tempest. E, 200 BPM: galloping riffs, tritone hits,
+// tremolo-picked single-note lines low on the neck, a heavy half-time middle.
+const blackTempest = (() => {
+  const gallop = ['E2m - E2m E2m E2m - E2m E2m G2 - E2m E2m Bb2 - A2 -', 'E2m - E2m E2m E2m - E2m E2m C3 - B2 - Bb2 - F2 -'];
+  const tritone = ['E2 - - . E2 - - . Bb2 - - . Bb2 - A2 -', 'E2 - - . E2 - - . C3 - B2 - Bb2 - F2 -'];
+  const verse = [`${r('E2s', 4)} ${r('F2s', 4)} ${r('G2s', 4)} ${r('F2s', 4)}`, `${r('E2s', 4)} ${r('F2s', 4)} ${r('Bb2s', 4)} ${r('A2s', 4)}`];
+  const pre = ['C3 - - - - - - - Bb2 - - - - - - -', 'C3 - - - - - - - D3 - - - D3m D3m D3m D3m'];
+  const chorus = ['E2 - - - - - - - D3 - - - - - - -', 'C3 - - - - - - - B2 - - - Bb2 - - -',
+    'E2 - - - - - - - G2 - - - A2 - - -', 'Bb2 - - - - - - - B2 - - - B2m B2m B2m B2m'];
+  const hook = ['E5 - - - D5 - - - E5 - - - G5 - - -', 'F5 - - - - - - - E5 - - - D5 - - -',
+    'E5 - - - D5 - - - E5 - - - B5 - - -', 'Bb5/B5 - - - - - - - - - - - A5 - G5 -'];
+  const middle = ['E2 - - - - - E2m E2m F2 - - - - - E2m E2m', 'E2 - - - - - E2m E2m Bb2 - - - A2 - - -'];
+  const solo = ['B4 - E5 - B4 - F5 - B4 - G5 - B4 - Bb5 -', 'A5 - G5 - F5 - E5 - F5/G5 - - - - - - -',
+    'E6 C6 A5 E5 F6 C6 A5 F5 E6 C6 A5 E5 F6 D6 B5 F5', 'E6/F6 - - - - - - - E6~B4 - - - - - - -',
+    'E5 F5 E5 F5 E5 F5 E5 F5 G5 A5 G5 A5 Bb5 B5 Bb5 B5', 'C6 - B5 - Bb5 - A5 - G5 - F5 - E5 - F5 -',
+    'G5 F5 E5 F5 G5 A5 Bb5 A5 G5 F5 E5 D5 E5 F5 G5 A5', 'B5/C6 - - - - - - - - - - - E6~E4 - - -'];
+  const G4 = [...gallop, ...gallop];
+  const V8 = [...verse, ...verse, ...verse, ...verse];
+  const chorusDrums = ['skankCrash', 'skankRide', 'skankRide', 'skankRide', 'dblCrash', 'dbl', 'dbl', 'roll'];
+  return {
+    title: '黒い嵐', en: 'Black Tempest', bpm: 200, steps: 16, swing: 0, style: 'thrash',
+    parts: [
+      { gtr: tritone, drums: ['stabs', 'stabs'] },
+      { gtr: tritone, drums: ['stabs', 'roll'] },
+      { gtr: [...G4, ...G4], drums: ['gallopCrash', 'gallopK', 'gallopK', 'gallopK', 'gallopCrash', 'gallopK', 'gallopK', 'roll'] },
+      { gtr: V8, drums: ['dblCrash', 'dbl', 'dbl', 'dbl', 'skankCrash', 'skank', 'skank', 'roll'] },
+      { gtr: [...pre, ...pre], drums: ['thHalf', 'thHalf2', 'thHalf', 'roll'] },
+      { gtr: [...chorus, ...chorus], drums: chorusDrums, lead: [...hook, ...hook] },
+      { gtr: G4, drums: ['gallopCrash', 'gallopK', 'gallopK', 'roll'] },
+      { gtr: V8, drums: ['dblCrash', 'dbl', 'dbl', 'dbl', 'skankCrash', 'skank', 'skank', 'roll'] },
+      { gtr: [...pre, ...pre], drums: ['thHalf', 'thHalf2', 'thHalf', 'roll'] },
+      { gtr: [...chorus, ...chorus], drums: chorusDrums, lead: [...hook, ...hook] },
+      { gtr: [...middle, ...middle, ...middle, ...middle], drums: ['thHalf', 'thHalf2', 'thHalf2', 'thHalf2', 'thHalf', 'thHalf2', 'thHalf2', 'tomRun'] },
+      { gtr: [...G4, ...G4], drums: ['gallopCrash', 'gallopK', 'gallopK', 'gallopK', 'dblCrash', 'dbl', 'dbl', 'roll'], lead: solo },
+      { gtr: [...chorus, ...chorus], drums: chorusDrums, lead: [...hook, ...hook] },
+      { gtr: [...tritone, ...tritone], drums: ['stabs', 'stabs', 'stabs', 'roll'] },
+      { gtr: ['E2 - - - - - - - - - - - - - - -'], drums: ['end'] },
+    ],
+  };
+})();
+
+// ---------------------------------------------------------------------------
+// 6. 灰の聖域 — Ashen Sanctum. E, 184 BPM: an ominous clean intro, a slow
+// crushing theme, then flat out: a pedal-note riff, a big chorus, a long solo.
+const ashenSanctum = (() => {
+  const clean = ['E3 - B3 - E4 - F4 - E4 - B3 - G3 - Bb3 -', 'E3 - B3 - E4 - G4 - F4 - E4 - Bb3 - B3 -'];
+  const doom = ['E2 - - - - - - - F2 - - - - - - -', 'G2 - - - - - - - F#2 - - - F2 - - -'];
+  const omen = ['B4 - - - - - - - C5 - - - - - - -', 'D5 - - - - - - - C5 - - - B4 - Bb4 -'];
+  const fast = ['E2m E2m G2s E2m E2m Bb2s E2m E2m A2s E2m E2m G2s E2m E2m F2s F#2s',
+    'E2m E2m G2s E2m E2m Bb2s E2m E2m C3s E2m E2m B2s Bb2s A2s G2s F2s'];
+  const verse = ['E2m . E2m E2m . E2m F2 - E2m . E2m E2m . E2m G2 F#2', 'E2m . E2m E2m . E2m Bb2 - E2m . E2m E2m . E2m A2 G2'];
+  const chorus = ['G2 - - - - - - - A2 - - - - - - -', 'Bb2 - - - - - - - A2 - - - G2 - F2 -',
+    'G2 - - - - - - - A2 - - - - - - -', 'C3 - - - B2 - - - Bb2 - - - B2m B2m B2m B2m'];
+  const hook = ['D5 - - - - - - - E5 - - - - - - -', 'F5 - - - - - - - E5 - - - D5 - C5 -',
+    'D5 - - - - - - - E5 - - - G5 - - -', 'F5/G5 - - - - - - - E5 - - - - - - -'];
+  const solo = ['E5 G5 B5 E6 B5 G5 E5 G5 B5 E6 B5 G5 F5 Bb5 D6 F6', 'E6 - - - D6 - - - Bb5/C6 - - - - - - -',
+    'B5 Bb5 A5 G5 F5 E5 F5 G5 A5 Bb5 B5 C6 B5 Bb5 A5 G5', 'F5/G5 - - - - - F5 - E5 - - - . . . .',
+    'E6 E5 E6 E5 F6 F5 F6 F5 G6 G5 G6 G5 Bb6 Bb5 B6 B5', 'B6~B4 - - - - - - - - - - - B5 - Bb5 -',
+    'E5 - F5 - G5 - A5 - Bb5 - A5 - G5 - F5 -', 'E5/F5 - - - - - - - - - - - - - - -'];
+  const F4 = [...fast, ...fast];
+  const V8 = [...verse, ...verse, ...verse, ...verse];
+  const chorusDrums = ['dblCrash', 'dbl', 'dbl', 'dbl', 'skankCrash', 'skankRide', 'skankRide', 'roll'];
+  return {
+    title: '灰の聖域', en: 'Ashen Sanctum', bpm: 184, steps: 16, swing: 0, style: 'thrash',
+    parts: [
+      { clean: [...clean, ...clean], drums: ['none', 'none', 'none', 'none'] },
+      { clean: [...clean, ...clean], drums: ['hats', 'hats', 'hats', 'tomBuild'] },
+      { gtr: [...doom, ...doom], drums: ['thHalf', 'thHalf2', 'thHalf', 'thHalf2'], lead: [...omen, ...omen] },
+      { gtr: [...doom, r('E2m', 16), r('E2m', 16)], drums: ['thHalf', 'thHalf2', 'roll', 'roll'], lead: omen },
+      { gtr: [...F4, ...F4], drums: ['dblCrash', 'dbl', 'dbl', 'dbl', 'skankCrash', 'skank', 'skank', 'roll'] },
+      { gtr: V8, drums: ['skankCrash', 'skank', 'skank', 'skank', 'skank', 'skank', 'skank', 'roll'] },
+      { gtr: [...chorus, ...chorus], drums: chorusDrums, lead: [...hook, ...hook] },
+      { gtr: F4, drums: ['dblCrash', 'dbl', 'dbl', 'roll'] },
+      { gtr: V8, drums: ['skankCrash', 'skank', 'skank', 'skank', 'skank', 'skank', 'skank', 'roll'] },
+      { gtr: [...chorus, ...chorus], drums: chorusDrums, lead: [...hook, ...hook] },
+      { gtr: [...doom, ...doom], clean: [...clean, ...clean], drums: ['thHalf', 'thHalf2', 'thHalf', 'tomRun'] },
+      { gtr: [...F4, ...F4], drums: ['dblCrash', 'dbl', 'skank', 'skank', 'dblCrash', 'dbl', 'skank', 'roll'], lead: solo },
+      { gtr: [...F4, ...F4], drums: ['skankCrash', 'skank', 'skank', 'skank', 'dblCrash', 'dbl', 'dbl', 'roll'], lead: [...solo.slice(4), ...solo.slice(0, 4)] },
+      { gtr: [...chorus, ...chorus], drums: chorusDrums, lead: [...hook, ...hook] },
+      { gtr: F4, drums: ['dblCrash', 'dbl', 'dbl', 'roll'] },
+      { gtr: ['E2 - - - - - - - - - - - - - - -'], clean: ['E4 - B3 - G3 - E3 - - - - - - - - -'], drums: ['end'] },
+    ],
+  };
+})();
+
+export const SONGS = [ironHorizon, dustDevil, longWayDown, hellboundRuts, blackTempest, ashenSanctum];

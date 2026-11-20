@@ -6,6 +6,7 @@
 // Messages are plain text everywhere (textContent, never innerHTML), at most
 // MAX characters, and a chatty peer is throttled on the receiving side.
 import * as THREE from 'three';
+import { t } from '../i18n.js';
 
 const MAX = 120;          // characters per message
 const LOG = 40;           // messages kept in the window
@@ -23,8 +24,8 @@ export const STAMPS = ['👍', '😂', '😱', '🆘', '🎉', '🙏', '💨', '
 export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
   // --- button
   const button = document.createElement('button');
-  button.textContent = 'チャット';
-  button.title = 'チャット（Enter）';
+  button.textContent = t('チャット', 'Chat');
+  button.title = t('チャット（Enter）', 'Chat (Enter)');
   button.classList.add('keep'); // stays when the bar is folded on phones
   bar.appendChild(button);
 
@@ -39,7 +40,7 @@ export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
   form.hidden = true;
   const input = document.createElement('input');
   input.maxLength = MAX;
-  input.placeholder = 'メッセージ（Enter で送信、Esc で閉じる）';
+  input.placeholder = t('メッセージ（Enter で送信、Esc で閉じる）', 'Message (Enter to send, Esc to close)');
   input.autocomplete = 'off';
   input.enterKeyHint = 'send';
   form.appendChild(input);
@@ -90,7 +91,7 @@ export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
     b.until = performance.now() + (stamp ? 3500 : BUBBLE_MS(text));
   };
 
-  // --- stamps: a 😀 button on phones (keys 1-8 on a keyboard)
+  // --- stamps: the 😀 button (and keys 1-8 on a keyboard)
   const sendStamp = (i) => {
     const e = STAMPS[i];
     if (!e) return;
@@ -101,17 +102,21 @@ export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
   const palette = document.createElement('div');
   palette.className = 'stamp-palette';
   palette.hidden = true;
+  const keys = !matchMedia('(pointer: coarse)').matches;
+  palette.classList.toggle('keys', keys);
   STAMPS.forEach((e, i) => {
     const b = document.createElement('button');
     b.textContent = e;
+    // With a keyboard, each stamp shows its key.
+    if (keys) { const k = document.createElement('small'); k.textContent = String(i + 1); b.appendChild(k); b.title = `${e} (${i + 1})`; }
     b.addEventListener('click', (ev) => { ev.stopPropagation(); sendStamp(i); });
     palette.appendChild(b);
   });
   document.body.appendChild(palette);
-  if (matchMedia('(pointer: coarse)').matches) {
+  {
     const sb = document.createElement('button');
     sb.textContent = '😀';
-    sb.title = 'スタンプ';
+    sb.title = keys ? t('スタンプ（1〜8 キー）', 'Stamps (keys 1–8)') : t('スタンプ', 'Stamps');
     sb.classList.add('keep');
     sb.addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -120,6 +125,7 @@ export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
     });
     bar.appendChild(sb);
   }
+  window.addEventListener('keydown', (e) => { if (e.code === 'Escape') palette.hidden = true; });
   window.addEventListener('keydown', (e) => {
     if (e.repeat || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     const m = /^Digit([1-8])$/.exec(e.code);
@@ -142,7 +148,7 @@ export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
   const isOpen = () => !form.hidden;
   const open = () => {
     if (!net.active) {
-      add(null, 'チャットはマルチで部屋に入ると使えます');
+      add(null, t('チャットはマルチで部屋に入ると使えます', 'Chat works once you are in a multiplayer room'));
       return;
     }
     win.hidden = false;
@@ -210,8 +216,8 @@ export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
   const peersChanged = () => {
     const now = new Map(net.peers);
     if (net.active) {
-      for (const [id, p] of now) if (!known.has(id)) add(null, `${p.name} が参加しました`);
-      for (const [id, p] of known) if (!now.has(id)) add(null, `${p.name} が退出しました`);
+      for (const [id, p] of now) if (!known.has(id)) add(null, t(`${p.name} が参加しました`, `${p.name} joined`));
+      for (const [id, p] of known) if (!now.has(id)) add(null, t(`${p.name} が退出しました`, `${p.name} left`));
     }
     for (const id of known.keys()) if (!now.has(id)) { bubbles.get(id)?.el.remove(); bubbles.delete(id); }
     known = now;

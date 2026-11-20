@@ -75,6 +75,9 @@ uniform float uVTime;
 uniform vec2 uVWind;       // direction the wind blows toward, scaled by strength
 uniform float uVWaterLevel;
 uniform float uVDensity;
+uniform vec4 uVCut[8];      // things standing in the grass: centre xz, right-hand direction xz
+uniform vec4 uVCutSize[8];  // half width, half length, clearance of the underside
+uniform int uVCutCount;
 
 out float vT;
 out vec3 vVNormal;
@@ -122,6 +125,19 @@ void main() {
   float height = uVHeight * (0.55 + 0.9 * r3.x) * (0.6 + 0.4 * info.x);
   // Fewer blades far away, so each one gets wider to cover the same ground.
   float width = uVWidth * (1.0 + 2.5 * smoothstep(uVFade.x * 0.4, uVFade.y, dist)) * (0.7 + 0.6 * r3.y);
+
+  // Under a vehicle the grass is pressed down: no taller than the gap under
+  // its body (so it never comes up through the floor or the load bed), back to
+  // full height a little way outside (VegetationEngine.setGrassCutouts).
+  for (int i = 0; i < 8; i++) {
+    if (i >= uVCutCount) break;
+    vec4 c = uVCut[i];
+    vec4 s = uVCutSize[i];
+    vec2 d = root - c.xy;
+    vec2 q = abs(vec2(dot(d, c.zw), dot(d, vec2(c.w, -c.z)))) - s.xy;
+    float outside = length(max(q, 0.0));
+    height = min(height, max(0.03, s.z + outside * outside * 3.0));
+  }
 
   float angle = r1.x * 6.2831853;
   vec2 across = vec2(cos(angle), sin(angle));

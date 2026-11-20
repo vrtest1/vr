@@ -3,6 +3,7 @@
 // a snapshot on each side), wheels steered and rolled, a name tag above.
 import * as THREE from 'three';
 import { poseSteeringWheel } from '../truckModel.js';
+import { t } from '../i18n.js';
 
 const DELAY = 0.12; // s of interpolation delay
 const R3 = (v) => Math.round(v * 1000) / 1000;
@@ -47,6 +48,7 @@ class Remote {
     this.speed = 0;
     this.rpm = 800;
     this.lamps = 0;
+    this.dirtBits = 0;
     this.spec = spec;
     // Looks enough like a Vehicle for the dust and tyre-track code.
     this.wheels = spec.wheelLocals.map((local, i) => ({ local, front: i < 2, length: spec.restLength, contact: false, slip: 0, surface: 0, spin: 0 }));
@@ -60,7 +62,7 @@ class Remote {
 
   setInfo(info) {
     this.info = info;
-    this.tag.innerHTML = `<i style="background:${info.color}"></i>${escapeHtml(info.name)}${info.host ? ' <b>ホスト</b>' : ''}<u style="border-top-color:${info.color}"></u>`;
+    this.tag.innerHTML = `<i style="background:${info.color}"></i>${escapeHtml(info.name)}${info.host ? ` <b>${t('ホスト', 'host')}</b>` : ''}<u style="border-top-color:${info.color}"></u>`;
   }
 
   receive(a, now) {
@@ -110,6 +112,7 @@ class Remote {
     }
     this.rpm = last[21];
     this.lamps = last[22] | 0; // older clients send no lamps
+    this.dirtBits = last[23] | 0; // mud, dust, snow, wet (dirt.js); 0 from older clients
     // First pose: jump; afterwards follow (the interpolation is already smooth).
     if (!this.seen) { this.position.copy(P); this.quaternion.copy(Q); this.seen = true; }
     else { this.position.lerp(P, Math.min(1, dt * 20)); this.quaternion.slerp(Q, Math.min(1, dt * 20)); }

@@ -2,6 +2,7 @@
 // right), bass, drums, a lead guitar and a clean guitar. Plays the songs in
 // songs.js. No samples; everything is synthesised.
 import { SONGS, DRUMS } from './songs.js';
+import { cabinetIR } from './cabinet.js';
 import { StringBank } from './strings.js';
 
 const NOTE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -35,12 +36,13 @@ export function compile(song) {
       if (tok === '-' || tok === '.') continue;
       let len = 1;
       while (i + len < tokens.length && tokens[i + len] === '-') len++;
-      let name = tok, mode = 'chord', bend = null;
+      let name = tok, mode = 'chord', bend = null, glide = false;
       if (track !== 'gtr') mode = 'single';
       if (name.includes('/')) [name, bend] = name.split('/');
+      else if (name.includes('~')) { [name, bend] = name.split('~'); glide = true; } // whammy dive: slides all the way
       if (name.endsWith('m') && track === 'gtr') { mode = 'mute'; name = name.slice(0, -1); }
       else if (name.endsWith('s') && track === 'gtr') { mode = 'single'; name = name.slice(0, -1); }
-      const ev = { step: i, len, track, note: midi(name), mode, bend: bend ? midi(bend) : null };
+      const ev = { step: i, len, track, note: midi(name), mode, bend: bend ? midi(bend) : null, glide };
       events.push(ev);
       if (track === 'gtr') events.push({ ...ev, track: 'bass', note: ev.note - 12 });
     }
@@ -90,8 +92,13 @@ function impulse(ctx, seconds, decay) {
 export class MetalBand {
   ctx; out;
   #noise; #reverb; #rev; #g = {}; #lead;
+  #rhythmAmps = []; // the parts of the rhythm amps a song's style changes (setStyle)
+  #kitStyle = 'classic';
 
-  constructor(ctx, destination) {
+  #sides; // the rhythm guitars: ['L', 'R', 'L2', 'R2'], or two on phones
+
+  /** @param {object} [o] o.guitars: 2 rhythm guitars (one a side), or 4 (two a side: thicker, more work) */
+  constructor(ctx, destination, { guitars = 2 } = {}) {
     this.ctx = ctx;
     const out = (this.out = ctx.createGain());
     out.gain.value = 0.5;
@@ -99,7 +106,7 @@ export class MetalBand {
     glue.threshold.value = -16; glue.ratio.value = 3; glue.attack.value = 0.01; glue.release.value = 0.2;
     const limit = ctx.createDynamicsCompressor();
     limit.threshold.value = -7; limit.knee.value = 0; limit.ratio.value = 20; limit.attack.value = 0.001; limit.release.value = 0.1;
-    const trim = ctx.createGain(); trim.gain.value = 0.82; // drum transients get past the limiter's attack
+    const trim = ctx.createGain(); trim.gain.value = 0.78; // drum transients get past the limiter's attack
     out.connect(glue).connect(limit).connect(trim).connect(destination);
 
     const len = ctx.sampleRate;
@@ -115,9 +122,15 @@ export class MetalBand {
     this.#rev.gain.value = 0.35;
     this.#rev.connect(this.#reverb).connect(out);
 
-    // Rhythm guitars: one amp per side so the chord distorts together, like a real amp.
-    for (const [side, pan] of [['L', -0.85], ['R', 0.85]]) this.#g[side] = this.#amp(pan, 9, 0.15); // -6 dB from the first mix
-    this.#lead = this.#amp(0, 16, 0.19, true); // -2 dB
+    // Rhythm guitars: four takes, two a side, as on a metal record, each through
+    // its own amp (the chord distorts together, as in a real amp) and its own
+    // microphone on the cabinet. Two takes a side add up to about +3 dB, so
+    // each is a little quieter than the one-a-side mix was.
+    const four = guitars >= 4;
+    const takes = four ? [['L', -0.9, 1, 0.3], ['L2', -0.6, 2, 0.55], ['R', 0.9, 3, 0.35], ['R2', 0.6, 4, 0.5]] : [['L', -0.85, 1, 0.3], ['R', 0.85, 3, 0.35]];
+    for (const [side, pan, seed, mic] of takes) this.#g[side] = this.#amp(pan, 9, 0.15 * (four ? 0.72 : 1), false, seed, mic);
+    this.#sides = takes.map(([side]) => side);
+    this.#lead = this.#amp(0, 16, 0.19, true, 7, 0.25); // -2 dB
     // Bass and clean guitar buses.
     this.bass = ctx.createGain(); this.bass.gain.value = 0.4;
     const bassLp = ctx.createBiquadFilter(); bassLp.type = 'lowpass'; bassLp.frequency.value = 900;
@@ -156,7 +169,7 @@ export class MetalBand {
    * softens the pick, the second does the real distortion, and the high cut in
    * between keeps it from turning into the fizzy, "synth" kind of distortion.
    */
-  #amp(pan, drive, level, lead = false) {
+  #amp(pan, drive, level, lead = false, seed = 1, mic = 0.3) {
     const ctx = this.ctx;
     const bq = (type, f, q = 0.7, gain = 0) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; b.gain.value = gain; return b; };
     const input = ctx.createGain();
@@ -167,19 +180,24 @@ export class MetalBand {
     const between = bq('lowpass', 6500, 0.5);
     const g2 = ctx.createGain(); g2.gain.value = lead ? 4.2 : 3.4;
     const s2 = ctx.createWaveShaper(); s2.curve = distortionCurve(lead ? 2.6 : 2.2); s2.oversample = '4x';
-    // Cabinet: a 4x12 has a low thump, a dip in the low mids, a presence peak,
-    // and almost nothing above 5 kHz (that steep cut is most of the "real amp" sound).
+    // Cabinet: a 4x12 with a microphone in front, as an impulse response
+    // (cabinet.js: the low thump, the low-mid dip, the presence peak, the
+    // steep fall above 5 kHz, and the small irregular peaks and notches of a
+    // real speaker that a smooth filter does not have). Then two tone controls
+    // a song's style can turn (setStyle), and a last gentle top cut.
+    const ir = ctx.createConvolver();
+    ir.normalize = false;
+    ir.buffer = cabinetIR(ctx, { seed, lead, mic });
     const cab = [
-      bq('highpass', 80, 0.7),
-      bq('peaking', 115, 1.2, 3),
-      bq('peaking', lead ? 600 : 420, 1, lead ? 1 : -4),
-      bq('peaking', lead ? 1700 : 2300, 1.4, lead ? 5 : 3.5),
-      bq('lowpass', lead ? 5000 : 4600, 0.9),
-      bq('lowpass', lead ? 5400 : 5000, 0.6),
-      bq('notch', 7600, 2),
+      bq('highpass', 70, 0.7),
+      ir,
+      bq('peaking', lead ? 600 : 420, 1, lead ? 0 : -1),
+      bq('peaking', lead ? 1700 : 2300, 1.4, lead ? 2 : 0),
+      bq('lowpass', 8000, 0.7),
     ];
     const gain = ctx.createGain(); gain.gain.value = level;
     const panner = ctx.createStereoPanner(); panner.pan.value = pan;
+    if (!lead) this.#rhythmAmps.push({ tight, g1, mid: cab[2], pres: cab[3], drive });
     let node = input.connect(tight).connect(push).connect(g1).connect(s1).connect(between).connect(g2).connect(s2);
     for (const f of cab) node = node.connect(f);
     node.connect(gain).connect(panner).connect(this.out);
@@ -194,6 +212,25 @@ export class MetalBand {
       this.leadDelay = dl;
     }
     return input;
+  }
+
+  /**
+   * A song's sound. 'classic': the first three songs (a warm, mid-heavy
+   * rhythm tone, a big boomy kick). 'thrash': tighter low end and more gain on
+   * the rhythm guitars, the mids scooped and more bite on top; a short, clicky
+   * kick for fast double bass and a higher, cracking snare.
+   */
+  setStyle(style = 'classic') {
+    const thrash = style === 'thrash';
+    for (const a of this.#rhythmAmps) {
+      a.tight.frequency.value = thrash ? 145 : 120;
+      a.g1.gain.value = a.drive * 0.35 * (thrash ? 1.3 : 1);
+      a.mid.frequency.value = thrash ? 520 : 420;
+      a.mid.gain.value = thrash ? -3.5 : -1;  // on top of the cabinet's own dip
+      a.pres.frequency.value = thrash ? 3200 : 2300;
+      a.pres.gain.value = thrash ? -2 : 0;    // the cabinet has its own presence peak; more was fizz
+    }
+    this.#kitStyle = thrash ? 'thrash' : 'classic';
   }
 
   // --- instruments --------------------------------------------------------
@@ -219,18 +256,25 @@ export class MetalBand {
     for (const e of events) {
       if (e.track === 'gtr') {
         const kind = e.mode === 'mute' ? 'mute' : 'open';
-        for (const n of e.mode === 'chord' ? [e.note, e.note + 7, e.note + 12] : [e.note]) { this.strings.get(n, kind, 0); this.strings.get(n, kind, 1); }
+        for (const n of e.mode === 'chord' ? [e.note, e.note + 7, e.note + 12] : [e.note]) for (const side of this.#sides) this.strings.get(n, kind, { L: 0, R: 1, L2: 2, R2: 3 }[side]);
       } else if (e.track === 'bass') this.strings.get(e.note, e.mode === 'mute' ? 'bassMute' : 'bass', 0);
       else if (e.track === 'lead') this.strings.get(e.note, 'lead', 0);
       else if (e.track === 'clean') this.strings.get(e.note, 'clean', 0);
     }
   }
 
-  /** Rhythm guitar: plucked strings (root, fifth, octave), down-strummed. */
+  /** All four rhythm guitars play a note or chord, each a little differently. */
+  strum(t, dur, note, mode) {
+    const offset = { L: 0, R: 0.007, L2: 0.011, R2: 0.004 };
+    for (const side of this.#sides) this.rhythm(t, dur, note, mode, side, offset[side]);
+  }
+
+  /** One rhythm guitar: plucked strings (root, fifth, octave), down-strummed. */
   rhythm(t, dur, note, mode, side, offset) {
-    t += offset;
-    const take = side === 'L' ? 0 : 1;
+    t += offset + (Math.random() - 0.5) * 0.004;
+    const take = { L: 0, R: 1, L2: 2, R2: 3 }[side] ?? 0;
     const muted = mode === 'mute';
+    this.#pick(t, this.#g[side], muted);
     const strings = mode === 'chord' ? [note, note + 7, note + 12] : [note];
     const end = muted ? t + Math.min(dur, 0.2) : t + dur;
     strings.forEach((n, i) => {
@@ -238,10 +282,25 @@ export class MetalBand {
       // Strum: each string a few milliseconds after the one below; slightly human timing.
       const at = t + i * (muted ? 0.003 : 0.008) + (Math.random() - 0.5) * 0.008;
       // The two guitarists are never exactly in tune with each other, nor picking equally hard.
-      const tune = side === 'L' ? -3 : 4;
+      const tune = { L: -3, R: 4, L2: 6, R2: -5 }[side] ?? 0;
       const hard = 0.85 + Math.random() * 0.3;
       this.#play(b, at, this.#g[side], { gain: (muted ? 0.75 : 0.55) * (i === 0 ? 1 : 0.8) * hard, end, release: muted ? 0.02 : 0.035, detune: tune, bite: muted ? 6 : 12 });
     });
+  }
+
+  /** The pick hitting the strings: a short click into the amp, before the distortion. */
+  #pick(t, dest, muted) {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this.#noise;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600 + Math.random() * 1200; bp.Q.value = 0.9;
+    const g = ctx.createGain();
+    const level = (muted ? 0.18 : 0.12) * (0.8 + Math.random() * 0.4);
+    g.gain.setValueAtTime(level, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.006);
+    src.connect(bp).connect(g).connect(dest);
+    src.start(t, Math.random() * 0.9);
+    src.stop(t + 0.02);
   }
 
   bassNote(t, dur, note, mode) {
@@ -250,9 +309,15 @@ export class MetalBand {
     this.#play(b, t, this.bass, { gain: 1.1, end: muted ? t + Math.min(dur, 0.2) : t + dur, release: 0.04 });
   }
 
-  leadNote(t, dur, note, bend) {
+  leadNote(t, dur, note, bend, glide = false) {
     const ctx = this.ctx;
     const src = this.#play(this.strings.get(note, 'lead', 0), t, this.#lead, { gain: 0.9, end: t + dur, release: 0.05, bite: 15 });
+    // Whammy dive: the bar pushed down through the whole note.
+    if (bend !== null && glide) {
+      src.detune.setValueAtTime(0, t + 0.04);
+      src.detune.linearRampToValueAtTime((bend - note) * 100, t + Math.max(0.08, dur));
+      return;
+    }
     // Bend: push the pitch up the way a finger does (quick, then settling).
     if (bend !== null) src.detune.setTargetAtTime((bend - note) * 100, t + Math.min(0.1, dur * 0.25), 0.045);
     if (dur > 0.35) {
@@ -334,6 +399,21 @@ export class MetalBand {
 
   drum(t, voice, accent) {
     const a = accent ? 1.12 : 0.95 + Math.random() * 0.1; // a drummer never hits twice the same
+    if (this.#kitStyle === 'thrash' && (voice === 'k' || voice === 's')) {
+      if (voice === 'k') {
+        // Tight and clicky, so 16th-note double bass stays a row of hits, not a rumble.
+        this.#tone(t, 150, 55, 0.03, 0.72 * a, 0.11, 'sine', 0.02); // less body than the classic kick: 16 a bar add up
+        this.#tone(t, 330, 120, 0.012, 0.45 * a, 0.035, 'triangle');
+        this.#noiseHit(t, { bp: 4200, q: 0.9, level: 0.85 * a, decay: 0.012 });
+      } else {
+        // Tuned up and cranked: a sharp crack with bright wires.
+        this.#tone(t, 260, 215, 0.03, 0.55 * a, 0.09, 'sine', 0.3);
+        this.#tone(t, 420, 370, 0.02, 0.32 * a, 0.06, 'sine', 0.3);
+        this.#noiseHit(t, { bp: 2300, q: 0.8, level: 0.8 * a, decay: 0.07, rev: 0.45 });
+        this.#noiseHit(t, { hp: 4200, level: 0.55 * a, decay: 0.18, rev: 0.45 });
+      }
+      return;
+    }
     switch (voice) {
       case 'k':
         // Shell thump, beater click, a bit of skin.
@@ -412,7 +492,8 @@ export class MetalBGM {
       this.#lp.Q.value = 0.7;
       this.#lpGain = this.ctx.createGain();
       this.#lp.connect(this.#lpGain).connect(this.ctx.destination);
-      this.band = new MetalBand(this.ctx, this.#lp);
+      // Two rhythm guitars (four sounded much the same and cost more: each has its own amp and cabinet).
+      this.band = new MetalBand(this.ctx, this.#lp, { guitars: 2 });
       this.setUnderwater(this.#under, true);
       this.band.out.gain.value = this.#volume;
       this.#compiled = SONGS.map(compile);
@@ -422,6 +503,7 @@ export class MetalBGM {
     this.index = ((index % SONGS.length) + SONGS.length) % SONGS.length;
     this.#song = SONGS[this.index];
     this.#comp = this.#compiled[this.index];
+    this.band.setStyle(this.#song.style);
     this.band.prepare(this.#comp.events);
     this.#start = Math.max(this.ctx.currentTime + 0.15, this.#fadeEnd);
     this.#cursor = 0;
@@ -469,12 +551,9 @@ export class MetalBGM {
       if (t < this.ctx.currentTime - 0.05) continue; // fell behind (tab was hidden)
       const dur = e.len ? this.#stepTime(e.step + e.len) - t : 0;
       switch (e.track) {
-        case 'gtr':
-          band.rhythm(t, dur, e.note, e.mode, 'L', 0);
-          band.rhythm(t, dur, e.note, e.mode, 'R', 0.007);
-          break;
+        case 'gtr': band.strum(t, dur, e.note, e.mode); break;
         case 'bass': band.bassNote(t, dur, e.note, e.mode); break;
-        case 'lead': band.leadNote(t, dur, e.note, e.bend); break;
+        case 'lead': band.leadNote(t, dur, e.note, e.bend, e.glide); break;
         case 'clean': band.cleanNote(t, e.note); break;
         case 'drum': band.drum(t, e.voice, e.accent); break;
         default: break;

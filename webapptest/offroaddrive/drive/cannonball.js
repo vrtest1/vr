@@ -5,11 +5,12 @@
 // water. It is marked with a beam of light visible from kilometres away; the
 // HUD has a compass arrow, the distance, the clock and a minimap.
 import * as THREE from 'three';
+import { t, EN, placeName } from './i18n.js';
 
 const COURSES = {
-  short: { label: '近い', distance: 1000 },
-  mid: { label: 'ふつう', distance: 2500 },
-  long: { label: '遠い', distance: 5000 },
+  short: { label: t('近い', 'Near'), distance: 1000 },
+  mid: { label: t('ふつう', 'Middle'), distance: 2500 },
+  long: { label: t('遠い', 'Far'), distance: 5000 },
 };
 const ARRIVE = 14; // metres from the goal centre
 const STORE = 'offroad-drive.cannonball.v1';
@@ -142,7 +143,7 @@ export class Cannonball {
       return e;
     };
     const ui = this.#ui;
-    const open = el('button', '', this.#o.bar, 'キャノンボール');
+    const open = el('button', '', this.#o.bar, t('キャノンボール', 'Cannonball'));
     open.addEventListener('click', (e) => { e.stopPropagation(); this.state === 'idle' || this.state === 'finished' ? this.showMenu() : this.showMenu(true); });
     ui.open = open;
 
@@ -178,17 +179,16 @@ export class Cannonball {
     const net = this.#net;
     const guest = net && !net.isHost();
     ui.menu.innerHTML = `
-      <h2>キャノンボール${net ? '（マルチ）' : ''}</h2>
-      ${guest ? '<p><b>コースはホストが選びます。</b>ホストがスタートすると、みんな横に並んでカウントダウンが始まります。</p>' : ''}
-      ${net && !guest ? '<p><b>あなたがホストです。</b>選んだコースで全員一斉にスタートします。</p>' : ''}
-      <p>どこかにゴールが現れます。道はありません。好きなルートで、できるだけ速く着いてください。<br>
-      光の柱と画面上の矢印、右下の地図がゴールの方向です。</p>
+      <h2>${t('キャノンボール', 'Cannonball')}${net ? t('（マルチ）', ' (multiplayer)') : ''}</h2>
+      ${guest ? t('<p><b>コースはホストが選びます。</b>ホストがスタートすると、みんな横に並んでカウントダウンが始まります。</p>', '<p><b>The host picks the course.</b> When they start, everyone lines up abreast and the countdown begins.</p>') : ''}
+      ${net && !guest ? t('<p><b>あなたがホストです。</b>選んだコースで全員一斉にスタートします。</p>', '<p><b>You are the host.</b> Everyone starts together on the course you pick.</p>') : ''}
+      <p>${t('どこかにゴールが現れます。道はありません。好きなルートで、できるだけ速く着いてください。<br>\n      光の柱と画面上の矢印、右下の地図がゴールの方向です。', 'A goal appears somewhere. There are no roads: take any way you like and get there as fast as you can.<br>\n      The pillar of light, the arrow on screen and the map show the way.')}</p>
       ${guest ? '' : `<div class="cb-row">${Object.entries(COURSES).map(([k, c]) => `<button data-k="${k}">${c.label}<small>${(c.distance / 1000).toFixed(1)} km</small></button>`).join('')}</div>`}
-      ${running && !guest ? '<div class="cb-row"><button data-act="retry">同じコースを最初から</button><button data-act="quit">やめる</button></div>' : ''}
-      ${running && guest ? '<div class="cb-row"><button data-act="quit">リタイア</button></div>' : ''}
-      ${this.state === 'finished' && this.course && !guest ? '<div class="cb-row"><button data-act="retry">同じコースをもう一度</button></div>' : ''}
-      ${records.length ? `<h3>記録${best ? `（最速の平均速度 ${best.avg.toFixed(0)} km/h）` : ''}</h3><table>${list}</table>` : ''}
-      <div class="cb-row"><button data-act="close">閉じる</button></div>`;
+      ${running && !guest ? `<div class="cb-row"><button data-act="retry">${t('同じコースを最初から', 'Restart this course')}</button><button data-act="quit">${t('やめる', 'Quit')}</button></div>` : ''}
+      ${running && guest ? `<div class="cb-row"><button data-act="quit">${t('リタイア', 'Retire')}</button></div>` : ''}
+      ${this.state === 'finished' && this.course && !guest ? `<div class="cb-row"><button data-act="retry">${t('同じコースをもう一度', 'Same course again')}</button></div>` : ''}
+      ${records.length ? `<h3>${t('記録', 'Records')}${best ? t(`（最速の平均速度 ${best.avg.toFixed(0)} km/h）`, ` (best average ${best.avg.toFixed(0)} km/h)`) : ''}</h3><table>${list}</table>` : ''}
+      <div class="cb-row"><button data-act="close">${t('閉じる', 'Close')}</button></div>`;
     ui.menu.hidden = false;
     for (const b of ui.menu.querySelectorAll('button')) {
       b.addEventListener('click', (e) => {
@@ -274,10 +274,10 @@ export class Cannonball {
     const place = this.multiRace ? this.#net?.finished(this.time) : null;
     this.#o.sound.chime?.(place === 1 ? 'goal-first' : 'goal');
     const big = this.#ui.big;
-    const placeText = place ? ` ${place === 1 ? '🥇 1着' : place === 2 ? '🥈 2着' : place === 3 ? '🥉 3着' : `${place}着`}` : '';
-    big.innerHTML = `<div class="cb-title">ゴール！${placeText}</div><div class="cb-time">${fmt(this.time)}</div>
-      <div class="cb-sub">直線 ${(c.distance / 1000).toFixed(2)} km ・ 実際に走った距離 ${(this.#driven / 1000).toFixed(2)} km ・ 平均 ${avg.toFixed(0)} km/h
-      ${avg > prevBest && records.length > 1 ? '<br><b>最速記録を更新！</b>' : ''}</div>`;
+    const placeText = place ? ` ${['', '🥇 ', '🥈 ', '🥉 '][place] ?? ''}${placeName(place)}` : '';
+    big.innerHTML = `<div class="cb-title">${t('ゴール！', 'Goal!')}${placeText}</div><div class="cb-time">${fmt(this.time)}</div>
+      <div class="cb-sub">${t(`直線 ${(c.distance / 1000).toFixed(2)} km ・ 実際に走った距離 ${(this.#driven / 1000).toFixed(2)} km ・ 平均 ${avg.toFixed(0)} km/h`, `${(c.distance / 1000).toFixed(2)} km as the crow flies ・ ${(this.#driven / 1000).toFixed(2)} km driven ・ average ${avg.toFixed(0)} km/h`)}
+      ${avg > prevBest && records.length > 1 ? t('<br><b>最速記録を更新！</b>', '<br><b>New best!</b>') : ''}</div>`;
     big.hidden = false;
     setTimeout(() => { if (this.state === 'finished') { big.hidden = true; this.showMenu(); } }, 4500);
   }

@@ -12,11 +12,12 @@ const SURFACE = { dirt: 0, rock: 1, sand: 2, snow: 3 };
  */
 export function makeGround({ heightField, water, trees, wetness }) {
   const s = new Float64Array(3);
-  let lx = NaN, lz = NaN;
+  let lx = NaN, lz = NaN, lseed = NaN;
   const sample = (x, z) => {
-    if (x !== lx || z !== lz) {
+    // The seed is part of the key: a new world must not hand back the old ground.
+    if (x !== lx || z !== lz || heightField.seed !== lseed) {
       heightField.sample(x, z, s);
-      lx = x; lz = z;
+      lx = x; lz = z; lseed = heightField.seed;
     }
     return s;
   };

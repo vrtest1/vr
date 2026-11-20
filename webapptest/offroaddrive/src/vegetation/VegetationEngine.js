@@ -73,6 +73,17 @@ const smoothstep = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 const unit = (h) => h / 4294967296;
+const MAX_SHAKES = 16; // bushes swaying at once (setBushShake); also in tree.glsl.js
+const MAX_CUTS = 8; // boxes the grass keeps out of (setGrassCutouts); also in grass.glsl.js
+// A smooth random field, 0..1, with features `size` metres across.
+const smoothField = (x, z, size, s) => {
+  const px = x / size, pz = z / size;
+  const ix = Math.floor(px), iz = Math.floor(pz);
+  const fx = px - ix, fz = pz - iz;
+  const ux = fx * fx * (3 - 2 * fx), uz = fz * fz * (3 - 2 * fz);
+  const v = (i, j) => unit(hash2(ix + i, iz + j, s));
+  return v(0, 0) * (1 - ux) * (1 - uz) + v(1, 0) * ux * (1 - uz) + v(0, 1) * (1 - ux) * uz + v(1, 1) * ux * uz;
+};
 
 /**
  * Grass and trees.
@@ -192,6 +203,13 @@ export class VegetationEngine extends BaseEngine {
       uVLampDir: { value: new Vector3(0, 0, 1) },
       uVLampColor: { value: new Color(0, 0, 0) },
       uVLampRange: { value: 8 },
+      // Things standing in the grass (vehicles): see setGrassCutouts.
+      uVCut: { value: Array.from({ length: MAX_CUTS }, () => new Vector4()) },
+      uVCutSize: { value: Array.from({ length: MAX_CUTS }, () => new Vector4()) },
+      uVCutCount: { value: 0 },
+      // Bushes swaying after something pushed through them: see setBushShake.
+      uVShake: { value: Array.from({ length: MAX_SHAKES }, () => new Vector4()) },
+      uVShakeCount: { value: 0 },
     };
 
     this.#models = MODELS.map(([species, seed]) => buildTreeModel(species, seed));
@@ -244,6 +262,39 @@ export class VegetationEngine extends BaseEngine {
     u.uVLampDir.value.copy(direction);
     u.uVLampColor.value.copy(color);
     u.uVLampRange.value = range;
+  }
+
+  /**
+   * Keep the grass out of things standing in it (offroad-drive's trucks): under
+   * each box, blades grow no taller than its clearance, rising back to their
+   * height a little way outside it. Bushes and low branches inside a box (below
+   * its roof) are pushed out to its sides. Up to MAX_CUTS (8) boxes.
+   * @param {{x: number, z: number, rightX: number, rightZ: number, halfWidth: number, halfLength: number, clearance: number, top?: number}[]} list
+   *   centre on the ground, the box's right-hand direction (unit, xz), half sizes,
+   *   how high its underside is above the ground and its roof (m)
+   */
+  setGrassCutouts(list) {
+    const u = this.#shared;
+    const n = Math.min(MAX_CUTS, list.length);
+    for (let i = 0; i < n; i++) {
+      const c = list[i];
+      u.uVCut.value[i].set(c.x, c.z, c.rightX, c.rightZ);
+      u.uVCutSize.value[i].set(c.halfWidth, c.halfLength, Math.max(0, c.clearance), c.top ?? 2);
+    }
+    u.uVCutCount.value = n;
+  }
+
+  /**
+   * Bushes that something has just pushed through sway for a while. Each entry
+   * names a bush by where it stands (as forEachBushNear gave it), how hard it
+   * sways (0..1, the caller lets it die away) and which way it was pushed.
+   * @param {{x: number, z: number, energy: number, angle: number}[]} list  up to 16
+   */
+  setBushShake(list) {
+    const u = this.#shared;
+    const n = Math.min(MAX_SHAKES, list.length);
+    for (let i = 0; i < n; i++) u.uVShake.value[i].set(list[i].x, list[i].z, list[i].energy, list[i].angle);
+    u.uVShakeCount.value = n;
   }
 
   get grassMaterials() {
@@ -316,6 +367,42 @@ export class VegetationEngine extends BaseEngine {
    * Bushes are left out. Calls `visit(tx, ty, tz, trunkRadius)` for each tree
    * whose trunk lies within `range` metres.
    */
+  /**
+   * How likely a tree is to grow at (x, z), 0..1: the forest patches and the
+   * climate, as #buildChunk decides them (without the slope). Works anywhere,
+   * built or not, so an app can look for open ground (offroad-drive's start).
+   */
+  treeChanceAt(x, z) {
+    const p = this.params;
+    const s = this.#sampler(x, z, _sample);
+    const patch = smoothField(x, z, 140, p.seed * 131 + 7 + 9);
+    const climate = s.vegetation * smoothstep(1, 6, s.temperature) * (1 - smoothstep(27, 33, s.temperature));
+    return climate * (0.1 + 0.9 * smoothstep(0.3, 0.65, s.moisture)) * smoothstep(0.3, 0.6, patch) * p.treeDensity;
+  }
+
+  /**
+   * Every bush within `range` of (x, z): visit(x, y, z, radius). Only the
+   * built chunks (near the camera). For things that brush through them.
+   */
+  forEachBushNear(x, z, range, visit) {
+    const r0 = this.#models[FIRST.bush]?.radius ?? 1;
+    const cx0 = Math.floor((x - range) / CHUNK), cx1 = Math.floor((x + range) / CHUNK);
+    const cz0 = Math.floor((z - range) / CHUNK), cz1 = Math.floor((z + range) / CHUNK);
+    for (let cz = cz0; cz <= cz1; cz++) {
+      for (let cx = cx0; cx <= cx1; cx++) {
+        const chunk = this.#chunks.get(`${cx},${cz}`);
+        if (!chunk || !chunk.count) continue;
+        const d = chunk.data;
+        for (let i = 0; i < d.length; i += RECORD) {
+          if (d[i + 6] !== FIRST.bush) continue;
+          const dx = d[i] - x, dz = d[i + 2] - z;
+          if (dx * dx + dz * dz > range * range) continue;
+          visit(d[i], d[i + 1], d[i + 2], r0 * d[i + 4]);
+        }
+      }
+    }
+  }
+
   forEachTrunkNear(x, z, range, visit) {
     const cx0 = Math.floor((x - range) / CHUNK), cx1 = Math.floor((x + range) / CHUNK);
     const cz0 = Math.floor((z - range) / CHUNK), cz1 = Math.floor((z + range) / CHUNK);
@@ -471,7 +558,7 @@ export class VegetationEngine extends BaseEngine {
     material.defines = { ...material.defines, PWV_LOD: lod };
     if (depth) material.defines.PWV_DEPTH = 1;
     material.onBeforeCompile = (shader) => {
-      for (const name of ['uVCam', 'uVTime', 'uVNow', 'uVWind', 'uVLod']) shader.uniforms[name] = shared[name];
+      for (const name of ['uVCam', 'uVTime', 'uVNow', 'uVWind', 'uVLod', 'uVCut', 'uVCutSize', 'uVCutCount', 'uVShake', 'uVShakeCount']) shader.uniforms[name] = shared[name];
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>\n${TREE_VERT_PARS}`)
         .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>\n${TREE_NORMAL}`)
@@ -648,6 +735,9 @@ export class VegetationEngine extends BaseEngine {
         const attrB = new InstancedBufferAttribute(b, 4).setUsage(DynamicDrawUsage);
         geometry.setAttribute('aVA', attrA);
         geometry.setAttribute('aVB', attrB);
+        // Bushes give way under a vehicle (setGrassCutouts); trees do not.
+        const verts = geometry.attributes.position.count;
+        geometry.setAttribute('aVBush', new BufferAttribute(new Float32Array(verts).fill(model.species === 'bush' ? 1 : 0), 1));
         geometry.instanceCount = 0;
         const mesh = new Mesh(geometry, this.#treeMaterials[lod - 1]);
         mesh.name = `VegetationEngine.${model.species}${lod === 2 ? 'Full' : 'Light'}`;
@@ -798,14 +888,7 @@ export class VegetationEngine extends BaseEngine {
     const records = [];
     let y0 = Infinity, y1 = -Infinity;
     // A smooth random field, 0..1, with features `size` metres across.
-    const field = (x, z, size, s) => {
-      const px = x / size, pz = z / size;
-      const ix = Math.floor(px), iz = Math.floor(pz);
-      const fx = px - ix, fz = pz - iz;
-      const ux = fx * fx * (3 - 2 * fx), uz = fz * fz * (3 - 2 * fz);
-      const v = (i, j) => unit(hash2(ix + i, iz + j, s));
-      return v(0, 0) * (1 - ux) * (1 - uz) + v(1, 0) * ux * (1 - uz) + v(0, 1) * (1 - ux) * uz + v(1, 1) * ux * uz;
-    };
+    const field = smoothField;
     const g0x = Math.ceil((cx * CHUNK) / spacing), g1x = Math.ceil(((cx + 1) * CHUNK) / spacing);
     const g0z = Math.ceil((cz * CHUNK) / spacing), g1z = Math.ceil(((cz + 1) * CHUNK) / spacing);
     for (let gz = g0z; gz < g1z; gz++) {

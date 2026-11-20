@@ -19,6 +19,16 @@
 <body>
 <div id="bar"></div>
 <div id="loading">世界をつくっています…</div>
+<script>
+  // English before the game has loaded (the same choice as i18n.js makes).
+  (function () {
+    var q = new URLSearchParams(location.search).get('lang'), l = q;
+    if (l !== 'en' && l !== 'ja') { try { l = localStorage.getItem('offroad-drive.lang.v1'); } catch (e) { l = null; } }
+    if (l !== 'en' && l !== 'ja') l = /^ja\b/i.test(navigator.language || '') ? 'ja' : 'en';
+    window.PWD_LANG = l;
+    if (l === 'en') document.getElementById('loading').textContent = 'Building the world…';
+  })();
+</script>
 
 <div id="meter" hidden>
   <div id="speed">0</div><div id="unit">km/h</div>
@@ -46,8 +56,9 @@
     var t = e.target;
     if (!t || t === window || (t.tagName !== 'SCRIPT' && t.tagName !== 'LINK')) return;
     var el = document.getElementById('error');
-    el.textContent = '読み込みに失敗しました: ' + (t.src || t.href) +
-      '\n\noffroad-drive フォルダの start.command から起動してください。';
+    el.textContent = window.PWD_LANG === 'en'
+      ? 'Could not load: ' + (t.src || t.href) + '\n\nStart it with start.command in the offroad-drive folder.'
+      : '読み込みに失敗しました: ' + (t.src || t.href) + '\n\noffroad-drive フォルダの start.command から起動してください。';
     el.style.display = 'grid';
   }, true);
 </script>

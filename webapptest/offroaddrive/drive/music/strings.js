@@ -72,7 +72,7 @@ export function pluck(f, { seconds = 3, t60 = 3, bright = 0.6, damp = 0, pick = 
 export class StringBank {
   #ctx; #cache = new Map();
   static KINDS = {
-    open: { seconds: 4, t60: 6, bright: 0.75, pick: 0.12 },
+    open: { seconds: 3, t60: 6, bright: 0.75, pick: 0.12 }, // 3 s: four takes of every note now
     mute: { seconds: 0.45, t60: 0.22, bright: 0.45, damp: 0.55, pick: 0.2 },
     lead: { seconds: 4.5, t60: 9, bright: 0.85, pick: 0.1 },
     bass: { seconds: 3, t60: 3.5, bright: 0.35, pick: 0.25 },

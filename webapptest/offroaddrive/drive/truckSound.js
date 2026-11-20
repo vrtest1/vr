@@ -543,4 +543,153 @@ export class TruckSound {
     src.start(t, Math.random());
     src.stop(t + 1);
   }
+
+  // --- rain on the truck and the wipers --------------------------------------
+  // Inside the cab (driver's seat, bonnet view) it is loud and close: a hiss
+  // of drops on the roof and glass with single taps standing out. Outside,
+  // the same, much quieter. The wipers: a low motor hum while they run, the
+  // rubber swishing over the glass on each stroke, a soft knock as they turn.
+
+  #rain = null; #tapTime = 0; #rainT = 0;
+
+  #rainNodes() {
+    if (this.#rain) return this.#rain;
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource(); src.buffer = this.#noise; src.loop = true; src.start();
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6000;
+    const bed = ctx.createGain(); bed.gain.value = 0;
+    src.connect(hp).connect(lp).connect(bed).connect(this.#out);
+    // The wiper motor: a low buzz through a low-pass.
+    const m = ctx.createOscillator(); m.type = 'sawtooth'; m.frequency.value = 92;
+    const m2 = ctx.createOscillator(); m2.type = 'square'; m2.frequency.value = 184.5;
+    const mf = ctx.createBiquadFilter(); mf.type = 'lowpass'; mf.frequency.value = 420; mf.Q.value = 1.5;
+    const mg = ctx.createGain(); mg.gain.value = 0;
+    const m2g = ctx.createGain(); m2g.gain.value = 0.25;
+    m.connect(mf); m2.connect(m2g).connect(mf);
+    mf.connect(mg).connect(this.#out);
+    m.start(); m2.start();
+    this.#rain = { bed, lp, motor: mg };
+    return this.#rain;
+  }
+
+  /**
+   * Every frame.
+   * @param {number} amount  0..1 rain on the truck (0 under water)
+   * @param {boolean} inside the camera is in the cab
+   * @param {boolean} wiping the wipers are running
+   */
+  rainOnCar(amount, inside, wiping) {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    if (amount <= 0.01 && !this.#rain) return;
+    const r = this.#rainNodes();
+    const t = ctx.currentTime;
+    const dt = Math.min(0.1, Math.max(0, t - this.#rainT));
+    this.#rainT = t;
+    r.bed.gain.setTargetAtTime(amount * (inside ? 0.11 : 0.025), t, 0.3);
+    r.lp.frequency.setTargetAtTime(inside ? 4200 : 7000, t, 0.2); // the roof dulls it a little inside
+    r.motor.gain.setTargetAtTime(wiping ? (inside ? 0.035 : 0.006) : 0, t, 0.08);
+    // Single drops: a tap on the glass (bright) or the roof (duller).
+    this.#tapTime -= dt * amount * (inside ? 55 : 18);
+    let n = 0;
+    while (this.#tapTime < 0 && n++ < 8) {
+      this.#tapTime += Math.random() * 1.6 + 0.1;
+      this.#tap(t + Math.random() * 0.03, inside);
+    }
+  }
+
+  #tap(at, inside) {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource(); src.buffer = this.#noise;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass';
+    const glass = Math.random() < 0.55;
+    f.frequency.value = glass ? 2400 + Math.random() * 3200 : 700 + Math.random() * 700;
+    f.Q.value = glass ? 4 : 2;
+    const g = ctx.createGain();
+    const v = (inside ? 0.5 : 0.12) * (0.4 + Math.random() * 0.6) * (glass ? 1 : 1.4);
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(v, at + 0.0015);
+    g.gain.exponentialRampToValueAtTime(0.001, at + (glass ? 0.035 : 0.06));
+    src.connect(f).connect(g).connect(this.#out);
+    src.start(at, Math.random() * 1.5);
+    src.stop(at + 0.08);
+  }
+
+  /** One wiper stroke of `dur` seconds: the rubber swishing over wet glass, a knock at the turn. */
+  wiperStroke(dur, inside) {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    const t = ctx.currentTime;
+    const k = inside ? 1 : 0.18;
+    const src = ctx.createBufferSource(); src.buffer = this.#noise;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.8;
+    f.frequency.setValueAtTime(1300, t);
+    f.frequency.linearRampToValueAtTime(2300, t + dur * 0.5);
+    f.frequency.linearRampToValueAtTime(1500, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.09 * k, t + dur * 0.15);
+    g.gain.setValueAtTime(0.09 * k, t + dur * 0.75);
+    g.gain.linearRampToValueAtTime(0, t + dur);
+    src.connect(f).connect(g).connect(this.#out);
+    src.start(t, Math.random());
+    src.stop(t + dur + 0.05);
+    // The soft knock where the blade turns round.
+    const o = ctx.createOscillator(); o.type = 'sine';
+    o.frequency.setValueAtTime(140, t + dur);
+    o.frequency.exponentialRampToValueAtTime(70, t + dur + 0.07);
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0, t + dur);
+    og.gain.linearRampToValueAtTime(0.16 * k, t + dur + 0.004);
+    og.gain.exponentialRampToValueAtTime(0.001, t + dur + 0.09);
+    o.connect(og).connect(this.#out);
+    o.start(t + dur);
+    o.stop(t + dur + 0.12);
+  }
+
+  // --- pushing through bushes ---------------------------------------------------
+  #rustle = null; #twigTime = 0; #rustleT = 0;
+
+  /** Every frame: 0..1 how hard we are pushing through leaves and twigs. */
+  rustle(amount) {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    if (amount <= 0.01 && !this.#rustle) return;
+    if (!this.#rustle) {
+      const src = ctx.createBufferSource(); src.buffer = this.#noise; src.loop = true; src.start();
+      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2200; f.Q.value = 0.6;
+      // Leaves rustle in bursts, not as a steady hiss: a fast random wobble on the level.
+      const g = ctx.createGain(); g.gain.value = 0;
+      const lfo = ctx.createOscillator(); lfo.type = 'sawtooth'; lfo.frequency.value = 13;
+      const lg = ctx.createGain(); lg.gain.value = 0;
+      lfo.connect(lg).connect(g.gain); lfo.start();
+      src.connect(f).connect(g).connect(this.#out);
+      this.#rustle = { g, lg, lfo, f };
+    }
+    const r = this.#rustle;
+    const t = ctx.currentTime;
+    const dt = Math.min(0.1, Math.max(0, t - this.#rustleT));
+    this.#rustleT = t;
+    const level = 0.22 * amount;
+    r.g.gain.setTargetAtTime(level, t, 0.05);
+    r.lg.gain.setTargetAtTime(level * 0.6, t, 0.05);
+    r.lfo.frequency.setTargetAtTime(9 + Math.random() * 10, t, 0.05);
+    r.f.frequency.setTargetAtTime(1600 + Math.random() * 1600, t, 0.03);
+    // Twigs snapping now and then.
+    this.#twigTime -= dt * amount * 14;
+    while (this.#twigTime < 0) {
+      this.#twigTime += Math.random() * 1.5 + 0.2;
+      const at = t + Math.random() * 0.05;
+      const src = ctx.createBufferSource(); src.buffer = this.#noise;
+      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900 + Math.random() * 1800; f.Q.value = 3;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, at);
+      g.gain.linearRampToValueAtTime(0.35 * (0.5 + Math.random() * 0.5), at + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.001, at + 0.04);
+      src.connect(f).connect(g).connect(this.#out);
+      src.start(at, Math.random() * 1.5);
+      src.stop(at + 0.06);
+    }
+  }
 }
