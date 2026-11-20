@@ -4,11 +4,11 @@
 import * as THREE from 'three';
 
 export const PHASES = [
-  { name: '新月', icon: '🌑', lit: 0 },
-  { name: '三日月', icon: '🌒', lit: 0.18 },
-  { name: '半月', icon: '🌓', lit: 0.5 },
-  { name: '十三夜', icon: '🌔', lit: 0.8 },
-  { name: '満月', icon: '🌕', lit: 1 },
+  { name: '新月', en: 'New moon', icon: '🌑', lit: 0 },
+  { name: '三日月', en: 'Crescent', icon: '🌒', lit: 0.18 },
+  { name: '半月', en: 'Half moon', icon: '🌓', lit: 0.5 },
+  { name: '十三夜', en: 'Gibbous', icon: '🌔', lit: 0.8 },
+  { name: '満月', en: 'Full moon', icon: '🌕', lit: 1 },
 ];
 
 const DISC_VERT = /* glsl */ `
