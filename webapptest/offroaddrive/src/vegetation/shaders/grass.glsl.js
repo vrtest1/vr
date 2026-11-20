@@ -165,6 +165,10 @@ export const GRASS_FRAG = /* glsl */ `
 
 uniform vec3 uVColor;
 uniform vec3 uVDryColor;
+uniform vec3 uVLampPos;
+uniform vec3 uVLampDir;
+uniform vec3 uVLampColor;
+uniform float uVLampRange;
 
 in float vT;
 in vec3 vVNormal;
@@ -196,7 +200,53 @@ void main() {
   float diffuse = max(dot(N, L), 0.0) * 0.75 + 0.25 * max(L.y, 0.0);
   // Blades glow when the sun is behind them.
   float through = pow(max(dot(V, -L), 0.0), 3.0) * 0.4 * vT;
-  vec3 color = albedo * RECIPROCAL_PI * (sun * shadow * (diffuse + through) + skyE * mix(0.8, 1.0, vT));
+  vec3 E = sun * shadow * (diffuse + through) + skyE * mix(0.8, 1.0, vT);
+
+  // The other lights: more directional ones (a moon), and spot and point
+  // lights (headlights, lamps). A field of upright blades catches light
+  // coming in low from the side, so these are mostly wrapped rather than
+  // following the ground's normal.
+  vec3 Nv = normalize((viewMatrix * vec4(N, 0.0)).xyz);
+  vec3 Pv = (viewMatrix * vec4(vVWorld, 1.0)).xyz;
+  float lift = mix(0.6, 1.0, vT);
+  #if NUM_DIR_LIGHTS > 1
+    for (int i = 1; i < NUM_DIR_LIGHTS; i++) {
+      vec3 Ld = directionalLights[i].direction;
+      float w = max(dot(Nv, Ld), 0.0) * 0.75 + 0.25 * max(dot(viewMatrix[1].xyz, Ld), 0.0);
+      E += directionalLights[i].color * shadow * w;
+    }
+  #endif
+  #if NUM_SPOT_LIGHTS > 0
+    for (int i = 0; i < NUM_SPOT_LIGHTS; i++) {
+      vec3 toL = spotLights[i].position - Pv;
+      float dist = length(toL);
+      vec3 Ls = toL / dist;
+      float cone = getSpotAttenuation(spotLights[i].coneCos, spotLights[i].penumbraCos, dot(Ls, spotLights[i].direction));
+      float fall = getDistanceAttenuation(dist, spotLights[i].distance, spotLights[i].decay);
+      float w = 0.35 * max(dot(Nv, Ls), 0.0) + 0.65;
+      E += spotLights[i].color * (cone * fall * w * lift);
+    }
+  #endif
+  #if NUM_POINT_LIGHTS > 0
+    for (int i = 0; i < NUM_POINT_LIGHTS; i++) {
+      vec3 toL = pointLights[i].position - Pv;
+      float dist = length(toL);
+      float fall = getDistanceAttenuation(dist, pointLights[i].distance, pointLights[i].decay);
+      float w = 0.35 * max(dot(Nv, toL / dist), 0.0) + 0.65;
+      E += pointLights[i].color * (fall * w * lift);
+    }
+  #endif
+
+  // The engine's own cheap lamp (VegetationEngine.setGrassLamp).
+  if (uVLampColor.r + uVLampColor.g + uVLampColor.b > 0.0) {
+    vec3 Lg = vVWorld - uVLampPos;
+    float dg = length(Lg);
+    float aim = smoothstep(-0.1, 0.7, dot(Lg / dg, uVLampDir));
+    float fall = (1.0 - smoothstep(uVLampRange * 0.5, uVLampRange, dg)) / max(dg * dg, 0.25);
+    E += uVLampColor * (aim * fall * lift);
+  }
+
+  vec3 color = albedo * RECIPROCAL_PI * E;
 
   gl_FragColor = vec4(color, 1.0);
   #include <tonemapping_fragment>

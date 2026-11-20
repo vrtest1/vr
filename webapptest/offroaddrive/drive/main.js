@@ -3,15 +3,17 @@ import * as THREE from 'three';
 import { createWorld } from '../examples/shared/createWorld.js';
 import { Vehicle } from './vehicle.js';
 import { makeGround } from './ground.js';
-import { loadTruck, poseWheels } from './truckModel.js';
+import { loadTruck, poseWheels, setLamps, rearLampPoint, setSteeringWheelAngle } from './truckModel.js';
 import { TruckSound } from './truckSound.js';
-import { Dust, SkyReflection, makeContactShadow, TireTracks } from './effects.js';
+import { Dust, SkyReflection, makeContactShadow, TireTracks, LampGlow } from './effects.js';
 import { Cannonball } from './cannonball.js';
 import { MetalBGM } from './music/metal.js';
 import { Moon } from './moon.js';
 import { Multiplayer } from './net/multiplayer.js';
-import { RemoteTrucks, packState } from './net/remotes.js';
+import { RemoteTrucks, packState, vehicleLamps } from './net/remotes.js';
 import { createLobby } from './net/lobby.js';
+import { createChat } from './net/chat.js';
+import { StarDrops, haloTexture } from './stars.js';
 
 const query = new URLSearchParams(location.search);
 const num = (k, d) => (query.has(k) ? Number(query.get(k)) : d);
@@ -25,6 +27,10 @@ const SCENES = {
   night: { environment: { timeOfDay: 21.5, weather: 'clear', humidity: 60, windSpeed: 2 }, volumetric: { visibility: 3000, falloff: 50 }, post: { temperature: -0.04, saturation: 1.0, contrast: 1.04, bloomIntensity: 0.4 } },
 };
 const firstScene = SCENES[query.get('scene')] ? query.get('scene') : 'noon';
+// Steering-wheel controllers (by their gamepad id) and their rotation, lock to
+// lock in degrees (?wheel=1080 etc. if yours is set differently).
+const WHEEL_ID = /wheel|G2[5579]\b|G9[02][03]|driving force|T300|T150|T248|TMX|thrustmaster|fanatec|moza|simagic/i;
+const WHEEL_RANGE = num('wheel', 900);
 const START = { x: num('x', -5400), z: num('z', 7960), heading: num('heading', 2.2) };
 
 function fail(err) {
@@ -121,6 +127,27 @@ async function main() {
   const dust = new Dust();
   scene.add(dust.points);
 
+  const lamp = { brake: 0, reverse: 0, tail: 0 };
+  const engineWas = { on: true, warned: false };
+  // Light from the rear lamps on the ground and grass behind (not a three.js light: see LampGlow).
+  const LAMP_CD = { brake: 12, tail: 1.5, reverse: 35 }; // candela (toned down from real lamps: reads better on screen)
+  const rearLamp = rearLampPoint(truck.root) ?? new THREE.Vector3(0, 0.1, vehicle.spec.size[2] / 2);
+  const glow = new LampGlow();
+  scene.add(glow.mesh);
+  const remoteGlows = new Map();
+  const glowColor = new THREE.Color(), glowAt = new THREE.Vector3(), glowBack = new THREE.Vector3();
+  const lampLight = (out, brake, reverse, tail, dark) => out.setRGB(1, 0.02, 0.01)
+    .multiplyScalar(LAMP_CD.brake * brake + LAMP_CD.tail * tail)
+    .add(revColor.setRGB(1, 0.95, 0.85).multiplyScalar(LAMP_CD.reverse * reverse))
+    .multiplyScalar(dark); // by day the lamps make no visible light on the ground
+  const revColor = new THREE.Color();
+  const placeGlow = (g, pos, quat, l, dark) => {
+    glowAt.copy(rearLamp).applyQuaternion(quat).add(pos);
+    glowBack.set(0, 0, 1).applyQuaternion(quat);
+    lampLight(glowColor, l.brake, l.reverse, l.tail, dark);
+    g.update(glowAt, glowBack, glowColor, ground);
+  };
+
   // Headlights.
   const lights = [];
   for (const x of [-0.6, 0.6]) {
@@ -137,11 +164,15 @@ async function main() {
 
   // --- input
   const keys = new Set();
-  const touch = { left: false, right: false, gas: false, brake: false };
+  const touch = { left: false, right: false, gas: false, brake: false, hand: false };
   const input = { steer: 0, throttle: 0, brake: 0 };
   let camMode = query.has('cam') ? Number(query.get('cam')) : 0;
   const CAMS = ['追従', '遠め', '運転席', 'ボンネット'];
   const orbit = { yaw: 0, pitch: 0, idle: 0, dragging: false, x: 0, y: 0, zoom: 1 };
+  // Inside views: how much of the body's pitch and roll the driver's head takes (see updateCamera).
+  const HEAD_PITCH = num('headPitch', 0.6), HEAD_ROLL = num('headRoll', 0.3);
+  const head = new THREE.Quaternion(), headTarget = new THREE.Quaternion(), headEul = new THREE.Euler(), bodyEul = new THREE.Euler();
+  let headReady = false;
 
   const resetTruck = () => {
     const p = vehicle.position;
@@ -171,23 +202,46 @@ async function main() {
 
   const dom = renderer.domElement;
   dom.style.touchAction = 'none';
+  // One finger (or the mouse) looks around; two fingers pinch to zoom.
+  const fingers = new Map(); // pointerId -> {x, y}
+  let pinch = 0;
+  const spread = () => { const [a, b] = [...fingers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
   dom.addEventListener('pointerdown', (e) => {
     dom.setPointerCapture(e.pointerId);
+    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     orbit.dragging = true; orbit.x = e.clientX; orbit.y = e.clientY;
+    if (fingers.size === 2) pinch = spread();
   });
   dom.addEventListener('pointermove', (e) => {
-    if (!orbit.dragging) return;
+    if (!orbit.dragging || !fingers.has(e.pointerId)) return;
+    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (fingers.size >= 2) {
+      const d = spread();
+      if (pinch > 0 && d > 0) orbit.zoom = THREE.MathUtils.clamp(orbit.zoom * (pinch / d), 0.5, 3); // spread apart = closer
+      pinch = d;
+      orbit.idle = 0;
+      return;
+    }
     orbit.yaw -= (e.clientX - orbit.x) * 0.006;
-    orbit.pitch = THREE.MathUtils.clamp(orbit.pitch - (e.clientY - orbit.y) * 0.004, -0.5, 1.0);
+    orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + (e.clientY - orbit.y) * 0.004, -0.5, 1.0); // up/down inverted (user's preference)
     orbit.x = e.clientX; orbit.y = e.clientY; orbit.idle = 0;
   });
-  const endDrag = () => { orbit.dragging = false; };
+  const endDrag = (e) => {
+    fingers.delete(e.pointerId);
+    pinch = 0;
+    if (fingers.size === 1) { const [f] = fingers.values(); orbit.x = f.x; orbit.y = f.y; } // carry on with the other finger
+    else if (!fingers.size) orbit.dragging = false;
+  };
   dom.addEventListener('pointerup', endDrag);
   dom.addEventListener('pointercancel', endDrag);
   dom.addEventListener('wheel', (e) => {
     e.preventDefault();
     orbit.zoom = THREE.MathUtils.clamp(orbit.zoom * Math.exp(e.deltaY * 0.001), 0.5, 3);
   }, { passive: false });
+
+  // The 4H / 4L badge on the meter switches the range (tap or click).
+  $('range').addEventListener('click', (e) => { e.stopPropagation(); toggleLow(); });
+  $('range').title = '4H / 4L 切替（L）。止まっているか、ゆっくりのときだけ';
 
   // Touch buttons (shown on touch devices).
   if (matchMedia('(pointer: coarse)').matches) {
@@ -240,6 +294,10 @@ async function main() {
   const readOne = (gp) => {
     const standard = gp.mapping === 'standard';
     const sony = /054c|sony|wireless controller|dualshock|dualsense/i.test(gp.id);
+    // A steering-wheel controller: its wheel is axis 0, read without the pad's
+    // dead zone. Its pedals and other axes differ per model, so they are not
+    // guessed at (no stray camera turning from a pedal on axis 2 or 3).
+    const wheel = WHEEL_ID.test(gp.id);
     const M = standard || !sony ? STD : RAW_DS;
     const prev = pad.prev[gp.index] ?? [];
     const seen = pad.seen.get(gp.index) ?? new Set();
@@ -264,19 +322,21 @@ async function main() {
       help: pressed(M.options),
     };
     pad.prev[gp.index] = gp.buttons.map((x) => x.pressed);
-    const rx = gp.axes[2] ?? 0, ry = (standard || !sony ? gp.axes[3] : gp.axes[5]) ?? 0;
-    return { steer: gp.axes[0] ?? 0, throttle, brake, handbrake: btn(M.cross) > 0.5 || btn(M.circle) > 0.5, rx, ry, actions };
+    const rx = wheel ? 0 : gp.axes[2] ?? 0, ry = wheel ? 0 : (standard || !sony ? gp.axes[3] : gp.axes[5]) ?? 0;
+    if (wheel && !standard) { throttle = btn(7); brake = btn(6); }
+    return { steer: gp.axes[0] ?? 0, throttle, brake, handbrake: btn(M.cross) > 0.5 || btn(M.circle) > 0.5, rx, ry, actions, wheel };
   };
   const readPad = () => {
     if (query.get('pad') === '0') return null; // tests: ignore real controllers
     const list = [...(navigator.getGamepads?.() ?? [])].filter((g) => g && g.connected);
     if (!list.length) return null;
     const dz = (v) => (Math.abs(v) < 0.12 ? 0 : (v - Math.sign(v) * 0.12) / 0.88);
-    const out = { steer: 0, throttle: 0, brake: 0, handbrake: false };
+    const out = { steer: 0, throttle: 0, brake: 0, handbrake: false, wheel: false };
     let rx = 0, ry = 0;
     for (const gp of list) {
       const r = readOne(gp);
-      if (Math.abs(dz(r.steer)) > Math.abs(out.steer)) out.steer = dz(r.steer);
+      const st = r.wheel ? (Math.abs(r.steer) < 0.01 ? 0 : r.steer) : dz(r.steer);
+      if (Math.abs(st) > Math.abs(out.steer) || (r.wheel && st === out.steer)) { out.steer = st; out.wheel = r.wheel; }
       out.throttle = Math.max(out.throttle, r.throttle);
       out.brake = Math.max(out.brake, r.brake);
       out.handbrake ||= r.handbrake;
@@ -288,7 +348,7 @@ async function main() {
       if (r.actions.help) $('help').hidden = !$('help').hidden;
     }
     if (Math.abs(rx) > 0.15 || Math.abs(ry) > 0.15) {
-      orbit.yaw -= dz(rx) * 0.05; orbit.pitch = THREE.MathUtils.clamp(orbit.pitch - dz(ry) * 0.03, -0.5, 1); orbit.idle = 0;
+      orbit.yaw -= dz(rx) * 0.05; orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + dz(ry) * 0.03, -0.5, 1); orbit.idle = 0; // up/down inverted (user's preference)
     }
     if (query.get('pad') === '1') {
       const t = list.map((gp) => `[${gp.index}] ${gp.id} | ${gp.mapping || 'raw'} | axes ${gp.axes.map((a) => a.toFixed(2)).join(' ')} | buttons ${gp.buttons.map((b, i) => (b.pressed || b.value > 0.05 ? i : null)).filter((x) => x !== null).join(',')}`).join('\n');
@@ -299,6 +359,26 @@ async function main() {
 
   // --- top bar
   const bar = $('bar');
+  // Phones and tablets: the bar folds away behind ☰ (起こす and チャット stay).
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  if (coarse) {
+    const MENU_KEY = 'offroad-drive.menu.v1';
+    const menu = document.createElement('button');
+    menu.className = 'keep menu';
+    menu.setAttribute('aria-label', 'メニュー');
+    const setMenu = (open) => {
+      bar.classList.toggle('collapsed', !open);
+      menu.textContent = open ? '✕' : '☰';
+      try { localStorage.setItem(MENU_KEY, open ? '1' : '0'); } catch { /* private mode */ }
+    };
+    menu.addEventListener('click', (e) => { e.stopPropagation(); setMenu(bar.classList.contains('collapsed')); });
+    bar.appendChild(menu);
+    let open = false;
+    try { open = localStorage.getItem(MENU_KEY) === '1'; } catch { /* private mode */ }
+    setMenu(open);
+  }
+  // No zooming the page by double tap or pinch (iOS ignores user-scalable=no).
+  for (const type of ['gesturestart', 'gesturechange', 'dblclick']) document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
   const buttons = (names, current, onPick) => {
     const made = names.map(([id, label]) => {
       const b = document.createElement('button');
@@ -370,18 +450,113 @@ async function main() {
     if (e.code === 'KeyN' && bgm.playing) bgm.next();
   });
   const resetButton = document.createElement('button');
-  resetButton.textContent = '起こす (R)';
+  resetButton.textContent = coarse ? '起こす' : '起こす (R)';
+  resetButton.classList.add('keep');
   resetButton.addEventListener('click', resetTruck);
   bar.appendChild(resetButton);
 
   const cannonball = new Cannonball({
     ground, vehicle, scene, camera, sound, bar,
+    items: () => stars?.markers() ?? [],
     brightness: () => atmosphere.skyLight?.intensity ?? 1,
     place: (x, z, heading) => { vehicle.place(x, z, heading, ground); camHeading = heading; camReady = false; orbit.yaw = orbit.pitch = 0; },
   });
-  window.addEventListener('keydown', (e) => { if (e.code === 'KeyG' && !e.repeat) cannonball.showMenu(cannonball.state === 'running' || cannonball.state === 'countdown'); });
+  // お助けアイテム: stars fall while this is on (each player's own choice).
+  const stars = new StarDrops({
+    scene, ground, vehicle, sound, cannonball,
+    brightness: () => atmosphere.skyLight?.intensity ?? 1,
+    place: (x, z, heading) => { vehicle.place(x, z, heading, ground); camHeading = heading; camReady = false; orbit.yaw = orbit.pitch = 0; },
+    toast: (text) => padToast(text, 3500),
+    onLand: (at) => {
+      for (let i = 0; i < 14; i++) {
+        const a = Math.random() * Math.PI * 2;
+        dust.emit(tmp.set(at.x + Math.sin(a) * 1.5, at.y + 0.3, at.z + Math.cos(a) * 1.5), tmp2.set(Math.sin(a) * 3, 1.5 + Math.random() * 2, Math.cos(a) * 3), 1.2 + Math.random(), 1.4, 0.75, 0.68, 0.55);
+      }
+    },
+  });
+  // Super armour: rainbow bands race over the truck's body and a halo of light
+  // wraps it. Works for any truck root (ours, or another player's when their
+  // state bit 4 is set). The body shader gets an extra emissive term, added on
+  // top of whatever onBeforeCompile it already has (sky, fog, under water).
+  const rainbowState = new WeakMap();
+  let rainbowHalo = null;
+  const RAINBOW_GLSL = /* glsl */ `
+    vec3 pwsRainbowHue(float h) { return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); }`;
+  const patchRainbow = (m) => {
+    const u = { uRbAmt: { value: 0 }, uRbTime: { value: 0 }, uRbTint: { value: 0 } };
+    const prev = m.onBeforeCompile;
+    m.onBeforeCompile = (shader, renderer) => {
+      prev?.call(m, shader, renderer);
+      Object.assign(shader.uniforms, u);
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vRbPos;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\nvRbPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>\nvarying vec3 vRbPos;\nuniform float uRbAmt;\nuniform float uRbTime;\nuniform float uRbTint;\n${RAINBOW_GLSL}`)
+        // The paint itself takes the colour too, so it reads in daylight.
+        .replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), pwsRainbowHue(fract(uRbTime * 1.2 + (vRbPos.x + vRbPos.y * 1.3 + vRbPos.z) * 0.22)), uRbTint);')
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += pwsRainbowHue(fract(uRbTime * 1.2 + (vRbPos.x + vRbPos.y * 1.3 + vRbPos.z) * 0.22)) * uRbAmt;');
+    };
+    const key = m.customProgramCacheKey?.bind(m);
+    m.customProgramCacheKey = () => (key ? key() : '') + '|rainbow';
+    m.needsUpdate = true;
+    return u;
+  };
+  const rainbowGlow = (root, on, now, halo = true) => {
+    let st = rainbowState.get(root);
+    if (!st) {
+      if (!on) return;
+      st = { u: [], aura: null, on: false };
+      root.traverse((o) => {
+        if (!o.isMesh || o.userData.isLamp) return;
+        // Not the glass: you have to see out through it.
+        for (const m of [].concat(o.material)) if (m.isMeshStandardMaterial && !/glass/i.test(m.name) && !m.userData.rainbow) { m.userData.rainbow = patchRainbow(m); }
+        for (const m of [].concat(o.material)) if (m.userData.rainbow && !st.u.includes(m.userData.rainbow)) st.u.push(m.userData.rainbow);
+      });
+      rainbowHalo ??= haloTexture();
+      st.aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: rainbowHalo, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+      st.aura.scale.setScalar(10);
+      st.aura.position.set(0, 0.4, 0);
+      st.aura.renderOrder = 6;
+      root.add(st.aura);
+      rainbowState.set(root, st);
+    }
+    const sky = atmosphere.skyLight?.intensity ?? 1;
+    const pulse = 0.7 + 0.3 * Math.sin(now * 13);
+    for (const u of st.u) {
+      u.uRbAmt.value = on ? (0.5 + 1.2 * Math.min(1.5, sky)) * pulse : 0;
+      u.uRbTime.value = now;
+      u.uRbTint.value = on ? 0.8 : 0;
+    }
+    st.aura.visible = on && halo;
+    if (on) {
+      st.aura.material.color.setHSL((now * 1.2) % 1, 1, 0.55);
+      st.aura.material.opacity = (0.55 + 0.25 * Math.min(1, sky)) * pulse;
+    }
+    st.on = on;
+  };
+  const ITEM_KEY = 'offroad-drive.items.v1';
+  const itemButton = document.createElement('button');
+  itemButton.textContent = 'アイテム';
+  itemButton.title = 'お助けアイテム（星）を降らせる';
+  const setItems = (on) => {
+    stars.setEnabled(on);
+    itemButton.setAttribute('aria-pressed', String(on));
+    try { localStorage.setItem(ITEM_KEY, on ? '1' : '0'); } catch { /* private mode */ }
+  };
+  itemButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setItems(!stars.enabled);
+    padToast(stars.enabled ? '★ アイテム オン: ときどき星が降ってきます（ピンク=ブースト、水色=グリップ、黄色=ワープ）' : 'アイテム オフ', 4500);
+  });
+  bar.appendChild(itemButton);
+  let itemsSaved = false;
+  try { itemsSaved = localStorage.getItem(ITEM_KEY) === '1'; } catch { /* private mode */ }
+  setItems(itemsSaved);
+  window.addEventListener('keydown', (e) => { if (e.target instanceof HTMLInputElement) return; if (e.code === 'KeyG' && !e.repeat) cannonball.showMenu(cannonball.state === 'running' || cannonball.state === 'countdown'); });
   // --- multiplayer ---------------------------------------------------------
   const net = new Multiplayer();
+  let chat = null; // created with the lobby below
   const remoteTracks = new Map();
   // Send our state on a timer rather than per frame: it keeps going (slower)
   // when this window is in the background and the frame loop pauses.
@@ -391,6 +566,11 @@ async function main() {
   remotes = new RemoteTrucks(scene, truck, vehicle, (root, color) => {
     // Each player's truck gets its own materials, tinted towards their colour.
     const tint = new THREE.Color(color).lerp(new THREE.Color(1, 1, 1), 0.55);
+    // No real lights on other players' trucks (headlight beams, headlamp bulbs):
+    // each one costs a little on every pixel. Their lamps still glow.
+    const drop = [];
+    root.traverse((o) => { if (o.isLight) drop.push(o, o.target); });
+    for (const o of drop) o?.removeFromParent();
     root.traverse((o) => {
       if (!o.isMesh) return;
       o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
@@ -440,34 +620,37 @@ async function main() {
         remotes.remove(id);
         const t = remoteTracks.get(id);
         if (t) { t.mesh.removeFromParent(); t.mesh.geometry.dispose(); remoteTracks.delete(id); }
+        remoteGlows.get(id)?.dispose(); remoteGlows.delete(id);
       }
     }
     for (const [id, info] of net.peers) remotes.list.get(id)?.setInfo(info);
     lockHostSettings();
     lobby.render();
+    chat?.peersChanged();
   };
   // Collisions between players: whoever detects the hit sends the other their share.
   const lastHit = new Map(); // peerId -> time we last resolved a hit with them
   const pendingHit = new Map();
   const lastSent = new Map();
-  vehicle.onCarHit = (id, imp, strength) => {
+  vehicle.onCarHit = (id, imp, strength, armored = false) => {
     const now = performance.now() / 1000;
     lastHit.set(id, now);
     // One impulse per collision: the physics touches them every step while
     // the bodies overlap, but they only need the first, strongest contact.
     if (now - (lastSent.get(id) ?? -1) < 0.3 && !pendingHit.has(id)) return;
     const p = pendingHit.get(id);
-    if (!p || strength > p.s) pendingHit.set(id, { x: imp.x, z: imp.z, s: strength });
+    if (!p || strength > p.s) pendingHit.set(id, { x: imp.x, z: imp.z, s: strength, a: armored });
     lastSent.set(id, now);
   };
   setInterval(() => { // batch the impulses of one collision into one message
-    for (const [id, p] of pendingHit) net.sendHit(id, { x: Math.round(p.x), z: Math.round(p.z), s: Math.round(p.s * 100) / 100 });
+    for (const [id, p] of pendingHit) net.sendHit(id, { x: Math.round(p.x), z: Math.round(p.z), s: Math.round(p.s * 100) / 100, ...(p.a ? { a: 1 } : {}) });
     pendingHit.clear();
   }, 50);
   net.onHit = (peerId, h) => {
     const now = performance.now() / 1000;
     vehicle.fx.crash = Math.max(vehicle.fx.crash, h.s || 0);
     sound.crash?.(Math.min(1, (h.s || 0) / 9));
+    if (vehicle.armor) return; // super armour: nothing moves us
     if (now - (lastHit.get(peerId) ?? -1) < 0.3) return; // we already took our share
     const m = vehicle.spec.mass;
     // Equal trucks: at most ~65 % of the closing speed carries over to the one that was hit.
@@ -475,15 +658,23 @@ async function main() {
     const k = dv > 0 ? Math.min(1, (0.65 * (h.s || 0)) / dv) : 0;
     vehicle.velocity.x += (h.x / m) * k;
     vehicle.velocity.z += (h.z / m) * k;
-    vehicle.velocity.y += Math.min(1.5, Math.hypot(h.x, h.z) / m * 0.15);
-    vehicle.angularVelocity.y += (Math.random() - 0.5) * Math.min(2, Math.hypot(h.x, h.z) / m * 0.3);
+    const big = h.a === 1; // hit by a rainbow truck: sent flying
+    vehicle.velocity.y += Math.min(big ? 4.5 : 1.5, Math.hypot(h.x, h.z) / m * (big ? 0.35 : 0.15));
+    vehicle.angularVelocity.y += (Math.random() - 0.5) * Math.min(big ? 5 : 2, Math.hypot(h.x, h.z) / m * (big ? 0.6 : 0.3));
   };
   net.onHostLeft = (p) => lobby.toast(`ホスト（${p.name}）が退出しました。天気とコースはこのままです`, 6000);
   net.onFinish = (peerId, f) => {
     if (f?.race !== raceId || !Number.isFinite(f?.time)) return;
+    if (finishTimes.has(peerId)) return;
     finishTimes.set(peerId, f.time);
+    const place = finishTimes.size; // order of arrival
     const p = net.peers.get(peerId);
-    if (p) lobby.toast(`🏁 ${p.name} がゴール！ ${Math.floor(f.time / 60)}:${(f.time % 60).toFixed(2).padStart(5, '0')}`);
+    if (!p) return;
+    const medal = place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : '🏁';
+    const text = `${medal} ${p.name} が${place}着でゴール！ ${Math.floor(f.time / 60)}:${(f.time % 60).toFixed(2).padStart(5, '0')}`;
+    lobby.toast(text, place === 1 ? 6000 : 4000);
+    chat?.add(null, text);
+    sound.chime?.('other-goal');
   };
   const handleRace = (r) => {
     if (r?.type === 'abort') { cannonball.abortedByHost(); lobby.toast('ホストがレースを中止しました'); return; }
@@ -511,7 +702,13 @@ async function main() {
       handleRace(msg);
     },
     abortRace() { net.sendRace({ type: 'abort' }); },
-    finished(time) { finishTimes.set(net.selfId, time); net.sendFinish({ race: raceId, time }); },
+    finished(time) {
+      finishTimes.set(net.selfId, time);
+      net.sendFinish({ race: raceId, time });
+      const place = finishTimes.size;
+      chat?.add(null, `${place === 1 ? '🥇' : '🏁'} ${net.me.name}（自分）が${place}着でゴール！ ${Math.floor(time / 60)}:${(time % 60).toFixed(2).padStart(5, '0')}`);
+      return place;
+    },
     others: () => [...remotes.list.values()].filter((r) => r.root.visible).map((r) => ({ x: r.position.x, z: r.position.z, color: r.info.color })),
     board: () => net.players.map((p) => {
       const goal = cannonball.course?.goal;
@@ -523,12 +720,13 @@ async function main() {
   const lobby = createLobby({
     bar, net,
     onJoined: () => { lockHostSettings(); },
-    onLeft: () => { remotes.clear(); for (const t of remoteTracks.values()) t.mesh.removeFromParent(); remoteTracks.clear(); lockHostSettings(); if (cannonball.multiRace) cannonball.abortedByHost(); },
+    onLeft: () => { chat?.peersChanged(); remotes.clear(); for (const t of remoteTracks.values()) t.mesh.removeFromParent(); remoteTracks.clear(); for (const g of remoteGlows.values()) g.dispose(); remoteGlows.clear(); lockHostSettings(); if (cannonball.multiRace) cannonball.abortedByHost(); },
   });
+  chat = createChat({ bar, net, remotes, vehicle, onOpen: () => keys.clear() });
   net.onPeersChanged();
 
   if (config?.credit) $('credit').textContent = `車: ${config.credit}`;
-  window.drive = { vehicle, truck, orbit, ground, sound, cannonball, bgm, tracks, moon, net, remotes };
+  window.drive = { vehicle, truck, orbit, ground, sound, cannonball, bgm, tracks, moon, net, remotes, chat, stars };
   $('meter').hidden = false;
   $('help').hidden = query.get('help') === '0';
   $('loading').classList.add('done');
@@ -561,7 +759,7 @@ async function main() {
     vi.steer = gp && Math.abs(gp.steer) > Math.abs(input.steer) ? gp.steer : input.steer;
     vi.throttle = Math.max(input.throttle, gp?.throttle ?? 0);
     vi.brake = Math.max(input.brake, gp?.brake ?? 0);
-    vi.handbrake = k('Space') || (gp?.handbrake ?? false);
+    vi.handbrake = k('Space') || touch.hand || (gp?.handbrake ?? false);
     if (cannonball?.locked) { vi.throttle = 0; vi.brake = 0; }
 
     vehicle.update(dt, ground);
@@ -578,6 +776,9 @@ async function main() {
     truck.root.position.copy(vehicle.position);
     truck.root.quaternion.copy(vehicle.quaternion);
     poseWheels(truck, vehicle);
+    // With a steering-wheel controller the wheel on screen follows the one in
+    // your hands, degree for degree (WHEEL_RANGE lock to lock, 900 by default).
+    if (gp?.wheel && truck.steering && Math.abs(vi.steer - gp.steer) < 1e-6) setSteeringWheelAngle(truck.steering, -gp.steer * (WHEEL_RANGE / 2) * Math.PI / 180);
 
     // Contact shadow on the ground under the truck.
     {
@@ -596,6 +797,18 @@ async function main() {
     // Headlights after dusk.
     const dark = THREE.MathUtils.clamp((0.06 - environment.sunDirection.y) / 0.12, 0, 1);
     for (const l of lights) { l.intensity = dark * 1800; l.visible = dark > 0; } // candela
+
+    // Rear lamps: brake (red), reversing (white), tail lamps with the headlights.
+    // Hill hold (no pedal) does not count as braking. A bulb takes a moment.
+    const lampTarget = vehicleLamps(vehicle);
+    const lampK = Math.min(1, dt * 25);
+    lamp.brake += ((lampTarget & 1 ? 1 : 0) - lamp.brake) * lampK;
+    lamp.reverse += ((lampTarget & 2 ? 1 : 0) - lamp.reverse) * lampK;
+    lamp.tail = dark;
+    lamp.gain = 1 - 0.25 * dark;
+    setLamps(truck.root, lamp);
+    placeGlow(glow, vehicle.position, vehicle.quaternion, lamp, dark);
+    vegetation.setGrassLamp(glowAt, glowBack, glowColor);
 
     // Dust and spray from the wheels.
     const wv = environment.windVector ?? wind;
@@ -628,8 +841,16 @@ async function main() {
     // Other players: interpolate, pose, and give them dust and tracks too.
     if (remotes) {
       remotes.update(dt, camera, renderer);
+      chat?.update(camera, renderer);
+      sound.updateRemotes(remotes.list.values(), camera, underwater.depth, ground.water);
       for (const r of remotes.list.values()) {
         if (!r.root.visible) continue;
+        const rl = { brake: r.lamps & 1 ? 1 : 0, reverse: r.lamps & 2 ? 1 : 0, tail: dark, gain: lamp.gain };
+        setLamps(r.root, rl);
+        rainbowGlow(r.root, !!(r.lamps & 4), performance.now() / 1000);
+        let rg = remoteGlows.get(r.id);
+        if (!rg) { rg = new LampGlow(); scene.add(rg.mesh); remoteGlows.set(r.id, rg); }
+        placeGlow(rg, r.position, r.quaternion, rl, dark);
         kickDust(r);
         let t = remoteTracks.get(r.id);
         if (!t) { t = new TireTracks(3000); scene.add(t.mesh); remoteTracks.set(r.id, t); }
@@ -649,7 +870,19 @@ async function main() {
 
     updateCamera(dt);
     cannonball?.update(dt, camera);
-    sound.update(vehicle);
+    stars.update(dt, camera);
+    // From the driver's seat or the bonnet the camera sits inside the halo: leave it out.
+    rainbowGlow(truck.root, vehicle.armor, performance.now() / 1000, camMode < 2);
+    sound.update(vehicle, underwater.depth);
+    bgm.setUnderwater(TruckSound.underwater(vehicle.submerged, underwater.depth));
+    // Afloat for too long: warn, stall, start again on land.
+    if (vehicle.engineOn !== engineWas.on) {
+      padToast(vehicle.engineOn ? 'エンジンがかかった' : 'エンジンが水を吸って止まった… 岸に着けば乾いてかかる（R で起こす）', 5000);
+      engineWas.on = vehicle.engineOn;
+    }
+    const warn = vehicle.engineOn && vehicle.flood > 0.6;
+    if (warn && !engineWas.warned) padToast('エンジンがせき込んでいる。早く岸へ！', 4000);
+    engineWas.warned = vehicle.flood > 0.6 ? true : vehicle.flood < 0.3 ? false : engineWas.warned;
 
     meter.t -= dt;
     if (meter.t <= 0) {
@@ -677,13 +910,26 @@ async function main() {
         ? (config?.driverEye ?? [-0.38, 0.62, -0.05])
         : (config?.hoodEye ?? [0, 0.62, -1.3]);
       rig.position.set(...eye).applyQuaternion(q).add(p);
-      eul.set(orbit.pitch * 0.8 - 0.04, orbit.yaw, 0);
-      camera.quaternion.copy(q).multiply(qv.setFromEuler(eul));
+      // A head, not a camera bolted to the body: it keeps the horizon fairly
+      // level (only part of the body's roll and pitch comes through) and soaks
+      // up the small jolts. Heading follows the truck exactly.
+      headEul.setFromQuaternion(q, 'YXZ');
+      headEul.set(headEul.x * HEAD_PITCH, headEul.y, headEul.z * HEAD_ROLL, 'YXZ');
+      headTarget.setFromEuler(headEul);
+      if (!headReady) { head.copy(headTarget); headReady = true; }
+      else head.slerp(headTarget, 1 - Math.exp(-dt * 14));
+      // Keep the heading exact (no lag turning), only roll and pitch are eased.
+      headEul.setFromQuaternion(head, 'YXZ');
+      headEul.y = bodyEul.setFromQuaternion(q, 'YXZ').y;
+      head.setFromEuler(headEul);
+      eul.set(-orbit.pitch * 0.8 - 0.04, orbit.yaw, 0); // up/down inverted like the outside views (user's preference)
+      camera.quaternion.copy(head).multiply(qv.setFromEuler(eul));
       camera.near = 0.05;
       camera.updateProjectionMatrix();
       camReady = false;
       return;
     }
+    headReady = false; // outside: the head starts afresh when we go back in
     camera.near = 0.3;
     const far = camMode === 1;
     const dist = (far ? 12 : 6.8) * orbit.zoom;

@@ -339,3 +339,114 @@ export class SkyReflection {
     old?.dispose();
   }
 }
+
+// --- light from the rear lamps on the ground ----------------------------------
+// Brake and reversing lamps at night colour the ground behind the truck. Not
+// a three.js light (each of those costs a little on every pixel of the whole
+// scene): a patch of ground behind the truck, re-fitted to the terrain each
+// frame, drawn additively with the light a lamp at that spot would give
+// (inverse square, aimed backwards) on ground of ordinary brightness.
+
+const GLOW_VERT = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_vertex>
+varying vec3 vWorld;
+void main() {
+  vec4 wp = modelMatrix * vec4(position, 1.0);
+  vWorld = wp.xyz;
+  vec3 toCam = cameraPosition - wp.xyz;
+  float d = length(toCam);
+  wp.xyz += toCam / max(d, 1e-3) * (0.12 + d * 0.004);
+  gl_Position = projectionMatrix * viewMatrix * wp;
+  #include <logdepthbuf_vertex>
+}`;
+
+const GLOW_FRAG = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_fragment>
+uniform vec3 uLamp;     // where the light comes from (world)
+uniform vec3 uDir;      // which way it shines (world, unit)
+uniform vec3 uColor;    // colour x intensity (candela)
+uniform float uRange;   // m
+varying vec3 vWorld;
+void main() {
+  #include <logdepthbuf_fragment>
+  vec3 L = vWorld - uLamp;
+  float d = length(L);
+  float aim = smoothstep(-0.1, 0.7, dot(L / d, uDir));
+  float fall = (1.0 - smoothstep(uRange * 0.5, uRange, d)) / max(d * d, 0.25);
+  float cosIn = clamp(-L.y / d, 0.0, 1.0); // light comes down at a slant
+  // Ground of albedo ~0.25, lit: albedo / pi x illuminance.
+  vec3 c = uColor * (0.25 * RECIPROCAL_PI * aim * fall * (0.3 + 0.7 * cosIn));
+  if (max(c.r, max(c.g, c.b)) < 1e-4) discard;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+
+export class LampGlow {
+  mesh;
+  #geo; #pos; #n;
+  /** @param {number} length  how far back the patch reaches (m)  @param {number} width (m) */
+  constructor(length = 8, width = 7, cells = 8) {
+    this.length = length;
+    this.width = width;
+    this.#n = cells + 1;
+    const geo = new THREE.PlaneGeometry(1, 1, cells, cells);
+    this.#geo = geo;
+    this.#pos = geo.attributes.position;
+    this.#pos.setUsage(THREE.DynamicDrawUsage);
+    this.mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({
+      vertexShader: GLOW_VERT,
+      fragmentShader: GLOW_FRAG,
+      uniforms: {
+        uLamp: { value: new THREE.Vector3() },
+        uDir: { value: new THREE.Vector3(0, 0, 1) },
+        uColor: { value: new THREE.Color(0, 0, 0) },
+        uRange: { value: length },
+      },
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    }));
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 2;
+    this.mesh.visible = false;
+  }
+
+  /**
+   * @param {THREE.Vector3} lamp   world position of the rear lamps
+   * @param {THREE.Vector3} back   world direction straight back from the truck
+   * @param {THREE.Color} color    colour x intensity (candela); black hides it
+   * @param {object} ground        { height(x, z) }
+   */
+  update(lamp, back, color, ground) {
+    const on = Math.max(color.r, color.g, color.b) > 0.01;
+    this.mesh.visible = on;
+    if (!on) return;
+    const u = this.mesh.material.uniforms;
+    u.uLamp.value.copy(lamp);
+    u.uDir.value.copy(back);
+    u.uColor.value.copy(color);
+    // Fit the patch to the ground: it starts just under the bumper and fans
+    // backwards; its edges are where the light has faded anyway.
+    const fx = back.x, fz = back.z, fl = Math.hypot(fx, fz) || 1;
+    const bx = fx / fl, bz = fz / fl, sx = -bz, sz = bx;
+    const n = this.#n, pos = this.#pos;
+    for (let j = 0; j < n; j++) {
+      const along = (j / (n - 1)) * this.length - 0.6;
+      for (let i = 0; i < n; i++) {
+        const across = (i / (n - 1) - 0.5) * this.width;
+        const x = lamp.x + bx * along + sx * across;
+        const z = lamp.z + bz * along + sz * across;
+        pos.setXYZ(j * n + i, x, ground.height(x, z), z);
+      }
+    }
+    pos.needsUpdate = true;
+  }
+
+  dispose() {
+    this.mesh.removeFromParent();
+    this.#geo.dispose();
+    this.mesh.material.dispose();
+  }
+}

@@ -6,6 +6,8 @@
 // weather, moon) and the キャノンボール course; everyone drives their own truck
 // and sends its state ~15 times a second.
 
+import { cleanText } from './chat.js';
+
 const TRYSTERO = 'https://cdn.jsdelivr.net/npm/trystero@0.26.0/+esm';
 const APP_ID = 'offroad-drive.procedural-world.v1';
 export const COLORS = ['#e8a33d', '#4fb3e8', '#e8584f', '#6fd36a', '#c77be8', '#e8d94f', '#4fe8c8', '#e87bb0'];
@@ -33,6 +35,7 @@ export class Multiplayer {
   onRace = () => {};      // (race) from the host
   onFinish = () => {};    // (peerId, {time})
   onHit = () => {};       // (peerId, {x, z, s}) another truck hit ours
+  onChat = () => {};      // (peerId, text) a chat message (already cleaned)
   onHostLeft = () => {};
   onStatus = () => {};    // (text)
   hostEnv = () => null;   // host: current env to send to a newcomer
@@ -63,7 +66,7 @@ export class Multiplayer {
       onJoinError: (d) => this.onStatus(`接続できない相手がいます（${d?.error ?? 'error'}）`),
     }));
     const act = (name) => (this.#a[name] = room.makeAction(name));
-    const hello = act('hello'), state = act('st'), env = act('env'), race = act('race'), fin = act('fin'), spot = act('spot'), hit = act('hit');
+    const hello = act('hello'), state = act('st'), env = act('env'), race = act('race'), fin = act('fin'), spot = act('spot'), hit = act('hit'), chat = act('chat');
 
     room.onPeerJoin = (peerId) => {
       hello.send({ ...this.me, host: this.isHost }, { target: peerId });
@@ -92,6 +95,11 @@ export class Multiplayer {
     spot.onMessage = (data, { peerId }) => { if (peerId === this.hostId) this.onSpot(data); };
     fin.onMessage = (data, { peerId }) => this.onFinish(peerId, data);
     hit.onMessage = (data, { peerId }) => { if (data && Number.isFinite(data.x) && Number.isFinite(data.z)) this.onHit(peerId, data); };
+    chat.onMessage = (data, { peerId }) => {
+      if (!this.peers.has(peerId)) return; // only from players who said hello
+      const text = cleanText(data?.text);
+      if (text) this.onChat(peerId, text);
+    };
     this.onStatus(host ? '部屋を作りました。参加者を待っています' : 'ホストを探しています…');
     this.onPeersChanged();
   }
@@ -111,4 +119,5 @@ export class Multiplayer {
   sendRace(r) { if (this.isHost) this.#a.race?.send(r); }
   sendFinish(f) { this.#a.fin?.send(f); }
   sendHit(peerId, h) { this.#a.hit?.send(h, { target: peerId }); }
+  sendChat(text) { this.#a.chat?.send({ text: cleanText(text) }); }
 }

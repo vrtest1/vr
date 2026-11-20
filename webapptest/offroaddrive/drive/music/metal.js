@@ -386,6 +386,19 @@ export class MetalBGM {
   get songs() { return SONGS; }
   get current() { return this.playing ? SONGS[this.index] : null; }
 
+  #lp = null; #lpGain = null; #under = 0;
+
+  /** 0 = dry, 1 = heard from under the water: dull and a little quieter. */
+  setUnderwater(amount, now = false) {
+    this.#under = amount;
+    if (!this.#lp) return;
+    const t = this.ctx.currentTime, k = now ? 0 : 0.1;
+    const f = 20000 * Math.pow(380 / 20000, amount);
+    if (now) { this.#lp.frequency.value = f; this.#lpGain.gain.value = 1 - 0.3 * amount; return; }
+    this.#lp.frequency.setTargetAtTime(f, t, k);
+    this.#lpGain.gain.setTargetAtTime(1 - 0.3 * amount, t, k);
+  }
+
   set volume(v) { this.#volume = v; if (this.band) this.band.out.gain.value = v; }
   get volume() { return this.#volume; }
 
@@ -393,7 +406,14 @@ export class MetalBGM {
   async play(index = this.index) {
     if (!this.ctx) {
       this.ctx = new AudioContext();
-      this.band = new MetalBand(this.ctx, this.ctx.destination);
+      // Heard through water when the truck is in it (see setUnderwater).
+      this.#lp = this.ctx.createBiquadFilter();
+      this.#lp.type = 'lowpass';
+      this.#lp.Q.value = 0.7;
+      this.#lpGain = this.ctx.createGain();
+      this.#lp.connect(this.#lpGain).connect(this.ctx.destination);
+      this.band = new MetalBand(this.ctx, this.#lp);
+      this.setUnderwater(this.#under, true);
       this.band.out.gain.value = this.#volume;
       this.#compiled = SONGS.map(compile);
     }

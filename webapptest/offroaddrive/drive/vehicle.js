@@ -48,11 +48,21 @@ export const DEFAULT_SPEC = {
   corneringStiffness: 70000, // N/rad per tyre at static load
   dragArea: 1.55, // 0.5 * rho * Cd * A
   rollingResistance: 0.016,
+  // Afloat: the spinning tyres paddle a little, the front ones steer, and
+  // after a while the engine drinks water and dies.
+  paddleForce: 3200, // N at full throttle, the truck well afloat
+  paddleSteer: 0.6,  // share of the front tyres' push that turns with the steering
+  paddleTurn: 4000,  // N m of yaw per rad of steering at full throttle (front tyres as a rudder)
+  floodTime: 45,     // s afloat before the engine stalls
+  restartTime: 3,    // s back on dry land before it starts again
+  armorRighting: 30000, // N m per sin(tilt) pulling back upright (super armour)
+  armorDamping: 7000,   // N m s against rolling and pitching (super armour)
 };
 
 const _v = new Vector3(), _w = new Vector3(), _r = new Vector3(), _p = new Vector3();
 const _n = new Vector3(), _f = new Vector3(), _s = new Vector3(), _c = new Vector3();
 const _up = new Vector3(), _fwd = new Vector3(), _right = new Vector3(), _d = new Vector3();
+const _wy = new Vector3(0, 1, 0); // the up that super armour steers toward
 const _q = new Quaternion(), _m3 = new Matrix3(), _rt = new Matrix3();
 
 export class Vehicle {
@@ -70,6 +80,17 @@ export class Vehicle {
   shiftTimer = 0;
   speed = 0; // signed, along the body (m/s)
   submerged = 0; // 0..1
+  engineOn = true;
+  // Power-ups (stars.js): engine torque and tyre grip multipliers.
+  power = 1;
+  gripBoost = 1;
+  // Super armour (rainbow star): through trees, others bounce off, we barely move.
+  armor = false;
+  // Help against rolling over, 0..1 (the armour has it in full; the grip star
+  // in part, since more grip also means more force tipping the truck over).
+  rollAssist = 0;
+  flood = 0; // 0..1, the engine stalls at 1
+  #dry = 0;
   /** Things for sound and effects, refreshed every step. */
   fx = { slip: 0, roughness: 0, impact: 0, splash: 0, load: 0, crash: 0 };
   /** Called when we hit another player's truck: (id, impulseOnThem {x, z} in N·s, strength m/s). */
@@ -147,6 +168,8 @@ export class Vehicle {
     this.angularVelocity.set(0, 0, 0);
     this.gear = 1;
     this.steerAngle = 0;
+    this.engineOn = true;
+    this.flood = 0;
     for (const wh of this.wheels) { wh.spinRate = 0; }
   }
 
@@ -224,8 +247,13 @@ export class Vehicle {
         wh.length = s.restLength;
         wh.compression = 0;
         wh.load = 0;
-        // A free wheel coasts down (or spins up with the throttle).
-        wh.spinRate *= 1 - 0.6 * dt;
+        // A free wheel coasts down, or with the throttle spins up with the
+        // engine (all four are driven: in the air or afloat, the front ones too).
+        const r = this.#ratio();
+        if (this.engineOn && this.pedal > 0.05 && r !== 0 && this.shiftTimer <= 0.1) {
+          const engine = (this.rpm * 2 * Math.PI / 60) / r; // rad/s at the wheel, signed by gear
+          wh.spinRate += (engine - wh.spinRate) * Math.min(1, dt * 4);
+        } else wh.spinRate *= 1 - 0.6 * dt;
         if (this.input.handbrake && !wh.front) wh.spinRate = 0;
         continue;
       }
@@ -272,7 +300,7 @@ export class Vehicle {
         wh.surface = g.surface;
       }
       const load = Math.min(fs, share * G * 3);
-      const mu = wh.grip;
+      const mu = wh.grip * this.gripBoost;
       const fMax = mu * load;
 
       // Longitudinal: drive, brakes, rolling resistance.
@@ -355,6 +383,47 @@ export class Vehicle {
     if (wet > 0 && this.submerged === 0 && this.velocity.y < -1.5) this.fx.splash = Math.max(this.fx.splash, Math.min(1, -this.velocity.y / 6));
     this.submerged = wet;
 
+    // Paddling: tyres spinning in the water push a little, the front pair
+    // along where they are steered, so the truck can creep and turn.
+    const swim = Math.min(1, Math.max(0, (wet - 0.12) / 0.2));
+    const r = this.#ratio();
+    if (swim > 0 && this.engineOn && r !== 0 && this.pedal > 0.02) {
+      const push = s.paddleForce * this.pedal * swim * Math.sign(r) / 4;
+      for (const wh of this.wheels) {
+        _d.copy(_fwd);
+        if (wh.front) _d.multiplyScalar(1 - s.paddleSteer).addScaledVector(_d.clone().applyAxisAngle(_up, this.steerAngle), s.paddleSteer);
+        _d.y = 0;
+        if (_d.lengthSq() < 1e-6) continue;
+        _d.normalize().multiplyScalar(push);
+        _p.copy(wh.local).applyQuaternion(q).add(this.position);
+        addForce(_d, _p);
+      }
+      torque.addScaledVector(_up, s.paddleTurn * this.steerAngle * this.pedal * swim * Math.sign(r));
+    }
+    // Water in the intake: afloat for long enough, the engine dies; on dry
+    // land again it dries out and starts.
+    if (this.engineOn) {
+      if (wet > 0.25) this.flood = Math.min(1, this.flood + dt / s.floodTime);
+      else this.flood = Math.max(0, this.flood - dt / (s.floodTime * 2));
+      if (this.flood >= 1) { this.engineOn = false; this.#dry = 0; }
+    } else if (wet < 0.02 && this.wheels.some((w) => w.contact)) {
+      this.#dry += dt;
+      if (this.#dry > s.restartTime) { this.engineOn = true; this.flood = 0; }
+    } else this.#dry = 0;
+
+    // Super armour keeps the wheels down: a self-righting torque toward
+    // upright and strong damping of roll and pitch (yaw is left alone).
+    const assist = this.armor ? 1 : this.rollAssist;
+    if (assist > 0) {
+      // Upright means "along the ground" when on it (so slopes are fine), else straight up.
+      if (this.wheels.some((w) => w.contact)) ground.normal(this.position.x, this.position.z, _wy);
+      else _wy.set(0, 1, 0);
+      _c.crossVectors(_up, _wy);                         // axis to turn back upright, |sin(tilt)|
+      torque.addScaledVector(_c, s.armorRighting * assist);
+      _s.copy(this.angularVelocity).addScaledVector(_up, -this.angularVelocity.dot(_up));
+      torque.addScaledVector(_s, -s.armorDamping * assist);
+    }
+
     // Air drag.
     const sp = this.velocity.length();
     force.addScaledVector(this.velocity, -s.dragArea * sp);
@@ -395,6 +464,7 @@ export class Vehicle {
     // `other` is set for another player's truck: { id, vx, vz, mass }. We take our share
     // of the impulse and hand theirs over (onCarHit), since their view of us lags behind.
     ground.trees(this.position.x, this.position.z, half + 3, (tx, ty, tz, tr, other = null) => {
+      if (this.armor && !other) return; // trees don't stop us
       if (ty > this.position.y + 1.2 || ty < this.position.y - 4) return;
       for (const c of centres) {
         const dx = c.x - tx, dz = c.z - tz;
@@ -414,15 +484,17 @@ export class Vehicle {
         const rn = _r.x * _n.z - _r.z * _n.x;
         const invMass = 1 / this.#mass + (rn * rn) * this.#invInertia.y + (other ? 1 / other.mass : 0);
         const j = (-(1 + (other ? 0.3 : 0.15)) * vn) / invMass;
-        this.velocity.addScaledVector(_n, j / this.#mass);
-        this.angularVelocity.y -= rn * j * this.#invInertia.y;
+        const self = this.armor && other ? 0.12 : 1; // armoured: we hardly feel it
+        this.velocity.addScaledVector(_n, (j * self) / this.#mass);
+        this.angularVelocity.y -= rn * j * self * this.#invInertia.y;
         // Scrub some sideways speed too.
         _s.copy(vRel).addScaledVector(_n, -vn);
         this.velocity.addScaledVector(_s, -0.25);
         if (other) {
           this.fx.crash = Math.max(this.fx.crash, -vn);
           // Their half: the same impulse the other way (they apply it when it arrives).
-          this.onCarHit?.(other.id, { x: -_n.x * j, z: -_n.z * j }, -vn);
+          const k = this.armor ? 3 : 1; // armoured: they fly
+          this.onCarHit?.(other.id, { x: -_n.x * j * k, z: -_n.z * j * k }, -vn * (this.armor ? 2.5 : 1), this.armor);
         } else this.fx.impact = Math.max(this.fx.impact, -vn);
       }
     });
@@ -474,13 +546,15 @@ export class Vehicle {
         if (lower < down && lower < s.redline - 600) { this.gear--; this.shiftTimer = 0.3; }
       }
     }
-    this.rpm += (rpm - this.rpm) * Math.min(1, dt * 12);
+    if (!this.engineOn) rpm = 0;
+    this.rpm += (rpm - this.rpm) * Math.min(1, dt * (this.engineOn ? 12 : 4));
   }
 
   /** Total drive force at the ground from the engine, along the body (N). */
   #driveForce() {
     const s = this.spec;
     if (this.gear === 0 || this.shiftTimer > 0.1) return 0;
+    if (!this.engineOn) return -Math.sign(this.speed) * Math.min(Math.abs(this.speed) * 40, 300); // a dead engine still drags a little
     const pedal = this.pedal;
     if (pedal <= 0) {
       // Engine braking.
@@ -493,6 +567,6 @@ export class Vehicle {
     const conv = 1 + 0.9 * (1 - speedRatio);
     // Reverse is limited to a sensible pace.
     const cut = this.gear < 0 ? Math.max(0, Math.min(1, (28 / 3.6 + this.speed) / 2)) : 1;
-    return this.#torque(this.rpm) * pedal * cut * conv * r * s.efficiency / s.wheelRadius;
+    return this.#torque(this.rpm) * this.power * pedal * cut * conv * r * s.efficiency / s.wheelRadius;
   }
 }

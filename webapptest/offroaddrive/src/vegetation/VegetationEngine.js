@@ -187,6 +187,11 @@ export class VegetationEngine extends BaseEngine {
       uVRange: { value: new Vector2(1700, 2000) },
       uVCover: { value: new Vector4(1, 1, 0, 0) },
       uVCanopy: { value: new Color() },
+      // One cheap light for the grass that is not a three.js light (see setGrassLamp).
+      uVLampPos: { value: new Vector3() },
+      uVLampDir: { value: new Vector3(0, 0, 1) },
+      uVLampColor: { value: new Color(0, 0, 0) },
+      uVLampRange: { value: 8 },
     };
 
     this.#models = MODELS.map(([species, seed]) => buildTreeModel(species, seed));
@@ -225,6 +230,22 @@ export class VegetationEngine extends BaseEngine {
   }
 
   /** Grass materials (one per patch), e.g. for `atmosphere.applyTo(m)`. */
+  /**
+   * A light that only the grass sees (and so costs nothing elsewhere): e.g. a
+   * vehicle's rear lamps, whose light on the ground is drawn separately.
+   * @param {Vector3} position  world
+   * @param {Vector3} direction world, unit: it shines this way and to the sides, not back
+   * @param {Color} color       colour x intensity (candela); black turns it off
+   * @param {number} [range]    m
+   */
+  setGrassLamp(position, direction, color, range = 8) {
+    const u = this.#shared;
+    u.uVLampPos.value.copy(position);
+    u.uVLampDir.value.copy(direction);
+    u.uVLampColor.value.copy(color);
+    u.uVLampRange.value = range;
+  }
+
   get grassMaterials() {
     return this.#grass.map((g) => g.material);
   }

@@ -270,10 +270,12 @@ export class Cannonball {
     const prevBest = records.reduce((m, r) => Math.max(m, r.avg), 0);
     records.push(rec);
     try { localStorage.setItem(STORE, JSON.stringify(records.slice(-50))); } catch { /* private mode */ }
-    this.#o.sound.chime?.('goal');
-    if (this.multiRace) this.#net?.finished(this.time);
+    // In a race with others: our place (1 = first to arrive).
+    const place = this.multiRace ? this.#net?.finished(this.time) : null;
+    this.#o.sound.chime?.(place === 1 ? 'goal-first' : 'goal');
     const big = this.#ui.big;
-    big.innerHTML = `<div class="cb-title">ゴール！</div><div class="cb-time">${fmt(this.time)}</div>
+    const placeText = place ? ` ${place === 1 ? '🥇 1着' : place === 2 ? '🥈 2着' : place === 3 ? '🥉 3着' : `${place}着`}` : '';
+    big.innerHTML = `<div class="cb-title">ゴール！${placeText}</div><div class="cb-time">${fmt(this.time)}</div>
       <div class="cb-sub">直線 ${(c.distance / 1000).toFixed(2)} km ・ 実際に走った距離 ${(this.#driven / 1000).toFixed(2)} km ・ 平均 ${avg.toFixed(0)} km/h
       ${avg > prevBest && records.length > 1 ? '<br><b>最速記録を更新！</b>' : ''}</div>`;
     big.hidden = false;
@@ -427,6 +429,14 @@ export class Cannonball {
     g.fillStyle = '#ff5a4a'; g.strokeStyle = '#fff'; g.lineWidth = 1.5;
     g.beginPath(); g.moveTo(0, -8); g.lineTo(5.5, 6); g.lineTo(-5.5, 6); g.closePath(); g.fill(); g.stroke();
     g.restore();
+    // Power-up stars (when the アイテム button is on), on top of everything.
+    for (const m of this.#o.items?.() ?? []) {
+      const [ix, iy] = toPx(m.x, m.z);
+      g.fillStyle = m.color; g.strokeStyle = '#fff'; g.lineWidth = 1.2;
+      g.globalAlpha = m.landed ? 1 : 0.6;
+      g.beginPath(); g.arc(ix, iy, m.rainbow ? 5.5 : 4, 0, 7); g.fill(); g.stroke();
+      g.globalAlpha = 1;
+    }
     g.fillStyle = 'rgba(255,255,255,.8)';
     g.font = '11px sans-serif';
     g.fillText('N', S / 2 - 4, 12);

@@ -17,7 +17,7 @@
 #rpm { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .15); margin: 8px 0 6px; overflow: hidden; }
 #rpmFill { height: 100%; width: 0; background: linear-gradient(90deg, #8fd18a, #e9c58a 70%, #e2614f); }
 #gearRow { display: flex; justify-content: space-between; font-size: 15px; font-weight: 600; }
-#range { padding: 0 6px; border-radius: 5px; background: rgba(255, 255, 255, .12); }
+#range { padding: 0 6px; border-radius: 5px; background: rgba(255, 255, 255, .12); cursor: pointer; }
 #range.low { background: #e9c58a; color: #14100a; }
 
 #help { position: fixed; left: 14px; bottom: 14px; max-width: min(640px, calc(100vw - 220px)); padding: 9px 12px;
@@ -121,3 +121,78 @@
 .mp-tag u { position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%); width: 0; height: 0;
   border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 7px solid #fff; }
 .mp-tag.quiet::before { content: '通信待ち '; color: #ffc35a; font-size: 11px; }
+
+/* Chat: log window top right, speech bubbles over the trucks. */
+.chat { position: fixed; right: 14px; top: 104px; width: min(300px, calc(100vw - 28px)); z-index: 5; display: flex; flex-direction: column;
+  gap: 6px; padding: 8px; border-radius: 10px; background: rgba(8, 10, 12, .6); color: #e8eef0; font-size: 13px; transition: opacity .6s; }
+.chat[hidden], .chat-form[hidden] { display: none; }
+.chat.idle { opacity: .35; }
+.chat-log { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; overflow-wrap: anywhere; line-height: 1.4; }
+.chat-log b { font-weight: 700; margin-right: 2px; }
+.chat-log .sys { color: #9fb0b8; font-size: 12px; }
+.chat-form input { width: 100%; box-sizing: border-box; font: inherit; padding: 7px 9px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, .3);
+  background: rgba(255, 255, 255, .1); color: #fff; }
+.chat-bubble { position: fixed; left: 0; top: 0; max-width: 240px; padding: 5px 10px; border-radius: 10px; background: rgba(255, 255, 255, .92);
+  color: #14100a; font-size: 13px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; text-align: center; pointer-events: none; z-index: 3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .3); }
+.chat-bubble::after { content: ''; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); border-left: 6px solid transparent;
+  border-right: 6px solid transparent; border-top: 6px solid rgba(255, 255, 255, .92); }
+@media (max-width: 700px) {
+  .chat { right: auto; left: 10px; width: calc(100vw - 150px); }
+  .chat-log { max-height: 110px; }
+}
+
+/* Power-up from a star, with seconds left. */
+.item-fx { position: fixed; right: 200px; bottom: 22px; padding: 6px 12px; border-radius: 10px; background: rgba(8, 10, 12, .6);
+  color: #ffe7a3; font-size: 15px; font-weight: 700; z-index: 4; pointer-events: none; }
+.item-fx[hidden] { display: none; }
+@media (max-width: 700px) { .item-fx { right: 10px; bottom: auto; top: 160px; font-size: 13px; } }
+
+/* Touch devices: no double-tap zoom or long-press selection, bigger targets,
+   a bar that folds away, and room for the notch. */
+html, body { touch-action: manipulation; }
+@media (pointer: coarse) {
+  html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+  input { -webkit-user-select: text; user-select: text; }
+  #help { display: none !important; }
+  #bar { top: calc(6px + env(safe-area-inset-top)); width: max-content; }
+  #bar button { font-size: 15px; padding: 9px 13px; min-height: 42px; }
+  #bar.collapsed > :not(.keep) { display: none; }
+  #bar .menu { min-width: 46px; font-size: 18px; }
+  #touch .pad { bottom: calc(14px + env(safe-area-inset-bottom)); gap: 14px; align-items: flex-end; }
+  #touch .left { left: calc(16px + env(safe-area-inset-left)); }
+  #touch .right { right: calc(200px + env(safe-area-inset-right)); }
+  #touch button { width: 92px; height: 92px; font-size: 16px; -webkit-touch-callout: none; }
+  #touch button[data-k="gas"] { width: 108px; height: 108px; }
+  #meter { right: calc(18px + env(safe-area-inset-right)); }
+}
+@media (pointer: coarse) and (max-width: 700px) {
+  #bar.collapsed { left: calc(10px + env(safe-area-inset-left)); transform: none; }
+  #touch .pad { gap: 10px; }
+  #touch .left { left: calc(12px + env(safe-area-inset-left)); }
+  #touch .right { right: calc(12px + env(safe-area-inset-right)); }
+  #touch button { width: 76px; height: 76px; font-size: 14px; }
+  #touch button[data-k="gas"] { width: 90px; height: 90px; }
+  #meter { top: calc(72px + env(safe-area-inset-top)); }
+}
+
+/* Star radar outside races (same corner as the race minimap). */
+.item-radar { position: fixed; right: 18px; bottom: 150px; width: 160px; height: 160px; border-radius: 50%; z-index: 4; pointer-events: none; }
+.item-radar[hidden] { display: none; }
+@media (max-width: 700px) { .item-radar { width: 120px; height: 120px; bottom: auto; top: 200px; right: 10px; } }
+@media (pointer: coarse) { .item-radar { right: calc(18px + env(safe-area-inset-right)); } }
+.item-radar.above-map { bottom: 330px; width: 130px; height: 130px; right: 38px; }
+@media (max-width: 700px) { .item-radar.above-map { top: 330px; bottom: auto; right: 10px; width: 110px; height: 110px; } }
+
+/* Handbrake: a small button above the brake. 4H/4L: tap the badge on the meter. */
+#touch .hand { right: 322px; bottom: 116px; }
+#touch button[data-k="hand"] { width: 64px; height: 64px; font-size: 14px; }
+@media (pointer: coarse) {
+  #touch .hand { right: calc(332px + env(safe-area-inset-right)); bottom: calc(118px + env(safe-area-inset-bottom)); }
+  #range { display: inline-block; padding: 4px 12px; font-size: 18px; }
+}
+@media (pointer: coarse) and (max-width: 700px) {
+  #touch .hand { right: calc(108px + env(safe-area-inset-right)); bottom: calc(100px + env(safe-area-inset-bottom)); }
+  #touch button[data-k="hand"] { width: 58px; height: 58px; font-size: 13px; }
+  #range { padding: 3px 10px; font-size: 16px; }
+}

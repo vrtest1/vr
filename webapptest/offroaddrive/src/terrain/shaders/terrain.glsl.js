@@ -194,10 +194,17 @@ float pweGeomOctaves(float dist) {
 
 void terrainVertex(out vec3 pos, out vec3 nrm) {
   vec2 grid = position.xz;
-  float cell = aNode.z / uTPatchRes;
-  vec2 wp = aNode.xy + grid * cell;
-
   int lvl = int(aNode.w + 0.5);
+
+  // Positions are counted in whole finest-level cells and only then turned
+  // into metres, so a vertex shared by two patches comes out bit-identical
+  // from both. Computing aNode.xy + grid * (size / res) instead leaves
+  // hairline cracks between patches on GPUs whose division is not exact
+  // (seen on Windows / Direct3D as thin white lines of sky in the ground).
+  vec2 origin = floor(aNode.xy / uTLeafSpacing + 0.5);
+  float stride = float(1 << lvl);
+  vec2 wp = (origin + grid * stride) * uTLeafSpacing;
+
   float rEnd = uTRanges[lvl];
   float rPrev = lvl > 0 ? uTRanges[lvl - 1] : 0.0;
   float rStart = mix(rPrev, rEnd, uTMorphStart);
@@ -205,8 +212,8 @@ void terrainVertex(out vec3 pos, out vec3 nrm) {
 
   // Slide odd vertices onto their even neighbour: the patch turns into the
   // next coarser grid before the LOD switch happens.
-  vec2 odd = mod(grid, 2.0);
-  wp = aNode.xy + (grid - odd * k) * cell;
+  vec2 odd = grid - 2.0 * floor(grid * 0.5 + 0.25);
+  wp = (origin + (grid - odd * k) * stride) * uTLeafSpacing;
 
   vec3 hd = terrainHeight(wp, pweGeomOctaves(pweSegDist(wp)));
   pos = vec3(wp.x, hd.x, wp.y);

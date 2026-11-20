@@ -2,9 +2,17 @@
 // between the states they send (drawn ~120 ms in the past so there is always
 // a snapshot on each side), wheels steered and rolled, a name tag above.
 import * as THREE from 'three';
+import { poseSteeringWheel } from '../truckModel.js';
 
 const DELAY = 0.12; // s of interpolation delay
 const R3 = (v) => Math.round(v * 1000) / 1000;
+
+/** Rear lamps as bits: 1 brake, 2 reversing; and 4 super armour (rainbow). */
+export function vehicleLamps(v) {
+  const reverse = v.gear < 0;
+  const pedal = reverse ? v.input.throttle : v.input.brake; // in reverse W is the brake
+  return (pedal > 0.05 ? 1 : 0) | (reverse ? 2 : 0) | (v.armor ? 4 : 0);
+}
 
 /** Our truck's state as a compact array for the wire. */
 export function packState(v) {
@@ -20,6 +28,7 @@ export function packState(v) {
     w.reduce((b, x, i) => b | (x.contact ? 1 << i : 0) | (x.surface << (4 + i * 2)), 0),
     R3(w[0].slip), R3(w[1].slip), R3(w[2].slip), R3(w[3].slip),
     Math.round(v.rpm),
+    vehicleLamps(v),
   ];
 }
 
@@ -37,6 +46,7 @@ class Remote {
     this.steerAngle = 0;
     this.speed = 0;
     this.rpm = 800;
+    this.lamps = 0;
     this.spec = spec;
     // Looks enough like a Vehicle for the dust and tyre-track code.
     this.wheels = spec.wheelLocals.map((local, i) => ({ local, front: i < 2, length: spec.restLength, contact: false, slip: 0, surface: 0, spin: 0 }));
@@ -99,6 +109,7 @@ class Remote {
       w.slip = last[17 + i];
     }
     this.rpm = last[21];
+    this.lamps = last[22] | 0; // older clients send no lamps
     // First pose: jump; afterwards follow (the interpolation is already smooth).
     if (!this.seen) { this.position.copy(P); this.quaternion.copy(Q); this.seen = true; }
     else { this.position.lerp(P, Math.min(1, dt * 20)); this.quaternion.slerp(Q, Math.min(1, dt * 20)); }
@@ -114,6 +125,7 @@ class Remote {
       pivot.rotation.set(0, w.front ? this.steerAngle : 0, 0);
       pivot.children[0].rotation.x = -w.spin;
     });
+    poseSteeringWheel(this.root, this.steerAngle);
   }
 
   dispose() {
