@@ -30,7 +30,7 @@
 #touch button { width: 76px; height: 76px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .3);
   background: rgba(255, 255, 255, .14); color: #fff; font: inherit; font-size: 15px; touch-action: none; user-select: none; -webkit-user-select: none; }
 #touch button.on { background: rgba(233, 197, 138, .55); }
-@media (max-width: 700px) {
+@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) {
   #meter { width: 120px; right: 10px; bottom: auto; top: 70px; padding: 8px 10px; }
   #speed { font-size: 36px; }
   #touch .right { right: 16px; }
@@ -69,7 +69,7 @@
 .cb-title { font-size: 56px; font-weight: 800; color: #ffc35a; }
 .cb-time { font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cb-sub { font-size: 16px; margin-top: 6px; }
-@media (max-width: 700px) {
+@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) {
   .cb-map { width: 120px; height: 120px; bottom: auto; top: 200px; right: 10px; }
   .cb-hud { top: 100px; }
   .cb-count { font-size: 80px; }
@@ -137,7 +137,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, .3); }
 .chat-bubble::after { content: ''; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); border-left: 6px solid transparent;
   border-right: 6px solid transparent; border-top: 6px solid rgba(255, 255, 255, .92); }
-@media (max-width: 700px) {
+@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) {
   .chat { right: auto; left: 10px; width: calc(100vw - 150px); }
   .chat-log { max-height: 110px; }
 }
@@ -146,9 +146,11 @@
 .item-fx { position: fixed; right: 200px; bottom: 22px; padding: 6px 12px; border-radius: 10px; background: rgba(8, 10, 12, .6);
   color: #ffe7a3; font-size: 15px; font-weight: 700; z-index: 4; pointer-events: none; }
 .item-fx[hidden] { display: none; }
-@media (max-width: 700px) { .item-fx { right: 10px; bottom: auto; top: 160px; font-size: 13px; } }
+@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) { .item-fx { right: 10px; bottom: auto; top: 160px; font-size: 13px; } }
 
-/* Touch devices: no double-tap zoom or long-press selection, bigger targets,
+/* Phone layouts: narrow screens, and any touch screen held upright (Safari's
+   page zoom (aA) can make an iPhone wider than 700 CSS px).
+   Touch devices: no double-tap zoom or long-press selection, bigger targets,
    a bar that folds away, and room for the notch. */
 html, body { touch-action: manipulation; }
 @media (pointer: coarse) {
@@ -170,7 +172,7 @@ html, body { touch-action: manipulation; }
   #touch button[data-k="gas"] { width: 108px; height: 108px; }
   #meter { right: calc(18px + env(safe-area-inset-right)); }
 }
-@media (pointer: coarse) and (max-width: 700px) {
+@media (pointer: coarse) and (max-width: 700px), (pointer: coarse) and (orientation: portrait) {
   #bar.collapsed { left: calc(10px + env(safe-area-inset-left)); right: auto; margin: 0; transform: none; }
   #touch .pad { gap: 10px; }
   #touch .left { left: calc(12px + env(safe-area-inset-left)); }
@@ -183,10 +185,10 @@ html, body { touch-action: manipulation; }
 /* Star radar outside races (same corner as the race minimap). */
 .item-radar { position: fixed; right: 18px; bottom: 150px; width: 160px; height: 160px; border-radius: 50%; z-index: 4; pointer-events: none; }
 .item-radar[hidden] { display: none; }
-@media (max-width: 700px) { .item-radar { width: 120px; height: 120px; bottom: auto; top: 200px; right: 10px; } }
+@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) { .item-radar { width: 120px; height: 120px; bottom: auto; top: 200px; right: 10px; } }
 @media (pointer: coarse) { .item-radar { right: calc(18px + env(safe-area-inset-right)); } }
 .item-radar.above-map { bottom: 330px; width: 130px; height: 130px; right: 38px; }
-@media (max-width: 700px) { .item-radar.above-map { top: 330px; bottom: auto; right: 10px; width: 110px; height: 110px; } }
+@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) { .item-radar.above-map { top: 330px; bottom: auto; right: 10px; width: 110px; height: 110px; } }
 
 /* Handbrake: a small button above the brake. 4H/4L: tap the badge on the meter. */
 #touch .hand { right: 322px; bottom: 116px; }
@@ -195,7 +197,7 @@ html, body { touch-action: manipulation; }
   #touch .hand { right: calc(332px + env(safe-area-inset-right)); bottom: calc(118px + env(safe-area-inset-bottom)); }
   #range { display: inline-block; padding: 4px 12px; font-size: 18px; }
 }
-@media (pointer: coarse) and (max-width: 700px) {
+@media (pointer: coarse) and (max-width: 700px), (pointer: coarse) and (orientation: portrait) {
   #touch .hand { right: calc(108px + env(safe-area-inset-right)); bottom: calc(100px + env(safe-area-inset-bottom)); }
   #touch button[data-k="hand"] { width: 58px; height: 58px; font-size: 13px; }
   #range { padding: 3px 10px; font-size: 16px; }
@@ -219,8 +221,8 @@ html, body { touch-action: manipulation; }
 .game-board { top: 160px; }
 .mp-tag[data-oni]::before { content: '👹 '; }
 .cb-row button:disabled { opacity: .45; cursor: not-allowed; }
-@media (max-width: 700px) { .game-hud { font-size: 13px; max-width: calc(100vw - 150px); flex-wrap: wrap; left: 10px; transform: none; } .game-board { top: auto; bottom: 130px; left: 10px; min-width: 150px; } .game-result .cb-title { font-size: 30px; } }
-@media (pointer: coarse) and (min-width: 701px) {
+@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) { .game-hud { font-size: 13px; max-width: calc(100vw - 150px); flex-wrap: wrap; left: 10px; transform: none; } .game-board { top: auto; bottom: 130px; left: 10px; min-width: 150px; } .game-result .cb-title { font-size: 30px; } }
+@media (pointer: coarse) and (min-width: 701px) and (orientation: landscape) {
   .item-radar { width: 120px; height: 120px; bottom: calc(176px + env(safe-area-inset-bottom)); }
 }
 
@@ -234,16 +236,16 @@ html, body { touch-action: manipulation; }
 .minimap { position: fixed; right: 18px; bottom: 150px; width: 170px; height: 170px; z-index: 4; pointer-events: none;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .45)); }
 .minimap[hidden] { display: none; }
-@media (max-width: 700px) { .minimap { width: 120px; height: 120px; bottom: auto; top: 200px; right: 10px; } }
+@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) { .minimap { width: 120px; height: 120px; bottom: auto; top: 200px; right: 10px; } }
 @media (pointer: coarse) { .minimap { right: calc(18px + env(safe-area-inset-right)); } }
-@media (pointer: coarse) and (min-width: 701px) {
+@media (pointer: coarse) and (min-width: 701px) and (orientation: landscape) {
   .minimap { width: 120px; height: 120px; bottom: calc(176px + env(safe-area-inset-bottom)); }
 }
 
 /* スマホ・タブレットの横持ち: ブレーキとアクセルを一番右に（サイドはブレーキの上）。
    右下にあった速度計（4H/4L）は右上へ、ミニマップ・星のレーダー・レースの地図はその下へ。
    縦持ち（幅 700px 以下）は前から ブレーキ・アクセルが右端で、速度計は右上。 */
-@media (pointer: coarse) and (min-width: 701px) {
+@media (pointer: coarse) and (min-width: 701px) and (orientation: landscape) {
   #touch .right { right: calc(16px + env(safe-area-inset-right)); }
   #touch .hand { right: calc(16px + 108px + 14px + 14px + env(safe-area-inset-right)); }
   #meter { top: calc(10px + env(safe-area-inset-top)); bottom: auto; width: 130px; padding: 8px 12px 10px; }

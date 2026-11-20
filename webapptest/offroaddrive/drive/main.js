@@ -1003,10 +1003,10 @@ async function main() {
   // below it when it is at the top of the screen (phones), above it when it
   // is at the bottom. Measured, not fixed in the CSS: the meter moves with the
   // notch (safe area) and its height changes with the fonts.
-  const landscapeTouch = matchMedia('(pointer: coarse) and (min-width: 701px)');
+  const landscapeTouch = matchMedia('(pointer: coarse) and (min-width: 701px) and (orientation: landscape)');
   // Phone held upright: the meter goes just under the top bar, measured, since
   // the bar's height changes with the notch and the fonts (iPhone).
-  const portraitTouch = matchMedia('(pointer: coarse) and (max-width: 700px)');
+  const portraitTouch = matchMedia('(pointer: coarse) and (max-width: 700px), (pointer: coarse) and (orientation: portrait)');
   const layoutCorner = () => {
     const meterEl = $('meter');
     const b = bar.getBoundingClientRect();
