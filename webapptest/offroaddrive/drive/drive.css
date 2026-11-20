@@ -42,7 +42,7 @@
 #help { bottom: 22px; }
 
 /* キャノンボール */
-.cb-panel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, calc(100vw - 32px));
+.cb-panel { box-sizing: border-box; position: fixed; left: 0; right: 0; margin: 0 auto; top: 50%; transform: translateY(-50%); width: min(460px, calc(100vw - 32px));
   max-height: calc(100vh - 40px); overflow: auto; padding: 18px 20px; border-radius: 14px; background: rgba(12, 14, 16, .88);
   color: #eef0ea; z-index: 20; font-size: 14px; line-height: 1.6; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .cb-panel h2 { margin: 0 0 6px; font-size: 20px; color: #ffc35a; }
@@ -55,7 +55,7 @@
 .cb-panel table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
 .cb-panel td { padding: 3px 4px; border-top: 1px solid rgba(255, 255, 255, .1); }
 .cb-panel td:nth-child(n+2) { text-align: right; }
-.cb-hud { position: fixed; left: 50%; top: 96px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px;
+.cb-hud { position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; top: 96px; display: flex; align-items: center; gap: 12px;
   padding: 6px 14px 6px 8px; border-radius: 12px; background: rgba(8, 10, 12, .55); color: #f2f2ee; z-index: 4;
   font-variant-numeric: tabular-nums; pointer-events: none; }
 .cb-arrow { width: 46px; height: 46px; transition: transform .08s linear; }
@@ -63,7 +63,7 @@
 .cb-clock { font-size: 18px; opacity: .9; }
 .cb-map { position: fixed; right: 18px; bottom: 150px; width: 170px; height: 170px; border-radius: 12px; z-index: 4;
   border: 1px solid rgba(255, 255, 255, .25); box-shadow: 0 2px 10px rgba(0, 0, 0, .35); }
-.cb-big { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); text-align: center; color: #fff; z-index: 15;
+.cb-big { position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100vw - 16px); top: 40%; transform: translateY(-50%); text-align: center; color: #fff; z-index: 15;
   text-shadow: 0 2px 12px rgba(0, 0, 0, .6); pointer-events: none; }
 .cb-count { font-size: 120px; font-weight: 800; color: #ffc35a; }
 .cb-title { font-size: 56px; font-weight: 800; color: #ffc35a; }
@@ -78,7 +78,7 @@
 
 .cb-hud[hidden], .cb-map[hidden], .cb-panel[hidden], .cb-big[hidden] { display: none; }
 
-#padToast { white-space: pre-line; position: fixed; left: 50%; top: 160px; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 8px 14px;
+#padToast { white-space: pre-line; position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; top: 160px; max-width: calc(100vw - 32px); padding: 8px 14px;
   border-radius: 10px; background: rgba(8, 10, 12, .75); color: #f2f2ee; font-size: 13px; z-index: 12; pointer-events: none;
   overflow-wrap: anywhere; }
 #padToast[hidden] { display: none; }
@@ -105,7 +105,7 @@
 .mp-list b { font-size: 11px; color: #14100a; background: #ffc35a; border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
 .mp-note { font-size: 12px; opacity: .7; margin-top: 10px; }
 .mp-status { color: #ffc35a; }
-.mp-toast { position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%); padding: 8px 16px; border-radius: 10px;
+.mp-toast { position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100vw - 32px); bottom: 70px; padding: 8px 16px; border-radius: 10px;
   background: rgba(8, 10, 12, .8); color: #fff; font-size: 14px; z-index: 12; pointer-events: none; max-width: calc(100vw - 32px); }
 .mp-toast[hidden], .mp-panel[hidden] { display: none; }
 #bar button:disabled { opacity: .4; cursor: not-allowed; }
@@ -205,7 +205,7 @@ html, body { touch-action: manipulation; }
 
 /* Stamps: a big emoji over the truck, and the palette on phones. */
 .chat-bubble.stamp { font-size: 40px; line-height: 1.1; padding: 4px 10px; background: rgba(255, 255, 255, .85); }
-.stamp-palette { position: fixed; left: 50%; transform: translateX(-50%); top: 70px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+.stamp-palette { position: fixed; left: 0; right: 0; margin: 0 auto; width: max-content; top: 70px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
   padding: 10px; border-radius: 14px; background: rgba(8, 10, 12, .7); z-index: 7; }
 .stamp-palette[hidden] { display: none; }
 .stamp-palette button { font-size: 30px; width: 58px; height: 58px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .25);
@@ -221,7 +221,7 @@ html, body { touch-action: manipulation; }
 .game-board { top: 160px; }
 .mp-tag[data-oni]::before { content: '👹 '; }
 .cb-row button:disabled { opacity: .45; cursor: not-allowed; }
-@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) { .game-hud { font-size: 13px; max-width: calc(100vw - 150px); flex-wrap: wrap; left: 10px; transform: none; } .game-board { top: auto; bottom: 130px; left: 10px; min-width: 150px; } .game-result .cb-title { font-size: 30px; } }
+@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) { .game-hud { font-size: 13px; max-width: calc(100vw - 150px); flex-wrap: wrap; left: 10px; right: auto; margin: 0; transform: none; } .game-board { top: auto; bottom: 130px; left: 10px; min-width: 150px; } .game-result .cb-title { font-size: 30px; } }
 @media (pointer: coarse) and (min-width: 701px) and (orientation: landscape) {
   .item-radar { width: 120px; height: 120px; bottom: calc(176px + env(safe-area-inset-bottom)); }
 }
@@ -259,3 +259,13 @@ html, body { touch-action: manipulation; }
 /* Stamps on a computer: each shows its number key. */
 .stamp-palette button { position: relative; }
 .stamp-palette.keys button small { position: absolute; right: 5px; bottom: 2px; font-size: 11px; color: rgba(255, 255, 255, .6); font-family: system-ui, sans-serif; }
+
+/* Upright phone: the cannonball HUD goes under the bar on the left, beside the
+   meter (placed by layoutCorner in main.js), so it is a little smaller. */
+@media (max-width: 700px), (pointer: coarse) and (orientation: portrait) {
+  .cb-hud:not(.game-hud) { left: 10px; right: auto; margin: 0; gap: 8px; padding: 4px 10px 4px 6px; }
+  .cb-hud:not(.game-hud) .cb-arrow, .cb-hud:not(.game-hud) .cb-arrow svg { width: 34px; height: 34px; }
+  .cb-hud:not(.game-hud) .cb-dist { font-size: 18px; min-width: 70px; }
+  .cb-hud:not(.game-hud) .cb-clock { font-size: 15px; }
+  .cb-board { top: auto; bottom: 130px; left: 10px; }
+}

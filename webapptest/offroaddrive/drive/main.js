@@ -1012,6 +1012,10 @@ async function main() {
     const b = bar.getBoundingClientRect();
     meterEl.style.top = portraitTouch.matches && b.height ? `${Math.round(b.bottom + 14)}px` : '';
     const m = meterEl.getBoundingClientRect();
+    // The cannonball HUD: just under the bar, however many rows it has (upright
+    // phone: on the left, beside the meter; see drive.css).
+    const cbHud = document.querySelector('.cb-hud:not(.game-hud)');
+    if (cbHud && b.height) cbHud.style.top = `${Math.round(b.bottom + 14)}px`;
     if (!m.height) return;
     const atTop = m.top < innerHeight / 2;
     const maps = [minimap.canvas, document.querySelector('.cb-map')].filter(Boolean);
