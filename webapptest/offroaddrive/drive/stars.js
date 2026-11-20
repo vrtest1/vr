@@ -211,6 +211,28 @@ export class StarDrops {
   /** Seconds of super armour left (0 = none): main.js makes the truck glow. */
   get armorLeft() { return this.#active.rainbow ?? 0; }
 
+  // --- stars shared by a mini-game (net/games.js decides who gets them) -------
+
+  /** No stars of our own while a game is on. */
+  pauseLocal = false;
+
+  /** A game star: id from the game, kind, where it lands. */
+  addShared(id, kind, x, z) {
+    if (this.stars.some((s) => s.shared === id)) return;
+    const h = this.#o.ground.height(x, z);
+    this.#spawn(kind, new THREE.Vector3(x, h, z), id);
+  }
+
+  /** Take a game star away; `mine` = we got it (its effect applies). */
+  removeShared(id, mine = false) {
+    const s = this.stars.find((x) => x.shared === id);
+    if (s) this.#remove(s);
+    if (mine) this.#apply(KINDS[s?.kind] ? s.kind : 'boost');
+  }
+
+  /** Remove all game stars. */
+  clearShared() { for (const s of this.stars.filter((x) => x.shared !== null)) this.#remove(s); }
+
   /** Drop one now (tests, or a debug key). */
   spawnNow(kind = null) { this.#spawn(kind); }
 
@@ -243,8 +265,8 @@ export class StarDrops {
     return null;
   }
 
-  #spawn(force = null) {
-    const target = this.#spot();
+  #spawn(force = null, at = null, shared = null) {
+    const target = at ?? this.#spot();
     if (!target) return;
     const kind = force ?? this.#pickKind();
     const color = KINDS[kind].color;
@@ -303,7 +325,7 @@ export class StarDrops {
     pool.visible = false;
     this.#o.scene.add(pool);
 
-    const star = { kind, group, body, halo, trail, pool, start, target, t: 0, landed: false, life: LIFE, gone: 0, spin: (Math.random() - 0.5) * 1.2 };
+    const star = { kind, group, body, halo, trail, pool, start, target, t: 0, landed: false, life: shared !== null ? Infinity : LIFE, gone: 0, spin: (Math.random() - 0.5) * 1.2, shared, claimed: false };
     this.stars.push(star);
     this.#o.sound.chime?.('fall');
   }
@@ -428,7 +450,7 @@ export class StarDrops {
     if (this.#radarTimer <= 0) { this.#radarTimer = 0.1; this.#drawRadar(); }
 
     // New stars now and then.
-    if (this.enabled && this.stars.length < MAX) {
+    if (this.enabled && !this.pauseLocal && this.stars.filter((x) => x.shared === null).length < MAX) {
       this.#timer -= dt;
       if (this.#timer <= 0) { this.#spawn(); this.#timer = 14 + Math.random() * 16; }
     }
@@ -479,8 +501,15 @@ export class StarDrops {
         // Picked up?
         const dx = p.x - s.group.position.x, dz = p.z - s.group.position.z, dy = p.y - s.group.position.y;
         if (dx * dx + dz * dz < REACH * REACH && Math.abs(dy) < 4) {
-          this.#apply(s.kind);
-          this.#remove(s);
+          if (s.shared === null) {
+            this.#apply(s.kind);
+            this.#remove(s);
+          } else if (!s.claimed) {
+            // A game star: ask whoever runs the game; it goes when they say.
+            s.claimed = true;
+            s.body.material.uniforms.uOpacity.value = 0.35;
+            this.#o.onSharedTouch?.(s.shared);
+          }
         }
       }
     }

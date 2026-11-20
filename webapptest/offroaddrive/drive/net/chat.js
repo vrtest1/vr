@@ -17,6 +17,9 @@ export function cleanText(s) {
   return String(s ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, MAX);
 }
 
+/** Stamps (sent by index, so only these ever show). */
+export const STAMPS = ['👍', '😂', '😱', '🆘', '🎉', '🙏', '💨', '❤️'];
+
 export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
   // --- button
   const button = document.createElement('button');
@@ -69,9 +72,11 @@ export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
     touch();
   };
 
+  const recent = new Map(); // peerId -> recent message times (flood guard)
+
   // --- bubbles over the trucks
   const bubbles = new Map(); // id ('self' for ours) -> { el, until }
-  const say = (id, text) => {
+  const say = (id, text, stamp = false) => {
     let b = bubbles.get(id);
     if (!b) {
       const el = document.createElement('div');
@@ -81,7 +86,56 @@ export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
       bubbles.set(id, b);
     }
     b.el.textContent = text;
-    b.until = performance.now() + BUBBLE_MS(text);
+    b.el.classList.toggle('stamp', stamp);
+    b.until = performance.now() + (stamp ? 3500 : BUBBLE_MS(text));
+  };
+
+  // --- stamps: a 😀 button on phones (keys 1-8 on a keyboard)
+  const sendStamp = (i) => {
+    const e = STAMPS[i];
+    if (!e) return;
+    say('self', e, true);
+    if (net.active) { net.sendEmote(i); add(net.me.name, e, net.me.color); }
+    palette.hidden = true;
+  };
+  const palette = document.createElement('div');
+  palette.className = 'stamp-palette';
+  palette.hidden = true;
+  STAMPS.forEach((e, i) => {
+    const b = document.createElement('button');
+    b.textContent = e;
+    b.addEventListener('click', (ev) => { ev.stopPropagation(); sendStamp(i); });
+    palette.appendChild(b);
+  });
+  document.body.appendChild(palette);
+  if (matchMedia('(pointer: coarse)').matches) {
+    const sb = document.createElement('button');
+    sb.textContent = '😀';
+    sb.title = 'スタンプ';
+    sb.classList.add('keep');
+    sb.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      palette.hidden = !palette.hidden;
+      palette.style.top = `${Math.round(bar.getBoundingClientRect().bottom + 8)}px`;
+    });
+    bar.appendChild(sb);
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    const m = /^Digit([1-8])$/.exec(e.code);
+    if (m) sendStamp(Number(m[1]) - 1);
+  });
+  net.onEmote = (peerId, i) => {
+    const e = STAMPS[i];
+    if (!e) return;
+    const now = performance.now();
+    const times = (recent.get(peerId) ?? []).filter((t) => now - t < 4000);
+    if (times.length >= 5) return; // same flood guard as the chat
+    times.push(now);
+    recent.set(peerId, times);
+    const p = net.peers.get(peerId);
+    add(p?.name ?? '?', e, p?.color);
+    say(peerId, e, true);
   };
 
   // --- open / send / close
@@ -140,7 +194,6 @@ export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
   win.addEventListener('pointerenter', touch);
 
   // --- incoming, with a simple flood guard per peer (5 messages per 4 s)
-  const recent = new Map();
   net.onChat = (peerId, text) => {
     const now = performance.now();
     const times = (recent.get(peerId) ?? []).filter((t) => now - t < 4000);
@@ -193,7 +246,7 @@ export function createChat({ bar, net, remotes, vehicle, onOpen = () => {} }) {
     }
   };
 
-  return { update, peersChanged, open, close, add, say, get typing() { return isOpen(); } };
+  return { update, peersChanged, open, close, add, say, sendStamp, get typing() { return isOpen(); } };
 }
 
 const _lift = new THREE.Vector3();

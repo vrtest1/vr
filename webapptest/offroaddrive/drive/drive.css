@@ -196,3 +196,26 @@ html, body { touch-action: manipulation; }
   #touch button[data-k="hand"] { width: 58px; height: 58px; font-size: 13px; }
   #range { padding: 3px 10px; font-size: 16px; }
 }
+
+/* Stamps: a big emoji over the truck, and the palette on phones. */
+.chat-bubble.stamp { font-size: 40px; line-height: 1.1; padding: 4px 10px; background: rgba(255, 255, 255, .85); }
+.stamp-palette { position: fixed; left: 50%; transform: translateX(-50%); top: 70px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  padding: 10px; border-radius: 14px; background: rgba(8, 10, 12, .7); z-index: 7; }
+.stamp-palette[hidden] { display: none; }
+.stamp-palette button { font-size: 30px; width: 58px; height: 58px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .25);
+  background: rgba(255, 255, 255, .1); touch-action: manipulation; }
+
+/* Mini-games. */
+.game-hud { font-size: 16px; }
+.game-hud b.oni { color: #ff6a55; font-size: 18px; }
+.game-hud small { opacity: .75; }
+.game-arrow { display: inline-block; color: #ff6a55; font-size: 22px; transition: transform .08s linear; }
+.game-result .game-rank { font-size: 20px; line-height: 1.7; margin-top: 8px; text-shadow: 0 2px 6px rgba(0, 0, 0, .6); }
+.game-result .cb-title { font-size: 44px; }
+.game-board { top: 160px; }
+.mp-tag[data-oni]::before { content: '👹 '; }
+.cb-row button:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 700px) { .game-hud { font-size: 13px; max-width: calc(100vw - 150px); flex-wrap: wrap; left: 10px; transform: none; } .game-board { top: auto; bottom: 130px; left: 10px; min-width: 150px; } .game-result .cb-title { font-size: 30px; } }
+@media (pointer: coarse) and (min-width: 701px) {
+  .item-radar { width: 120px; height: 120px; bottom: calc(176px + env(safe-area-inset-bottom)); }
+}

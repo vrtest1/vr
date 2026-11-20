@@ -375,6 +375,7 @@ export class Vehicle {
       if (depth <= 0) continue;
       const f = Math.min(depth / (s.bodyTop - s.bodyBottom), 1);
       wet += f / points.length;
+      if (this.armor) continue; // super armour: no buoyancy or drag, it drives along the bottom
       pointVelocity(_p, _v);
       _f.set(0, 1000 * G * (4.4 / points.length) * f, 0); // ~4.4 m³ of sealed cab and body
       _f.addScaledVector(_v, -650 * f);
@@ -387,7 +388,7 @@ export class Vehicle {
     // along where they are steered, so the truck can creep and turn.
     const swim = Math.min(1, Math.max(0, (wet - 0.12) / 0.2));
     const r = this.#ratio();
-    if (swim > 0 && this.engineOn && r !== 0 && this.pedal > 0.02) {
+    if (swim > 0 && !this.armor && this.engineOn && r !== 0 && this.pedal > 0.02) {
       const push = s.paddleForce * this.pedal * swim * Math.sign(r) / 4;
       for (const wh of this.wheels) {
         _d.copy(_fwd);
@@ -403,7 +404,7 @@ export class Vehicle {
     // Water in the intake: afloat for long enough, the engine dies; on dry
     // land again it dries out and starts.
     if (this.engineOn) {
-      if (wet > 0.25) this.flood = Math.min(1, this.flood + dt / s.floodTime);
+      if (wet > 0.25 && !this.armor) this.flood = Math.min(1, this.flood + dt / s.floodTime);
       else this.flood = Math.max(0, this.flood - dt / (s.floodTime * 2));
       if (this.flood >= 1) { this.engineOn = false; this.#dry = 0; }
     } else if (wet < 0.02 && this.wheels.some((w) => w.contact)) {

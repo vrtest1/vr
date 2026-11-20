@@ -14,6 +14,7 @@ import { RemoteTrucks, packState, vehicleLamps } from './net/remotes.js';
 import { createLobby } from './net/lobby.js';
 import { createChat } from './net/chat.js';
 import { StarDrops, haloTexture } from './stars.js';
+import { Games } from './net/games.js';
 
 const query = new URLSearchParams(location.search);
 const num = (k, d) => (query.has(k) ? Number(query.get(k)) : d);
@@ -465,6 +466,7 @@ async function main() {
   const stars = new StarDrops({
     scene, ground, vehicle, sound, cannonball,
     brightness: () => atmosphere.skyLight?.intensity ?? 1,
+    onSharedTouch: (id) => games?.take(id), // a mini-game star
     place: (x, z, heading) => { vehicle.place(x, z, heading, ground); camHeading = heading; camReady = false; orbit.yaw = orbit.pitch = 0; },
     toast: (text) => padToast(text, 3500),
     onLand: (at) => {
@@ -557,6 +559,7 @@ async function main() {
   // --- multiplayer ---------------------------------------------------------
   const net = new Multiplayer();
   let chat = null; // created with the lobby below
+  let games = null; // mini-games, likewise
   const remoteTracks = new Map();
   // Send our state on a timer rather than per frame: it keeps going (slower)
   // when this window is in the background and the frame loop pauses.
@@ -633,6 +636,7 @@ async function main() {
   const pendingHit = new Map();
   const lastSent = new Map();
   vehicle.onCarHit = (id, imp, strength, armored = false) => {
+    games?.touched(id);
     const now = performance.now() / 1000;
     lastHit.set(id, now);
     // One impulse per collision: the physics touches them every step while
@@ -647,6 +651,7 @@ async function main() {
     pendingHit.clear();
   }, 50);
   net.onHit = (peerId, h) => {
+    games?.touched(peerId);
     const now = performance.now() / 1000;
     vehicle.fx.crash = Math.max(vehicle.fx.crash, h.s || 0);
     sound.crash?.(Math.min(1, (h.s || 0) / 9));
@@ -723,10 +728,15 @@ async function main() {
     onLeft: () => { chat?.peersChanged(); remotes.clear(); for (const t of remoteTracks.values()) t.mesh.removeFromParent(); remoteTracks.clear(); for (const g of remoteGlows.values()) g.dispose(); remoteGlows.clear(); lockHostSettings(); if (cannonball.multiRace) cannonball.abortedByHost(); },
   });
   chat = createChat({ bar, net, remotes, vehicle, onOpen: () => keys.clear() });
+  games = new Games({
+    net, bar, vehicle, truck, remotes, stars, sound, chat, cannonball, ground,
+    toast: (text) => lobby.toast(text, 4000),
+    camMode: () => camMode,
+  });
   net.onPeersChanged();
 
   if (config?.credit) $('credit').textContent = `車: ${config.credit}`;
-  window.drive = { vehicle, truck, orbit, ground, sound, cannonball, bgm, tracks, moon, net, remotes, chat, stars };
+  window.drive = { vehicle, truck, orbit, ground, sound, cannonball, bgm, tracks, moon, net, remotes, chat, stars, get games() { return games; } };
   $('meter').hidden = false;
   $('help').hidden = query.get('help') === '0';
   $('loading').classList.add('done');
@@ -871,6 +881,7 @@ async function main() {
     updateCamera(dt);
     cannonball?.update(dt, camera);
     stars.update(dt, camera);
+    games?.update(dt, camera); // after the stars: 鬼's extra power goes on top
     // From the driver's seat or the bonnet the camera sits inside the halo: leave it out.
     rainbowGlow(truck.root, vehicle.armor, performance.now() / 1000, camMode < 2);
     sound.update(vehicle, underwater.depth);

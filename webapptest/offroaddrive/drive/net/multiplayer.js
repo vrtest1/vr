@@ -36,6 +36,8 @@ export class Multiplayer {
   onFinish = () => {};    // (peerId, {time})
   onHit = () => {};       // (peerId, {x, z, s}) another truck hit ours
   onChat = () => {};      // (peerId, text) a chat message (already cleaned)
+  onEmote = () => {};     // (peerId, index) a stamp
+  onGame = () => {};      // (peerId, data) mini-game messages (net/games.js checks them)
   onHostLeft = () => {};
   onStatus = () => {};    // (text)
   hostEnv = () => null;   // host: current env to send to a newcomer
@@ -66,7 +68,7 @@ export class Multiplayer {
       onJoinError: (d) => this.onStatus(`接続できない相手がいます（${d?.error ?? 'error'}）`),
     }));
     const act = (name) => (this.#a[name] = room.makeAction(name));
-    const hello = act('hello'), state = act('st'), env = act('env'), race = act('race'), fin = act('fin'), spot = act('spot'), hit = act('hit'), chat = act('chat');
+    const hello = act('hello'), state = act('st'), env = act('env'), race = act('race'), fin = act('fin'), spot = act('spot'), hit = act('hit'), chat = act('chat'), emote = act('emote'), game = act('game');
 
     room.onPeerJoin = (peerId) => {
       hello.send({ ...this.me, host: this.isHost }, { target: peerId });
@@ -95,6 +97,12 @@ export class Multiplayer {
     spot.onMessage = (data, { peerId }) => { if (peerId === this.hostId) this.onSpot(data); };
     fin.onMessage = (data, { peerId }) => this.onFinish(peerId, data);
     hit.onMessage = (data, { peerId }) => { if (data && Number.isFinite(data.x) && Number.isFinite(data.z)) this.onHit(peerId, data); };
+    emote.onMessage = (data, { peerId }) => {
+      if (this.peers.has(peerId) && Number.isInteger(data?.i)) this.onEmote(peerId, data.i);
+    };
+    game.onMessage = (data, { peerId }) => {
+      if (this.peers.has(peerId) && data && typeof data === 'object') this.onGame(peerId, data);
+    };
     chat.onMessage = (data, { peerId }) => {
       if (!this.peers.has(peerId)) return; // only from players who said hello
       const text = cleanText(data?.text);
@@ -120,4 +128,7 @@ export class Multiplayer {
   sendFinish(f) { this.#a.fin?.send(f); }
   sendHit(peerId, h) { this.#a.hit?.send(h, { target: peerId }); }
   sendChat(text) { this.#a.chat?.send({ text: cleanText(text) }); }
+  sendEmote(i) { this.#a.emote?.send({ i }); }
+  /** Mini-game message to everyone, or to one player. */
+  sendGame(data, peerId = null) { this.#a.game?.send(data, peerId ? { target: peerId } : undefined); }
 }
