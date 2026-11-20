@@ -186,7 +186,7 @@ export class Cannonball {
       ${guest ? '' : `<div class="cb-row">${Object.entries(COURSES).map(([k, c]) => `<button data-k="${k}">${c.label}<small>${(c.distance / 1000).toFixed(1)} km</small></button>`).join('')}</div>`}
       ${running && !guest ? `<div class="cb-row"><button data-act="retry">${t('同じコースを最初から', 'Restart this course')}</button><button data-act="quit">${t('やめる', 'Quit')}</button></div>` : ''}
       ${running && guest ? `<div class="cb-row"><button data-act="quit">${t('リタイア', 'Retire')}</button></div>` : ''}
-      ${this.state === 'finished' && this.course && !guest ? `<div class="cb-row"><button data-act="retry">${t('同じコースをもう一度', 'Same course again')}</button></div>` : ''}
+      ${this.state === 'finished' ? `<div class="cb-row">${this.course && !guest ? `<button data-act="retry">${t('同じコースをもう一度', 'Same course again')}</button>` : ''}<button data-act="end">${t('終わる', 'Done')}</button></div>` : ''}
       ${records.length ? `<h3>${t('記録', 'Records')}${best ? t(`（最速の平均速度 ${best.avg.toFixed(0)} km/h）`, ` (best average ${best.avg.toFixed(0)} km/h)`) : ''}</h3><table>${list}</table>` : ''}
       <div class="cb-row"><button data-act="close">${t('閉じる', 'Close')}</button></div>`;
     ui.menu.hidden = false;
@@ -197,6 +197,7 @@ export class Cannonball {
         if (b.dataset.k) this.start(b.dataset.k);
         else if (b.dataset.act === 'retry') this.retry();
         else if (b.dataset.act === 'quit') this.quit();
+        else if (b.dataset.act === 'end') this.end();
       });
     }
   }
@@ -344,6 +345,14 @@ export class Cannonball {
     rows.sort((a, b) => (a.time ?? 1e9) - (b.time ?? 1e9) || (a.dist ?? 1e9) - (b.dist ?? 1e9));
     this.#ui.board.innerHTML = rows.map((r, i) => `<div class="${r.self ? 'me' : ''}"><span>${i + 1}</span><i style="background:${r.color}"></i>
       <em>${escapeHtml(r.name)}</em><b>${r.time != null ? fmt(r.time) : r.dist != null ? (r.dist > 1000 ? (r.dist / 1000).toFixed(1) + ' km' : Math.round(r.dist) + ' m') : '—'}</b></div>`).join('');
+  }
+
+  /** After the goal: put the arrow, map and beacon away. Only on this screen:
+   *  in a race with others, the ones still driving carry on. */
+  end() {
+    if (this.state !== 'finished') return;
+    this.multiRace = false; // so quit() does not call the race off
+    this.quit();
   }
 
   /** Multiplayer: the host called the race off. */
