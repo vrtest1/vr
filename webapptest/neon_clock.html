@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>精密アナログ時計 — Studio Chronometer</title>
+
+  <!-- Google Fonts: 視認性の高い Inter と等幅数字用の JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* 画面全体のスムーズなテーマ切り替えとレンダリング最適化 */
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100dvh;
+      width: 100vw;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ライトテーマ用カラー変数 */
+    :root {
+      --bg-outer: #ecece9;
+      --bg-center: #f7f7f5;
+      --bezel-outer-1: #e4e4e7;
+      --bezel-outer-2: #a1a1aa;
+      --bezel-inner-1: #d4d4d8;
+      --bezel-inner-2: #f4f4f5;
+      --dial-bg: #fcfcfa;
+      --dial-ring: rgba(0, 0, 0, 0.08);
+      --tick-hour: #18181b;
+      --tick-minute: #52525b;
+      --numeral-color: #18181b;
+      --brand-color: #71717a;
+      --date-bg: #f1f1ee;
+      --date-border: #d4d4d8;
+      --date-day-text: #18181b;
+      --date-week-text: #52525b;
+      --hand-main: #141417;
+      --hand-second: #dc2626;
+      --cap-outer: #18181b;
+      --cap-mid: #dc2626;
+      --cap-pin: #e4e4e7;
+      --clock-drop: rgba(15, 23, 42, 0.16);
+      --clock-ambient: rgba(15, 23, 42, 0.07);
+    }
+
+    /* ダークテーマ用カラー変数（マットブラック文字盤） */
+    [data-theme="dark"] {
+      --bg-outer: #090a0d;
+      --bg-center: #14161c;
+      --bezel-outer-1: #3a3d45;
+      --bezel-outer-2: #141519;
+      --bezel-inner-1: #111216;
+      --bezel-inner-2: #2c2f36;
+      --dial-bg: #15161a;
+      --dial-ring: rgba(255, 255, 255, 0.06);
+      --tick-hour: #f4f4f5;
+      --tick-minute: #71717a;
+      --numeral-color: #f4f4f5;
+      --brand-color: #71717a;
+      --date-bg: #1e2026;
+      --date-border: #2e313a;
+      --date-day-text: #f4f4f5;
+      --date-week-text: #a1a1aa;
+      --hand-main: #f4f4f5;
+      --hand-second: #ef4444;
+      --cap-outer: #e4e4e7;
+      --cap-mid: #ef4444;
+      --cap-pin: #18181b;
+      --clock-drop: rgba(0, 0, 0, 0.65);
+      --clock-ambient: rgba(0, 0, 0, 0.35);
+    }
+
+    /* 背景グラデーション */
+    .studio-surface {
+      background: radial-gradient(circle at 50% 42%, var(--bg-center) 0%, var(--bg-outer) 100%);
+      transition: background 0.35s ease, color 0.35s ease;
+    }
+
+    /* 時計本体の立体的な影 */
+    .clock-elevation {
+      filter: drop-shadow(0 20px 32px var(--clock-drop))
+        drop-shadow(0 6px 12px var(--clock-ambient));
+      transition: filter 0.35s ease;
+    }
+
+    /* SVG内部のテーマカラー遷移 */
+    .svg-theme-transition {
+      transition: fill 0.3s ease, stroke 0.3s ease;
+    }
+
+    /* 数字の等幅整列 */
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 音量スライダーの洗練されたカスタムスタイル */
+    .volume-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 9999px;
+      outline: none;
+      cursor: pointer;
+    }
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--hand-second);
+      border: 2px solid var(--dial-bg);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+    .volume-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+    .volume-slider::-moz-range-thumb {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--hand-second);
+      border: 2px solid var(--dial-bg);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+  </style>
+</head>
+
+<body
+  class="studio-surface font-sans h-[100dvh] w-screen overflow-hidden flex flex-col items-center justify-between px-4 py-4 sm:py-6 select-none"
+  data-theme="light"
+>
+  <!-- 上部のバランス用スペーサー（控えめなブランドラベル） -->
+  <header class="shrink-0 w-full flex justify-center pt-1">
+    <span
+      id="headerLabel"
+      class="text-[10px] sm:text-xs tracking-[0.28em] uppercase font-medium text-zinc-400 transition-colors"
+    >
+      Studio Chronometer
+    </span>
+  </header>
+
+  <!-- 中央：アナログ時計本体コンテナ -->
+  <main class="flex-1 min-h-0 w-full flex items-center justify-center py-2">
+    <div
+      class="relative w-full h-full max-w-[min(86vw,64dvh,470px)] max-h-[min(86vw,64dvh,470px)] aspect-square flex items-center justify-center"
+    >
+      <!-- 高精細SVGアナログ時計 -->
+      <svg
+        id="clockSvg"
+        viewBox="0 0 500 500"
+        class="w-full h-full clock-elevation"
+        role="img"
+        aria-label="アナログ時計"
+      >
+        <defs>
+          <!-- 外側ベゼルのメタリックグラデーション -->
+          <linearGradient id="bezelOuterGrad" x1="15%" y1="10%" x2="85%" y2="90%">
+            <stop offset="0%" stop-color="var(--bezel-outer-1)" />
+            <stop offset="50%" stop-color="var(--bezel-inner-2)" />
+            <stop offset="100%" stop-color="var(--bezel-outer-2)" />
+          </linearGradient>
+
+          <!-- 内側ベゼルの面取りグラデーション（光を逆に当てて立体感を強調） -->
+          <linearGradient id="bezelInnerGrad" x1="85%" y1="90%" x2="15%" y2="10%">
+            <stop offset="0%" stop-color="var(--bezel-inner-2)" />
+            <stop offset="100%" stop-color="var(--bezel-inner-1)" />
+          </linearGradient>
+
+          <!-- 文字盤の微細な奥行き（周囲がわずかに沈むビネット効果） -->
+          <radialGradient id="dialDepthGrad" cx="50%" cy="46%" r="54%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.03" />
+            <stop offset="82%" stop-color="#000000" stop-opacity="0" />
+            <stop offset="100%" stop-color="#000000" stop-opacity="0.09" />
+          </radialGradient>
+
+          <!-- 風防ガラスの極めて控えめな斜め反射 -->
+          <linearGradient id="glassReflection" x1="15%" y1="5%" x2="65%" y2="65%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.14" />
+            <stop offset="45%" stop-color="#ffffff" stop-opacity="0.02" />
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+          </linearGradient>
+
+          <!-- 時針・分針の繊細なドロップシャドウ（光源は左上固定） -->
+          <filter id="handShadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="2" dy="4" stdDeviation="2.6" flood-color="#000000" flood-opacity="0.22" />
+          </filter>
+
+          <!-- 秒針の浮遊感を出すわずかに高いドロップシャドウ -->
+          <filter id="secondShadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="2.5" dy="5.5" stdDeviation="2.4" flood-color="#000000" flood-opacity="0.24" />
+          </filter>
+
+          <!-- 日付窓の窪みシャドウ -->
+          <filter id="dateInsetShadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="0" dy="1" stdDeviation="0.8" flood-color="#000000" flood-opacity="0.15" />
+          </filter>
+        </defs>
+
+        <!-- 1. 外装ケース・ベゼル -->
+        <circle cx="250" cy="250" r="240" fill="url(#bezelOuterGrad)" />
+        <circle cx="250" cy="250" r="226" fill="url(#bezelInnerGrad)" />
+
+        <!-- 2. 文字盤ベース -->
+        <circle
+          cx="250"
+          cy="250"
+          r="218"
+          fill="var(--dial-bg)"
+          stroke="var(--dial-ring)"
+          stroke-width="1.5"
+          class="svg-theme-transition"
+        />
+        <!-- 文字盤の内側シャドウオーバーレイ -->
+        <circle cx="250" cy="250" r="218" fill="url(#dialDepthGrad)" pointer-events="none" />
+
+        <!-- 3. 目盛り（60個の分目盛り＋12個の太めインデックス：JSで正確に生成） -->
+        <g id="ticksLayer"></g>
+
+        <!-- 4. 1〜12の数字（JSでバランス良く配置） -->
+        <g id="numeralsLayer"></g>
+
+        <!-- 5. 文字盤上部の控えめな刻印 -->
+        <text
+          x="250"
+          y="176"
+          text-anchor="middle"
+          fill="var(--brand-color)"
+          font-size="9.5"
+          font-weight="600"
+          letter-spacing="3.2"
+          class="svg-theme-transition"
+        >
+          PRECISION
+        </text>
+        <text
+          x="250"
+          y="190"
+          text-anchor="middle"
+          fill="var(--brand-color)"
+          font-size="7.5"
+          font-weight="500"
+          letter-spacing="2.2"
+          opacity="0.72"
+          class="svg-theme-transition"
+        >
+          QUARTZ
+        </text>
+
+        <!-- 6. 日付表示窓（6時位置の内側：例 25 WED） -->
+        <g id="dateWindow" transform="translate(250, 326)">
+          <rect
+            x="-42"
+            y="-13"
+            width="84"
+            height="26"
+            rx="4.5"
+            fill="var(--date-bg)"
+            stroke="var(--date-border)"
+            stroke-width="1.2"
+            filter="url(#dateInsetShadow)"
+            class="svg-theme-transition"
+          />
+          <text
+            x="0"
+            y="1"
+            text-anchor="middle"
+            dominant-baseline="central"
+            font-family="JetBrains Mono, monospace"
+            font-size="12.5"
+            letter-spacing="0.8"
+          >
+            <tspan id="dateDayText" font-weight="600" fill="var(--date-day-text)" class="svg-theme-transition">25</tspan>
+            <tspan dx="4" id="dateWeekText" font-weight="500" font-size="10.5" fill="var(--date-week-text)" class="svg-theme-transition">WED</tspan>
+          </text>
+        </g>
+
+        <!-- 7. 時針（外側の未回転グループに影を掛けて光源方向を一定に保つ） -->
+        <g filter="url(#handShadow)">
+          <g id="hourHand" transform="rotate(0 250 250)">
+            <!-- スイス時計風の端正なテーパードバトン針 -->
+            <polygon
+              points="243.8,284 256.2,284 254.2,132 245.8,132"
+              fill="var(--hand-main)"
+              class="svg-theme-transition"
+            />
+          </g>
+        </g>
+
+        <!-- 8. 分針 -->
+        <g filter="url(#handShadow)">
+          <g id="minuteHand" transform="rotate(0 250 250)">
+            <polygon
+              points="245.2,292 254.8,292 252.8,68 247.2,68"
+              fill="var(--hand-main)"
+              class="svg-theme-transition"
+            />
+          </g>
+        </g>
+
+        <!-- 9. カウンターウェイト付きの赤い秒針 -->
+        <g filter="url(#secondShadow)">
+          <g id="secondHand" transform="rotate(0 250 250)">
+            <!-- カウンターウェイト（後端の重り部分） -->
+            <polygon
+              points="247.2,306 252.8,306 251.5,250 248.5,250"
+              fill="var(--hand-second)"
+            />
+            <!-- 細身のシャフト -->
+            <polygon
+              points="248.5,250 251.5,250 250.9,84 249.1,84"
+              fill="var(--hand-second)"
+            />
+            <!-- アイコニックな赤いロリポップ先端 -->
+            <circle cx="250" cy="84" r="9.5" fill="var(--hand-second)" />
+          </g>
+        </g>
+
+        <!-- 10. 中央キャップ（3層構造で精密な軸を表現） -->
+        <circle cx="250" cy="250" r="10.5" fill="var(--cap-outer)" class="svg-theme-transition" />
+        <circle cx="250" cy="250" r="6.5" fill="var(--cap-mid)" />
+        <circle cx="250" cy="250" r="2.3" fill="var(--cap-pin)" class="svg-theme-transition" />
+
+        <!-- 11. 風防ガラスの控えめな光沢 -->
+        <circle cx="250" cy="250" r="218" fill="url(#glassReflection)" pointer-events="none" />
+      </svg>
+    </div>
+  </main>
+
+  <!-- 下部：控えめなデジタル時刻表示とコントロールバー -->
+  <footer class="shrink-0 w-full flex flex-col items-center gap-2.5 sm:gap-3 pb-1">
+    <!-- さりげないデジタル時刻表示（クリックで表示の濃淡を切り替え可能） -->
+    <button
+      id="digitalToggleBtn"
+      type="button"
+      title="デジタル時刻の表示を切り替え"
+      class="group flex items-center gap-2 px-3 py-1 rounded-full transition-all duration-200 focus:outline-none"
+    >
+      <span
+        id="digitalTime"
+        class="font-mono tabular-nums text-sm sm:text-base tracking-[0.18em] font-medium text-zinc-500 transition-opacity duration-200"
+      >
+        00:00:00
+      </span>
+    </button>
+
+    <!-- コントロールバー -->
+    <nav
+      id="controlBar"
+      aria-label="時計の設定"
+      class="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-2 py-1.5 rounded-2xl border backdrop-blur-md shadow-sm transition-colors duration-300 bg-white/75 border-zinc-200/80 text-zinc-700"
+    >
+      <!-- 1. 秒針の動き切り替え（ステップ / スイープ） -->
+      <div
+        id="motionGroup"
+        role="group"
+        aria-label="秒針の動き"
+        class="flex items-center p-0.5 rounded-xl bg-zinc-200/70 transition-colors duration-300"
+      >
+        <button
+          id="btnStep"
+          type="button"
+          class="px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200"
+        >
+          ステップ
+        </button>
+        <button
+          id="btnSweep"
+          type="button"
+          class="px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200"
+        >
+          スイープ
+        </button>
+      </div>
+
+      <!-- 区切り線 -->
+      <div id="divider1" class="hidden sm:block w-px h-5 bg-zinc-300/80 transition-colors"></div>
+
+      <!-- 2. テーマ切り替え（ライト / ダーク） -->
+      <div
+        id="themeGroup"
+        role="group"
+        aria-label="テーマ切り替え"
+        class="flex items-center p-0.5 rounded-xl bg-zinc-200/70 transition-colors duration-300"
+      >
+        <button
+          id="btnLight"
+          type="button"
+          class="px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200"
+        >
+          ライト
+        </button>
+        <button
+          id="btnDark"
+          type="button"
+          class="px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200"
+        >
+          ダーク
+        </button>
+      </div>
+
+      <!-- 区切り線 -->
+      <div id="divider2" class="hidden sm:block w-px h-5 bg-zinc-300/80 transition-colors"></div>
+
+      <!-- 3. チクタク音のON/OFF（デフォルトOFF）と音量調整スライダー -->
+      <div class="flex items-center gap-2">
+        <button
+          id="btnSound"
+          type="button"
+          aria-pressed="false"
+          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-transparent transition-all duration-200"
+        >
+          <!-- スピーカーOFFアイコン -->
+          <svg
+            id="iconSoundOff"
+            class="w-3.5 h-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <line x1="23" y1="9" x2="17" y2="15"></line>
+            <line x1="17" y1="9" x2="23" y2="15"></line>
+          </svg>
+          <!-- スピーカーONアイコン -->
+          <svg
+            id="iconSoundOn"
+            class="w-3.5 h-3.5 hidden"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+          <span id="soundLabel">チクタク音 OFF</span>
+        </button>
+
+        <!-- 音量調整スライダー -->
+        <div
+          id="volumeControl"
+          class="flex items-center gap-1.5 px-2 py-1 rounded-xl transition-opacity duration-200 opacity-50"
+          title="チクタク音の音量"
+        >
+          <input
+            id="volumeSlider"
+            type="range"
+            min="0"
+            max="100"
+            value="65"
+            aria-label="音量調整"
+            class="volume-slider w-16 sm:w-20 bg-zinc-300"
+          />
+          <span
+            id="volumeValue"
+            class="font-mono tabular-nums text-[10px] w-7 text-right text-zinc-500"
+          >
+            65%
+          </span>
+        </div>
+      </div>
+    </nav>
+  </footer>
+
+  <script>
+    /**
+     * 精密アナログ時計アプリケーション
+     * - SVGによる高精細描画（目盛り・数字の動的生成）
+     * - requestAnimationFrameによる正確な時刻同期
+     * - クォーツ運針（減衰振動によるわずかな跳ね返り）とスイープ運針の切り替え
+     * - Web Audio APIによるリアルなクリック音合成と音量調整
+     */
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // 状態管理
+      // =========================================================================
+      const state = {
+        motion: 'step', // 'step' | 'sweep'
+        theme: 'light', // 'light' | 'dark'
+        soundEnabled: false,
+        volume: 0.65, // マスター音量 (0.0 〜 1.0)
+        digitalVisible: true,
+        lastTickSecond: -1,
+        lastSweepBeat: -1,
+        lastDateKey: '',
+      };
+
+      // =========================================================================
+      // DOM要素の取得
+      // =========================================================================
+      const bodyEl = document.body;
+      const headerLabel = document.getElementById('headerLabel');
+      const ticksLayer = document.getElementById('ticksLayer');
+      const numeralsLayer = document.getElementById('numeralsLayer');
+      const dateDayText = document.getElementById('dateDayText');
+      const dateWeekText = document.getElementById('dateWeekText');
+
+      const hourHand = document.getElementById('hourHand');
+      const minuteHand = document.getElementById('minuteHand');
+      const secondHand = document.getElementById('secondHand');
+
+      const digitalToggleBtn = document.getElementById('digitalToggleBtn');
+      const digitalTime = document.getElementById('digitalTime');
+
+      const controlBar = document.getElementById('controlBar');
+      const motionGroup = document.getElementById('motionGroup');
+      const themeGroup = document.getElementById('themeGroup');
+      const divider1 = document.getElementById('divider1');
+      const divider2 = document.getElementById('divider2');
+
+      const btnStep = document.getElementById('btnStep');
+      const btnSweep = document.getElementById('btnSweep');
+      const btnLight = document.getElementById('btnLight');
+      const btnDark = document.getElementById('btnDark');
+
+      const btnSound = document.getElementById('btnSound');
+      const iconSoundOff = document.getElementById('iconSoundOff');
+      const iconSoundOn = document.getElementById('iconSoundOn');
+      const soundLabel = document.getElementById('soundLabel');
+      const volumeControl = document.getElementById('volumeControl');
+      const volumeSlider = document.getElementById('volumeSlider');
+      const volumeValue = document.getElementById('volumeValue');
+
+      const SVG_NS = 'http://www.w3.org/2000/svg';
+      const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+      // =========================================================================
+      // 1. SVG文字盤の動的生成（60個の目盛り＋1〜12の数字）
+      // =========================================================================
+      function buildDial() {
+        const cx = 250;
+        const cy = 250;
+
+        // 60個の分目盛り（5分ごとに太いアワーインデックス）
+        for (let i = 0; i < 60; i++) {
+          const isHour = i % 5 === 0;
+          const angle = i * 6;
+          const tick = document.createElementNS(SVG_NS, 'rect');
+
+          if (isHour) {
+            const width = i % 15 === 0 ? 5.6 : 4.4;
+            const height = i % 15 === 0 ? 24 : 20;
+            tick.setAttribute('x', (cx - width / 2).toFixed(2));
+            tick.setAttribute('y', '44');
+            tick.setAttribute('width', width.toFixed(2));
+            tick.setAttribute('height', height.toFixed(2));
+            tick.setAttribute('rx', '1.2');
+            tick.setAttribute('fill', 'var(--tick-hour)');
+          } else {
+            const width = 1.6;
+            const height = 10;
+            tick.setAttribute('x', (cx - width / 2).toFixed(2));
+            tick.setAttribute('y', '44');
+            tick.setAttribute('width', width.toFixed(2));
+            tick.setAttribute('height', height.toFixed(2));
+            tick.setAttribute('rx', '0.6');
+            tick.setAttribute('fill', 'var(--tick-minute)');
+          }
+
+          tick.setAttribute('transform', `rotate(${angle} ${cx} ${cy})`);
+          tick.setAttribute('class', 'svg-theme-transition');
+          ticksLayer.appendChild(tick);
+        }
+
+        // 1〜12の数字を円周上にバランス良く配置
+        const numeralRadius = 158;
+        for (let h = 1; h <= 12; h++) {
+          const rad = ((h * 30 - 90) * Math.PI) / 180;
+          const x = cx + numeralRadius * Math.cos(rad);
+          const y = cy + numeralRadius * Math.sin(rad);
+
+          const text = document.createElementNS(SVG_NS, 'text');
+          text.setAttribute('x', x.toFixed(2));
+          text.setAttribute('y', (y + 1).toFixed(2));
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('dominant-baseline', 'central');
+          text.setAttribute('fill', 'var(--numeral-color)');
+          text.setAttribute('font-size', h % 3 === 0 ? '25' : '22');
+          text.setAttribute('font-weight', h % 3 === 0 ? '600' : '500');
+          text.setAttribute('class', 'svg-theme-transition');
+          text.textContent = String(h);
+          numeralsLayer.appendChild(text);
+        }
+      }
+
+      // =========================================================================
+      // 2. Web Audio APIによる確実に聞こえるチクタク音合成
+      // =========================================================================
+      let audioCtx = null;
+      let masterGain = null;
+      let cachedNoiseBuffer = null;
+
+      /**
+       * クリックイベント内で同期的にAudioContextを生成・マスターゲインを構成する
+       */
+      function initAudioSync() {
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return null;
+
+          if (!audioCtx) {
+            audioCtx = new AudioContextClass();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(state.volume, audioCtx.currentTime);
+            masterGain.connect(audioCtx.destination);
+          }
+
+          // 短いホワイトノイズバッファを事前生成して再利用（毎秒のGC負荷を軽減）
+          if (!cachedNoiseBuffer) {
+            const sampleRate = audioCtx.sampleRate;
+            const length = Math.floor(sampleRate * 0.008);
+            cachedNoiseBuffer = audioCtx.createBuffer(1, length, sampleRate);
+            const data = cachedNoiseBuffer.getChannelData(0);
+            for (let i = 0; i < length; i++) {
+              // ごく一瞬の乾いたアタック成分のみを生成（ノイズ感を抑える）
+              const env = Math.pow(1 - i / length, 4.5);
+              data[i] = (Math.random() * 2 - 1) * env;
+            }
+          }
+
+          return audioCtx;
+        } catch (err) {
+          console.warn('Web Audio APIの初期化に失敗しました:', err);
+          return null;
+        }
+      }
+
+      /**
+       * マスター音量を即時反映する
+       */
+      function applyMasterVolume() {
+        if (audioCtx && masterGain) {
+          masterGain.gain.setTargetAtTime(state.volume, audioCtx.currentTime, 0.015);
+        }
+      }
+
+      /**
+       * 雑味のない澄んだ「コチッ・カッ」音を合成して再生
+       * @param {boolean} isEven - 偶数拍と奇数拍でピッチをわずかに変え、自然な「チク・タク」感を演出
+       * @param {boolean} isSweepBeat - スイープモード時の5Hz機械式ビートかどうか
+       * @param {boolean} forcePlay - ON切替直後のテスト音再生用フラグ
+       */
+      function playTickSound(isEven, isSweepBeat = false, forcePlay = false) {
+        if (!state.soundEnabled && !forcePlay) return;
+        if (state.volume <= 0.001) return;
+
+        const ctx = initAudioSync();
+        if (!ctx || !masterGain) return;
+
+        // ブラウザの自動再生制限でsuspendedになっていれば再開を試みる
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+
+        try {
+          const now = ctx.currentTime + 0.002;
+          // ステップは明瞭な音量、スイープの5Hzビートは控えめに調整
+          const levelScale = isSweepBeat ? 0.28 : 0.85;
+
+          // 1) メインの硬質なクリック音（サイン波の急速なピッチダウンで澄んだ「コチッ」を作る）
+          const mainOsc = ctx.createOscillator();
+          const mainGain = ctx.createGain();
+          mainOsc.type = 'sine';
+          const mainStartFreq = isSweepBeat
+            ? (isEven ? 2100 : 1850)
+            : (isEven ? 1580 : 1320);
+          const mainEndFreq = isSweepBeat ? 900 : 580;
+          mainOsc.frequency.setValueAtTime(mainStartFreq, now);
+          mainOsc.frequency.exponentialRampToValueAtTime(mainEndFreq, now + 0.011);
+
+          mainGain.gain.setValueAtTime(0.0001, now);
+          mainGain.gain.linearRampToValueAtTime(0.75 * levelScale, now + 0.0008);
+          mainGain.gain.exponentialRampToValueAtTime(0.0001, now + (isSweepBeat ? 0.009 : 0.016));
+
+          mainOsc.connect(mainGain);
+          mainGain.connect(masterGain);
+          mainOsc.start(now);
+          mainOsc.stop(now + 0.018);
+
+          // 2) 高域の金属的なアタック倍音（ごく短い澄んだ輪郭）
+          const pingOsc = ctx.createOscillator();
+          const pingGain = ctx.createGain();
+          pingOsc.type = 'sine';
+          const pingFreq = isEven ? 3400 : 2950;
+          pingOsc.frequency.setValueAtTime(pingFreq, now);
+          pingOsc.frequency.exponentialRampToValueAtTime(pingFreq * 0.55, now + 0.006);
+
+          pingGain.gain.setValueAtTime(0.0001, now);
+          pingGain.gain.linearRampToValueAtTime(0.35 * levelScale, now + 0.0005);
+          pingGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.007);
+
+          pingOsc.connect(pingGain);
+          pingGain.connect(masterGain);
+          pingOsc.start(now);
+          pingOsc.stop(now + 0.009);
+
+          // 3) 時計ケースの落ち着いた共鳴（中低域の短いサイン波ボディ）
+          if (!isSweepBeat) {
+            const bodyOsc = ctx.createOscillator();
+            const bodyGain = ctx.createGain();
+            bodyOsc.type = 'sine';
+            bodyOsc.frequency.setValueAtTime(isEven ? 640 : 560, now);
+            bodyOsc.frequency.exponentialRampToValueAtTime(280, now + 0.018);
+
+            bodyGain.gain.setValueAtTime(0.0001, now);
+            bodyGain.gain.linearRampToValueAtTime(0.28 * levelScale, now + 0.0012);
+            bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
+
+            bodyOsc.connect(bodyGain);
+            bodyGain.connect(masterGain);
+            bodyOsc.start(now);
+            bodyOsc.stop(now + 0.024);
+          }
+
+          // 4) 極小の乾いた機械的アタック（ノイズ感が出ないレベルで輪郭だけ補強）
+          const noiseSrc = ctx.createBufferSource();
+          noiseSrc.buffer = cachedNoiseBuffer;
+
+          const bandpass = ctx.createBiquadFilter();
+          bandpass.type = 'bandpass';
+          bandpass.frequency.setValueAtTime(isEven ? 4200 : 3800, now);
+          bandpass.Q.setValueAtTime(3.5, now);
+
+          const noiseGain = ctx.createGain();
+          noiseGain.gain.setValueAtTime(0.0001, now);
+          noiseGain.gain.linearRampToValueAtTime(0.12 * levelScale, now + 0.0005);
+          noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.005);
+
+          noiseSrc.connect(bandpass);
+          bandpass.connect(noiseGain);
+          noiseGain.connect(masterGain);
+          noiseSrc.start(now);
+          noiseSrc.stop(now + 0.007);
+        } catch (err) {
+          // 再生エラー時はサイレントに無視
+        }
+      }
+
+      // =========================================================================
+      // 3. 時刻更新・アニメーションループ
+      // =========================================================================
+      function pad2(n) {
+        return String(n).padStart(2, '0');
+      }
+
+      /**
+       * クォーツ運針時のわずかな跳ね返り（減衰振動）を計算
+       * @param {number} ms - 現在のミリ秒 (0〜999)
+       * @returns {number} 角度オフセット（度）
+       */
+      function getStepBounceOffset(ms) {
+        if (ms >= 150) return 0;
+        const t = ms / 150;
+        // 素早く目標角度へ到達し、微細なオーバーシュート後に静止する減衰曲線
+        return Math.sin(t * Math.PI * 2.5) * Math.exp(-t * 5.2) * 1.15;
+      }
+
+      function updateClock() {
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+        const ms = now.getMilliseconds();
+
+        // 時針・分針の滑らかな角度計算
+        const exactSeconds = seconds + ms / 1000;
+        const exactMinutes = minutes + exactSeconds / 60;
+        const exactHours = (hours % 12) + exactMinutes / 60;
+
+        const hourDeg = exactHours * 30;
+        const minuteDeg = exactMinutes * 6;
+        let secondDeg = 0;
+
+        if (state.motion === 'step') {
+          // ステップ運針（クォーツのわずかな跳ね返りを再現）
+          secondDeg = seconds * 6 + getStepBounceOffset(ms);
+
+          // 秒が切り替わった瞬間にチクタク音を鳴らす
+          if (seconds !== state.lastTickSecond) {
+            if (state.lastTickSecond !== -1) {
+              playTickSound(seconds % 2 === 0, false);
+            }
+            state.lastTickSecond = seconds;
+          }
+          state.lastSweepBeat = -1;
+        } else {
+          // スイープ運針（滑らかに連続回転）
+          secondDeg = exactSeconds * 6;
+
+          // スイープ時は1秒あたり5ビート（200msごと）の控えめな機械式ビート
+          const beatIndex = Math.floor(ms / 200);
+          const uniqueBeat = seconds * 5 + beatIndex;
+          if (uniqueBeat !== state.lastSweepBeat) {
+            if (state.lastSweepBeat !== -1) {
+              playTickSound(uniqueBeat % 2 === 0, true);
+            }
+            state.lastSweepBeat = uniqueBeat;
+          }
+          state.lastTickSecond = seconds;
+        }
+
+        // 各針のSVG回転を更新
+        hourHand.setAttribute('transform', `rotate(${hourDeg.toFixed(3)} 250 250)`);
+        minuteHand.setAttribute('transform', `rotate(${minuteDeg.toFixed(3)} 250 250)`);
+        secondHand.setAttribute('transform', `rotate(${secondDeg.toFixed(3)} 250 250)`);
+
+        // デジタル時刻表示を更新
+        const timeStr = `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
+        if (digitalTime.textContent !== timeStr) {
+          digitalTime.textContent = timeStr;
+        }
+
+        // 日付表示窓の更新（日付が変わった時のみDOM更新）
+        const dateKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+        if (dateKey !== state.lastDateKey) {
+          dateDayText.textContent = String(now.getDate());
+          dateWeekText.textContent = WEEKDAYS[now.getDay()];
+          state.lastDateKey = dateKey;
+        }
+
+        requestAnimationFrame(updateClock);
+      }
+
+      // =========================================================================
+      // 4. UI・テーマ状態の反映
+      // =========================================================================
+      function updateUI() {
+        const isDark = state.theme === 'dark';
+        bodyEl.setAttribute('data-theme', state.theme);
+
+        // ヘッダーラベル・デジタル時刻の色
+        headerLabel.className = `text-[10px] sm:text-xs tracking-[0.28em] uppercase font-medium transition-colors ${
+          isDark ? 'text-zinc-500' : 'text-zinc-400'
+        }`;
+
+        digitalTime.className = `font-mono tabular-nums text-sm sm:text-base tracking-[0.18em] font-medium transition-opacity duration-200 ${
+          isDark ? 'text-zinc-400' : 'text-zinc-500'
+        } ${state.digitalVisible ? 'opacity-100' : 'opacity-20'}`;
+
+        // コントロールバー全体のスタイル
+        controlBar.className = `flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-2 py-1.5 rounded-2xl border backdrop-blur-md shadow-sm transition-colors duration-300 ${
+          isDark
+            ? 'bg-zinc-900/75 border-zinc-800/90 text-zinc-200'
+            : 'bg-white/75 border-zinc-200/80 text-zinc-700'
+        }`;
+
+        const groupBg = isDark ? 'bg-zinc-800/80' : 'bg-zinc-200/70';
+        motionGroup.className = `flex items-center p-0.5 rounded-xl transition-colors duration-300 ${groupBg}`;
+        themeGroup.className = `flex items-center p-0.5 rounded-xl transition-colors duration-300 ${groupBg}`;
+
+        const dividerBg = isDark ? 'bg-zinc-800' : 'bg-zinc-300/80';
+        divider1.className = `hidden sm:block w-px h-5 transition-colors ${dividerBg}`;
+        divider2.className = `hidden sm:block w-px h-5 transition-colors ${dividerBg}`;
+
+        // セグメントボタンのアクティブ／非アクティブ配色
+        const activeBtn = isDark
+          ? 'bg-zinc-700 text-white shadow-sm'
+          : 'bg-white text-zinc-900 shadow-sm';
+        const inactiveBtn = isDark
+          ? 'text-zinc-400 hover:text-zinc-200'
+          : 'text-zinc-500 hover:text-zinc-800';
+
+        btnStep.className = `px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+          state.motion === 'step' ? activeBtn : inactiveBtn
+        }`;
+        btnSweep.className = `px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+          state.motion === 'sweep' ? activeBtn : inactiveBtn
+        }`;
+
+        btnLight.className = `px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+          !isDark ? activeBtn : inactiveBtn
+        }`;
+        btnDark.className = `px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+          isDark ? activeBtn : inactiveBtn
+        }`;
+
+        // サウンドボタンと音量スライダー
+        if (state.soundEnabled) {
+          btnSound.setAttribute('aria-pressed', 'true');
+          iconSoundOff.classList.add('hidden');
+          iconSoundOn.classList.remove('hidden');
+          soundLabel.textContent = 'チクタク音 ON';
+          btnSound.className = `flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-all duration-200 ${
+            isDark
+              ? 'bg-red-500/15 border-red-500/40 text-red-400 hover:bg-red-500/20'
+              : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100/70'
+          }`;
+          volumeControl.classList.remove('opacity-50');
+          volumeControl.classList.add('opacity-100');
+        } else {
+          btnSound.setAttribute('aria-pressed', 'false');
+          iconSoundOff.classList.remove('hidden');
+          iconSoundOn.classList.add('hidden');
+          soundLabel.textContent = 'チクタク音 OFF';
+          btnSound.className = `flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-transparent transition-all duration-200 ${
+            isDark
+              ? 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+              : 'bg-zinc-200/60 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/90'
+          }`;
+          volumeControl.classList.remove('opacity-100');
+          volumeControl.classList.add('opacity-50');
+        }
+
+        volumeSlider.className = `volume-slider w-16 sm:w-20 ${
+          isDark ? 'bg-zinc-700' : 'bg-zinc-300'
+        }`;
+        volumeValue.className = `font-mono tabular-nums text-[10px] w-7 text-right ${
+          isDark ? 'text-zinc-400' : 'text-zinc-500'
+        }`;
+      }
+
+      // =========================================================================
+      // 5. イベントリスナーの登録
+      // =========================================================================
+      btnStep.addEventListener('click', () => {
+        state.motion = 'step';
+        updateUI();
+      });
+
+      btnSweep.addEventListener('click', () => {
+        state.motion = 'sweep';
+        updateUI();
+      });
+
+      btnLight.addEventListener('click', () => {
+        state.theme = 'light';
+        updateUI();
+      });
+
+      btnDark.addEventListener('click', () => {
+        state.theme = 'dark';
+        updateUI();
+      });
+
+      btnSound.addEventListener('click', () => {
+        state.soundEnabled = !state.soundEnabled;
+        if (state.soundEnabled) {
+          // ユーザー操作イベント内で同期的にAudioContextを生成し、resume完了後に確実にテスト音を鳴らす
+          const ctx = initAudioSync();
+          if (ctx) {
+            if (ctx.state === 'suspended') {
+              ctx.resume().then(() => {
+                playTickSound(true, false, true);
+              }).catch(() => {});
+            } else {
+              playTickSound(true, false, true);
+            }
+          }
+        }
+        updateUI();
+      });
+
+      // 音量スライダーの操作
+      volumeSlider.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        state.volume = val / 100;
+        volumeValue.textContent = `${val}%`;
+        applyMasterVolume();
+      });
+
+      // デジタル時刻のクリックで表示の濃淡（控えめ表示）をトグル
+      digitalToggleBtn.addEventListener('click', () => {
+        state.digitalVisible = !state.digitalVisible;
+        updateUI();
+      });
+
+      // =========================================================================
+      // 6. 初期化・起動
+      // =========================================================================
+      buildDial();
+      updateUI();
+      requestAnimationFrame(updateClock);
+    })();
+  </script>
+</body>
+</html>
